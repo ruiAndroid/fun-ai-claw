@@ -6,12 +6,12 @@ import "nextra-theme-docs/style.css";
 
 const navbar = (
   <Navbar
-    logo={<span style={{ fontWeight: 700 }}>fun-ai-agent Docs</span>}
-    projectLink="https://github.com/fun-ai-agent/fun-ai-agent"
+    logo={<span style={{ fontWeight: 700 }}>fun-ai-claw Docs</span>}
+    projectLink="https://github.com/fun-ai-claw/fun-ai-claw"
   />
 );
 
-const footer = <Footer>{new Date().getFullYear()} © fun-ai-agent</Footer>;
+const footer = <Footer>{new Date().getFullYear()} © fun-ai-claw</Footer>;
 
 export default async function DocsLayout({
   children,
@@ -27,7 +27,7 @@ export default async function DocsLayout({
         navbar={navbar}
         pageMap={pageMap}
         footer={footer}
-        docsRepositoryBase="https://github.com/fun-ai-agent/fun-ai-agent/tree/main/fun-ai-agent"
+        docsRepositoryBase="https://github.com/fun-ai-claw/fun-ai-claw/tree/main/fun-ai-claw"
         editLink={null}
         feedback={{ content: null }}
         sidebar={{

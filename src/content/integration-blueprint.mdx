@@ -12,7 +12,7 @@ description: Practical steps for combining docs and runtime control.
 
 ## Step 2: Add docs generation pipeline
 
-- Input: `fun-ai-agent-contracts/openapi` and `schemas`
+- Input: `fun-ai-claw-contracts/openapi` and `schemas`
 - Output: generated MDX under `src/content/reference`
 - Trigger: CI on contracts version change
 
@@ -27,7 +27,7 @@ Use these pages for curated operational guidance, not live metrics.
 
 ## Step 4: Keep source of truth boundaries clear
 
-- Runtime truth: `fun-ai-agent-api` + `fun-ai-agent-plane`
+- Runtime truth: `fun-ai-claw-api` + `fun-ai-claw-plane`
 - Documentation truth: `src/content` (or generated MDX committed by CI)
 
 This keeps runtime APIs fast and docs navigation clean as agent count grows.

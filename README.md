@@ -1,4 +1,4 @@
-# fun-ai-agent
+# fun-ai-claw
 
 Frontend admin console for managing claw instances.
 

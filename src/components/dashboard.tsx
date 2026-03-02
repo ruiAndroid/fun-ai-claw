@@ -17,7 +17,7 @@ const uiText = {
   actionSubmittedPrefix: "\u52a8\u4f5c\u5df2\u63d0\u4ea4\uff1a",
   instanceCreatedPrefix: "\u5b9e\u4f8b\u521b\u5efa\u6210\u529f\uff1a",
   actionFailed: "\u63d0\u4ea4\u52a8\u4f5c\u5931\u8d25",
-  pageTitle: "fun-ai-agent claw\u5b9e\u4f8b\u7ba1\u7406\u53f0",
+  pageTitle: "fun-ai-claw claw\u5b9e\u4f8b\u7ba1\u7406\u53f0",
   listTitle: "claw\u5b9e\u4f8b\u5217\u8868",
   refresh: "\u5237\u65b0",
   create: "\u65b0\u589e\u5b9e\u4f8b",

@@ -93,6 +93,17 @@ function statusColor(status: ClawInstance["status"]) {
   return "default";
 }
 
+function resolveUiControllerUrl(instance: Pick<ClawInstance, "id" | "gatewayUrl">) {
+  const configuredBaseUrl = appConfig.uiControllerBaseUrl?.trim();
+  if (configuredBaseUrl) {
+    const normalizedBaseUrl = configuredBaseUrl.replace(/\/+$/, "");
+    return `${normalizedBaseUrl}/${instance.id}`;
+  }
+
+  const gatewayUrl = instance.gatewayUrl?.trim();
+  return gatewayUrl || undefined;
+}
+
 export function Dashboard() {
   const [messageApi, messageContext] = message.useMessage();
   const [createForm] = Form.useForm<CreateInstanceFormValues>();
@@ -130,7 +141,7 @@ export function Dashboard() {
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
-  const selectedGatewayUrl = selectedInstance?.gatewayUrl?.trim();
+  const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
 
   const loadInstances = useCallback(async () => {
@@ -484,7 +495,8 @@ export function Dashboard() {
                   {
                     title: uiText.gatewayUrl,
                     dataIndex: "gatewayUrl",
-                    render: (value: string | null | undefined) => value ?? uiText.gatewayUrlUnavailable,
+                    render: (_: string | null | undefined, record: ClawInstance) =>
+                      resolveUiControllerUrl(record) ?? uiText.gatewayUrlUnavailable,
                   },
                   {
                     title: uiText.status,
@@ -509,7 +521,7 @@ export function Dashboard() {
                       {selectedInstance.gatewayHostPort ?? uiText.gatewayUrlUnavailable}
                     </Descriptions.Item>
                     <Descriptions.Item label={uiText.gatewayUrl} span={2}>
-                      {selectedInstance.gatewayUrl ?? uiText.gatewayUrlUnavailable}
+                      {selectedGatewayUrl ?? uiText.gatewayUrlUnavailable}
                     </Descriptions.Item>
                     <Descriptions.Item label={uiText.currentStatus}>
                       <Tag color={statusColor(selectedInstance.status)}>{selectedInstance.status}</Tag>

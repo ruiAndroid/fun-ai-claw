@@ -1,8 +1,8 @@
 "use client";
 
-import { createInstance, deleteInstance, listImages, listInstances, submitInstanceAction } from "@/lib/control-api";
+import { createInstance, deleteInstance, getInstancePairingCode, listImages, listInstances, submitInstanceAction } from "@/lib/control-api";
 import { appConfig } from "@/config/app-config";
-import { ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType } from "@/types/contracts";
+import { ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, PairingCodeResponse } from "@/types/contracts";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -50,6 +50,15 @@ const uiText = {
   disconnectTerminal: "\u65ad\u5f00\u7ec8\u7aef",
   openVisualUi: "UI\u53ef\u89c6\u5316\u64cd\u4f5c",
   openVisualUiUnavailable: "\u5f53\u524d\u5b9e\u4f8b\u6682\u65e0\u53ef\u8bbf\u95ee\u5730\u5740",
+  pairingCode: "\u914d\u5bf9\u7801",
+  fetchPairingCode: "\u83b7\u53d6\u914d\u5bf9\u7801",
+  pairingCodeTitle: "\u5b9e\u4f8b\u914d\u5bf9\u7801",
+  pairingCodeHint: "\u542f\u52a8\u540e\u8bf7\u5c06\u8fd9\u4e2a6\u4f4d\u7801\u8f93\u5165ZeroClaw\u9875\u9762\u5b8c\u6210\u914d\u5bf9\u3002",
+  pairingCodeUnavailable: "\u6682\u672a\u5728\u5bb9\u5668\u65e5\u5fd7\u4e2d\u627e\u5230\u914d\u5bf9\u7801\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0\u3002",
+  pairingCodeFetchFailed: "\u83b7\u53d6\u914d\u5bf9\u7801\u5931\u8d25",
+  refreshPairingCode: "\u5237\u65b0\u914d\u5bf9\u7801",
+  pairingCodeFetchedAt: "\u83b7\u53d6\u65f6\u95f4",
+  pairingCodeSource: "\u65e5\u5fd7\u6765\u6e90",
   sendCommand: "\u53d1\u9001",
   terminalInputPlaceholder: "\u8f93\u5165\u547d\u4ee4\uff0c\u56de\u8f66\u53ef\u53d1\u9001",
   terminalNotRunning: "\u5b9e\u4f8b\u672a\u8fd0\u884c\uff0c\u65e0\u6cd5\u6253\u5f00Web\u7ec8\u7aef",
@@ -121,6 +130,10 @@ export function Dashboard() {
   const [submittingAction, setSubmittingAction] = useState(false);
   const [deletingInstance, setDeletingInstance] = useState(false);
   const [error, setError] = useState<string>();
+  const [pairingCodeModalOpen, setPairingCodeModalOpen] = useState(false);
+  const [pairingCodeLoading, setPairingCodeLoading] = useState(false);
+  const [pairingCodeData, setPairingCodeData] = useState<PairingCodeResponse>();
+  const [pairingCodeInstanceName, setPairingCodeInstanceName] = useState<string>();
   const terminalSocketRef = useRef<WebSocket | null>(null);
   const [terminalOutput, setTerminalOutput] = useState("");
   const [terminalCommand, setTerminalCommand] = useState("");
@@ -143,6 +156,7 @@ export function Dashboard() {
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
+  const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -244,6 +258,32 @@ export function Dashboard() {
     setRemoteModalOpen(false);
   };
 
+  const closePairingCodeModal = () => {
+    if (pairingCodeLoading) {
+      return;
+    }
+    setPairingCodeModalOpen(false);
+  };
+
+  const fetchAndShowPairingCode = useCallback(async (instanceId: string, instanceName?: string) => {
+    setPairingCodeLoading(true);
+    try {
+      const response = await getInstancePairingCode(instanceId);
+      setPairingCodeData(response);
+      setPairingCodeInstanceName(instanceName);
+      setPairingCodeModalOpen(true);
+      if (!response.pairingCode) {
+        messageApi.warning(response.note ?? uiText.pairingCodeUnavailable);
+      }
+      return response;
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.pairingCodeFetchFailed);
+      return undefined;
+    } finally {
+      setPairingCodeLoading(false);
+    }
+  }, [messageApi]);
+
   const handleCreateInstance = async () => {
     try {
       const values = await createForm.validateFields();
@@ -257,6 +297,9 @@ export function Dashboard() {
       await loadInstances();
       setSelectedInstanceId(instance.id);
       messageApi.success(`${uiText.instanceCreatedPrefix}${instance.name}`);
+      if (values.desiredState === "RUNNING") {
+        await fetchAndShowPairingCode(instance.id, instance.name);
+      }
     } catch (apiError) {
       const hasValidationError =
         typeof apiError === "object" &&
@@ -280,11 +323,16 @@ export function Dashboard() {
     if (!selectedInstanceId) {
       return false;
     }
+    const instanceId = selectedInstanceId;
+    const instanceName = selectedInstance?.name;
     setSubmittingAction(true);
     try {
-      await submitInstanceAction(selectedInstanceId, action);
+      await submitInstanceAction(instanceId, action);
       await loadInstances();
       messageApi.success(`${uiText.actionSubmittedPrefix}${action}`);
+      if (action === "START" || action === "RESTART" || action === "ROLLBACK") {
+        await fetchAndShowPairingCode(instanceId, instanceName);
+      }
       return true;
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.actionFailed);
@@ -456,6 +504,13 @@ export function Dashboard() {
     window.open(selectedGatewayUrl, "_blank", "noopener,noreferrer");
   }, [selectedGatewayUrl]);
 
+  const openPairingCodeModal = useCallback(() => {
+    if (!selectedInstance) {
+      return;
+    }
+    void fetchAndShowPairingCode(selectedInstance.id, selectedInstance.name);
+  }, [fetchAndShowPairingCode, selectedInstance]);
+
   return (
     <>
       {messageContext}
@@ -566,6 +621,9 @@ export function Dashboard() {
                     </Button>
                     <Button type="primary" disabled={disableRemoteConnect} onClick={openRemoteModal}>
                       {uiText.remoteConnect}
+                    </Button>
+                    <Button loading={pairingCodeLoading} disabled={!selectedInstance} onClick={openPairingCodeModal}>
+                      {uiText.fetchPairingCode}
                     </Button>
                     <Button type="primary" onClick={openVisualUi} disabled={!selectedGatewayUrl}>
                       {uiText.openVisualUi}
@@ -714,6 +772,50 @@ export function Dashboard() {
               {uiText.sendCommand}
             </Button>
           </Space.Compact>
+        </Space>
+      </Modal>
+      <Modal
+        title={uiText.pairingCodeTitle}
+        open={pairingCodeModalOpen}
+        onCancel={closePairingCodeModal}
+        footer={[
+          <Button key="cancel" onClick={closePairingCodeModal} disabled={pairingCodeLoading}>
+            {uiText.cancel}
+          </Button>,
+          <Button
+            key="refresh"
+            type="primary"
+            loading={pairingCodeLoading}
+            disabled={!selectedInstance}
+            onClick={openPairingCodeModal}
+          >
+            {uiText.refreshPairingCode}
+          </Button>,
+        ]}
+        destroyOnHidden
+      >
+        <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          <Text type="secondary">{uiText.pairingCodeHint}</Text>
+          <Text strong>{`${uiText.instanceName}: ${pairingCodeInstanceName ?? selectedInstance?.name ?? "-"}`}</Text>
+          <Text strong>{uiText.pairingCode}</Text>
+          {selectedPairingCode ? (
+            <Paragraph copyable={{ text: selectedPairingCode }} style={{ marginBottom: 0 }}>
+              <Text code style={{ fontSize: 24 }}>{selectedPairingCode}</Text>
+            </Paragraph>
+          ) : (
+            <Alert type="warning" showIcon message={pairingCodeData?.note ?? uiText.pairingCodeUnavailable} />
+          )}
+          {pairingCodeData?.fetchedAt ? (
+            <Text type="secondary">{`${uiText.pairingCodeFetchedAt}: ${pairingCodeData.fetchedAt}`}</Text>
+          ) : null}
+          {pairingCodeData?.sourceLine ? (
+            <>
+              <Text strong>{uiText.pairingCodeSource}</Text>
+              <Paragraph style={{ marginBottom: 0 }}>
+                <Text code>{pairingCodeData.sourceLine}</Text>
+              </Paragraph>
+            </>
+          ) : null}
         </Space>
       </Modal>
       <Modal

@@ -23,6 +23,14 @@ export interface AcceptedActionResponse {
   acceptedAt: string;
 }
 
+export interface PairingCodeResponse {
+  instanceId: string;
+  pairingCode?: string | null;
+  sourceLine?: string | null;
+  note?: string | null;
+  fetchedAt: string;
+}
+
 export interface ListResponse<T> {
   items: T[];
 }

@@ -5,6 +5,7 @@ import {
   ImagePreset,
   InstanceActionType,
   ListResponse,
+  PairingCodeResponse,
 } from "@/types/contracts";
 import { appConfig } from "@/config/app-config";
 
@@ -67,4 +68,8 @@ export async function deleteInstance(instanceId: string) {
   return requestVoid(`/v1/instances/${instanceId}`, {
     method: "DELETE",
   });
+}
+
+export async function getInstancePairingCode(instanceId: string) {
+  return requestJson<PairingCodeResponse>(`/v1/instances/${instanceId}/pairing-code`);
 }

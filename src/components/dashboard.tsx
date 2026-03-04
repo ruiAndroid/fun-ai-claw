@@ -54,7 +54,7 @@ const uiText = {
   pairingLink: "\u914d\u5bf9\u94fe\u63a5",
   fetchPairingCode: "\u914d\u5bf9\u4fe1\u606f",
   pairingCodeTitle: "\u5b9e\u4f8b\u56fa\u5b9a\u914d\u5bf9",
-  pairingCodeHint: "\u4f18\u5148\u70b9\u51fb\u4e0b\u65b9\u914d\u5bf9\u94fe\u63a5\uff0c\u9875\u9762\u4f1a\u81ea\u52a8\u586b\u5165\u5e76\u63d0\u4ea4\u56fa\u5b9a\u914d\u5bf9\u7801\u3002",
+  pairingCodeHint: "\u4f18\u5148\u70b9\u51fb\u4e0b\u65b9\u914d\u5bf9\u94fe\u63a5\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u5e26\u4e0a\u8bbf\u95ee\u4ee4\u724c\u5b8c\u6210\u767b\u5f55\u3002",
   pairingCodeUnavailable: "\u6682\u65f6\u65e0\u6cd5\u83b7\u53d6\u914d\u5bf9\u7801\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0\u3002",
   pairingCodeFetchFailed: "\u83b7\u53d6\u914d\u5bf9\u7801\u5931\u8d25",
   refreshPairingCode: "\u5237\u65b0\u914d\u5bf9\u4fe1\u606f",
@@ -819,6 +819,9 @@ export function Dashboard() {
           ) : null}
           {pairingCodeData?.fetchedAt ? (
             <Text type="secondary">{`${uiText.pairingCodeFetchedAt}: ${pairingCodeData.fetchedAt}`}</Text>
+          ) : null}
+          {pairingCodeData?.note ? (
+            <Text type="secondary">{pairingCodeData.note}</Text>
           ) : null}
         </Space>
       </Modal>

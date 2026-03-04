@@ -51,14 +51,15 @@ const uiText = {
   openVisualUi: "UI\u53ef\u89c6\u5316\u64cd\u4f5c",
   openVisualUiUnavailable: "\u5f53\u524d\u5b9e\u4f8b\u6682\u65e0\u53ef\u8bbf\u95ee\u5730\u5740",
   pairingCode: "\u914d\u5bf9\u7801",
+  pairingLink: "\u914d\u5bf9\u94fe\u63a5",
   fetchPairingCode: "\u83b7\u53d6\u914d\u5bf9\u7801",
   pairingCodeTitle: "\u5b9e\u4f8b\u914d\u5bf9\u7801",
-  pairingCodeHint: "\u542f\u52a8\u540e\u8bf7\u5c06\u8fd9\u4e2a\u914d\u5bf9\u7801\u8f93\u5165ZeroClaw\u9875\u9762\u5b8c\u6210\u914d\u5bf9\u3002",
-  pairingCodeUnavailable: "\u6682\u672a\u5728\u5bb9\u5668\u65e5\u5fd7\u4e2d\u627e\u5230\u914d\u5bf9\u7801\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0\u3002",
+  pairingCodeHint: "\u4f7f\u7528\u56fa\u5b9a\u914d\u5bf9\u7801\u914d\u5408\u4e0b\u65b9\u914d\u5bf9\u94fe\u63a5\u5b8c\u6210\u914d\u5bf9\u3002",
+  pairingCodeUnavailable: "\u6682\u65f6\u65e0\u6cd5\u83b7\u53d6\u914d\u5bf9\u7801\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0\u3002",
   pairingCodeFetchFailed: "\u83b7\u53d6\u914d\u5bf9\u7801\u5931\u8d25",
   refreshPairingCode: "\u5237\u65b0\u914d\u5bf9\u7801",
   pairingCodeFetchedAt: "\u83b7\u53d6\u65f6\u95f4",
-  pairingCodeSource: "\u65e5\u5fd7\u6765\u6e90",
+  pairingCodeSource: "\u8bf7\u6c42\u793a\u4f8b",
   sendCommand: "\u53d1\u9001",
   terminalInputPlaceholder: "\u8f93\u5165\u547d\u4ee4\uff0c\u56de\u8f66\u53ef\u53d1\u9001",
   terminalNotRunning: "\u5b9e\u4f8b\u672a\u8fd0\u884c\uff0c\u65e0\u6cd5\u6253\u5f00Web\u7ec8\u7aef",
@@ -157,6 +158,7 @@ export function Dashboard() {
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
+  const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -805,6 +807,16 @@ export function Dashboard() {
           ) : (
             <Alert type="warning" showIcon message={pairingCodeData?.note ?? uiText.pairingCodeUnavailable} />
           )}
+          {selectedPairingLink ? (
+            <>
+              <Text strong>{uiText.pairingLink}</Text>
+              <Paragraph copyable={{ text: selectedPairingLink }} style={{ marginBottom: 0 }}>
+                <a href={selectedPairingLink} target="_blank" rel="noreferrer">
+                  {selectedPairingLink}
+                </a>
+              </Paragraph>
+            </>
+          ) : null}
           {pairingCodeData?.fetchedAt ? (
             <Text type="secondary">{`${uiText.pairingCodeFetchedAt}: ${pairingCodeData.fetchedAt}`}</Text>
           ) : null}

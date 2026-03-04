@@ -26,6 +26,7 @@ export interface AcceptedActionResponse {
 export interface PairingCodeResponse {
   instanceId: string;
   pairingCode?: string | null;
+  pairingLink?: string | null;
   sourceLine?: string | null;
   note?: string | null;
   fetchedAt: string;

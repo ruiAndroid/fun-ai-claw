@@ -50,16 +50,16 @@ const uiText = {
   disconnectTerminal: "\u65ad\u5f00\u7ec8\u7aef",
   openVisualUi: "UI\u53ef\u89c6\u5316\u64cd\u4f5c",
   openVisualUiUnavailable: "\u5f53\u524d\u5b9e\u4f8b\u6682\u65e0\u53ef\u8bbf\u95ee\u5730\u5740",
-  pairingCode: "\u914d\u5bf9\u7801",
+  pairingCode: "\u56fa\u5b9a\u914d\u5bf9\u7801",
   pairingLink: "\u914d\u5bf9\u94fe\u63a5",
-  fetchPairingCode: "\u83b7\u53d6\u914d\u5bf9\u7801",
-  pairingCodeTitle: "\u5b9e\u4f8b\u914d\u5bf9\u7801",
-  pairingCodeHint: "\u4f7f\u7528\u56fa\u5b9a\u914d\u5bf9\u7801\u914d\u5408\u4e0b\u65b9\u914d\u5bf9\u94fe\u63a5\u5b8c\u6210\u914d\u5bf9\u3002",
+  fetchPairingCode: "\u914d\u5bf9\u4fe1\u606f",
+  pairingCodeTitle: "\u5b9e\u4f8b\u56fa\u5b9a\u914d\u5bf9",
+  pairingCodeHint: "\u4f18\u5148\u70b9\u51fb\u4e0b\u65b9\u914d\u5bf9\u94fe\u63a5\uff0c\u9875\u9762\u4f1a\u81ea\u52a8\u586b\u5165\u5e76\u63d0\u4ea4\u56fa\u5b9a\u914d\u5bf9\u7801\u3002",
   pairingCodeUnavailable: "\u6682\u65f6\u65e0\u6cd5\u83b7\u53d6\u914d\u5bf9\u7801\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0\u3002",
   pairingCodeFetchFailed: "\u83b7\u53d6\u914d\u5bf9\u7801\u5931\u8d25",
-  refreshPairingCode: "\u5237\u65b0\u914d\u5bf9\u7801",
+  refreshPairingCode: "\u5237\u65b0\u914d\u5bf9\u4fe1\u606f",
   pairingCodeFetchedAt: "\u83b7\u53d6\u65f6\u95f4",
-  pairingCodeSource: "\u8bf7\u6c42\u793a\u4f8b",
+  pairingCodeSource: "\u624b\u52a8\u914d\u5bf9\u8bf7\u6c42",
   sendCommand: "\u53d1\u9001",
   terminalInputPlaceholder: "\u8f93\u5165\u547d\u4ee4\uff0c\u56de\u8f66\u53ef\u53d1\u9001",
   terminalNotRunning: "\u5b9e\u4f8b\u672a\u8fd0\u884c\uff0c\u65e0\u6cd5\u6253\u5f00Web\u7ec8\u7aef",
@@ -819,14 +819,6 @@ export function Dashboard() {
           ) : null}
           {pairingCodeData?.fetchedAt ? (
             <Text type="secondary">{`${uiText.pairingCodeFetchedAt}: ${pairingCodeData.fetchedAt}`}</Text>
-          ) : null}
-          {pairingCodeData?.sourceLine ? (
-            <>
-              <Text strong>{uiText.pairingCodeSource}</Text>
-              <Paragraph style={{ marginBottom: 0 }}>
-                <Text code>{pairingCodeData.sourceLine}</Text>
-              </Paragraph>
-            </>
           ) : null}
         </Space>
       </Modal>

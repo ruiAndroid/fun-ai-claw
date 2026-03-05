@@ -1,8 +1,19 @@
 "use client";
 
-import { createInstance, deleteInstance, getInstancePairingCode, listImages, listInstances, submitInstanceAction } from "@/lib/control-api";
+import {
+  confirmAgentTask,
+  createInstance,
+  deleteInstance,
+  getAgentTask,
+  getInstancePairingCode,
+  listImages,
+  listInstanceAgents,
+  listInstances,
+  prepareAgentTask,
+  submitInstanceAction,
+} from "@/lib/control-api";
 import { appConfig } from "@/config/app-config";
-import { ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, PairingCodeResponse } from "@/types/contracts";
+import { AgentDescriptor, AgentTaskResponse, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, PairingCodeResponse } from "@/types/contracts";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -88,6 +99,28 @@ const uiText = {
   nameAlreadyExists: "\u5b9e\u4f8b\u540d\u5df2\u5b58\u5728\uff0c\u8bf7\u66f4\u6362",
   requiredImage: "\u8bf7\u9009\u62e9\u955c\u50cf",
   fixedHostTipPrefix: "\u5f53\u524d\u5bbf\u4e3b\u673aID\u5df2\u56fa\u5b9a\uff1a",
+  agentChatTitle: "\u5b9e\u4f8b Agent \u804a\u5929",
+  loadAgentsFailed: "\u52a0\u8f7d Agent \u5217\u8868\u5931\u8d25",
+  noAgents: "\u8be5\u5b9e\u4f8b\u6682\u65e0\u53ef\u7528 Agent",
+  refreshAgents: "\u5237\u65b0 Agent \u5217\u8868",
+  selectAgent: "\u9009\u62e9 Agent",
+  agentModel: "\u6a21\u578b",
+  agentProvider: "\u63d0\u4f9b\u65b9",
+  agenticMode: "Agentic",
+  agentMessage: "\u6d88\u606f",
+  agentMessagePlaceholder: "\u8f93\u5165\u4f60\u8981\u53d1\u7ed9\u8be5 Agent \u7684\u4efb\u52a1\u63cf\u8ff0",
+  sendAgentMessage: "\u53d1\u9001\u7ed9 Agent",
+  preparingTask: "\u6b63\u5728\u9884\u5907\u4efb\u52a1...",
+  confirmingTask: "\u6b63\u5728\u786e\u8ba4\u4efb\u52a1...",
+  pollingTask: "\u4efb\u52a1\u6267\u884c\u4e2d\uff0c\u6b63\u5728\u8f6e\u8be2\u7ed3\u679c...",
+  taskTimeout: "\u4efb\u52a1\u6267\u884c\u8d85\u65f6\uff0c\u8bf7\u7a0d\u540e\u5237\u65b0\u67e5\u770b",
+  taskResult: "\u6700\u65b0\u4efb\u52a1\u7ed3\u679c",
+  taskError: "\u4efb\u52a1\u9519\u8bef",
+  taskStatus: "\u4efb\u52a1\u72b6\u6001",
+  taskId: "Task ID",
+  agentTaskSuccess: "Agent \u4efb\u52a1\u6267\u884c\u6210\u529f",
+  agentTaskFailed: "Agent \u4efb\u52a1\u6267\u884c\u5931\u8d25",
+  missingAgentOrMessage: "\u8bf7\u5148\u9009\u62e9 Agent \u5e76\u8f93\u5165\u6d88\u606f",
 } as const;
 
 function statusColor(status: ClawInstance["status"]) {
@@ -114,6 +147,12 @@ function resolveUiControllerUrl(instance: Pick<ClawInstance, "id" | "gatewayUrl"
   return gatewayUrl || undefined;
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 export function Dashboard() {
   const [messageApi, messageContext] = message.useMessage();
   const [createForm] = Form.useForm<CreateInstanceFormValues>();
@@ -135,6 +174,14 @@ export function Dashboard() {
   const [pairingCodeLoading, setPairingCodeLoading] = useState(false);
   const [pairingCodeData, setPairingCodeData] = useState<PairingCodeResponse>();
   const [pairingCodeInstanceName, setPairingCodeInstanceName] = useState<string>();
+  const [agents, setAgents] = useState<AgentDescriptor[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [agentsError, setAgentsError] = useState<string>();
+  const [selectedAgentId, setSelectedAgentId] = useState<string>();
+  const [agentMessageInput, setAgentMessageInput] = useState("");
+  const [agentTaskSubmitting, setAgentTaskSubmitting] = useState(false);
+  const [agentTaskProgress, setAgentTaskProgress] = useState<string>();
+  const [latestAgentTask, setLatestAgentTask] = useState<AgentTaskResponse>();
   const terminalSocketRef = useRef<WebSocket | null>(null);
   const [terminalOutput, setTerminalOutput] = useState("");
   const [terminalCommand, setTerminalCommand] = useState("");
@@ -146,6 +193,10 @@ export function Dashboard() {
     () => instances.find((item) => item.id === selectedInstanceId),
     [instances, selectedInstanceId]
   );
+  const selectedAgent = useMemo(
+    () => agents.find((item) => item.id === selectedAgentId),
+    [agents, selectedAgentId]
+  );
   const selectedStatus = selectedInstance?.status;
   const actionBusy = submittingAction || deletingInstance;
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
@@ -154,6 +205,7 @@ export function Dashboard() {
   const disableRollback = !selectedInstance || actionBusy || selectedStatus === "CREATING";
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
+  const disableSendAgentMessage = !selectedInstance || !selectedAgentId || !agentMessageInput.trim() || agentTaskSubmitting || agentsLoading;
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
@@ -206,9 +258,46 @@ export function Dashboard() {
     }
   }, [createForm, messageApi]);
 
+  const loadAgents = useCallback(async (instanceId?: string) => {
+    if (!instanceId) {
+      setAgents([]);
+      setSelectedAgentId(undefined);
+      setAgentsError(undefined);
+      return;
+    }
+
+    setAgentsLoading(true);
+    setAgentsError(undefined);
+    try {
+      const response = await listInstanceAgents(instanceId);
+      setAgents(response.items);
+      setSelectedAgentId((current) => {
+        if (!response.items.length) {
+          return undefined;
+        }
+        if (current && response.items.some((item) => item.id === current)) {
+          return current;
+        }
+        return response.items[0].id;
+      });
+    } catch (apiError) {
+      setAgents([]);
+      setSelectedAgentId(undefined);
+      setAgentsError(apiError instanceof Error ? apiError.message : uiText.loadAgentsFailed);
+    } finally {
+      setAgentsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadInstances();
   }, [loadInstances]);
+
+  useEffect(() => {
+    void loadAgents(selectedInstanceId);
+    setLatestAgentTask(undefined);
+    setAgentTaskProgress(undefined);
+  }, [loadAgents, selectedInstanceId]);
 
   useEffect(() => {
     return () => {
@@ -402,6 +491,58 @@ export function Dashboard() {
       setDeletingInstance(false);
     }
   };
+
+  const submitAgentTask = useCallback(async () => {
+    if (!selectedInstance || !selectedAgentId || !agentMessageInput.trim()) {
+      messageApi.warning(uiText.missingAgentOrMessage);
+      return;
+    }
+
+    setAgentTaskSubmitting(true);
+    setLatestAgentTask(undefined);
+    try {
+      setAgentTaskProgress(uiText.preparingTask);
+      const prepared = await prepareAgentTask({
+        instanceId: selectedInstance.id,
+        agentId: selectedAgentId,
+        message: agentMessageInput.trim(),
+      });
+
+      setAgentTaskProgress(uiText.confirmingTask);
+      const confirmed = await confirmAgentTask({
+        confirmToken: prepared.confirmToken,
+      });
+
+      const terminalStatus = new Set(["SUCCEEDED", "FAILED"]);
+      let latest: AgentTaskResponse | undefined;
+
+      setAgentTaskProgress(uiText.pollingTask);
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        latest = await getAgentTask(confirmed.taskId);
+        setLatestAgentTask(latest);
+        if (terminalStatus.has(String(latest.status).toUpperCase())) {
+          break;
+        }
+        await sleep(1500);
+      }
+
+      if (!latest || !terminalStatus.has(String(latest.status).toUpperCase())) {
+        throw new Error(uiText.taskTimeout);
+      }
+
+      if (String(latest.status).toUpperCase() === "SUCCEEDED") {
+        setAgentMessageInput("");
+        messageApi.success(uiText.agentTaskSuccess);
+      } else {
+        messageApi.error(latest.errorMessage || uiText.agentTaskFailed);
+      }
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.agentTaskFailed);
+    } finally {
+      setAgentTaskProgress(undefined);
+      setAgentTaskSubmitting(false);
+    }
+  }, [agentMessageInput, messageApi, selectedAgentId, selectedInstance]);
 
   const copyRemoteConnectCommand = async () => {
     if (!selectedRemoteConnectCommand) {
@@ -637,6 +778,80 @@ export function Dashboard() {
                       {uiText.openVisualUi}
                     </Button>
                   </Space>
+                  <Card
+                    size="small"
+                    title={uiText.agentChatTitle}
+                    extra={(
+                      <Button loading={agentsLoading} onClick={() => void loadAgents(selectedInstance.id)}>
+                        {uiText.refreshAgents}
+                      </Button>
+                    )}
+                  >
+                    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                      {agentsError ? <Alert type="error" showIcon message={agentsError} /> : null}
+                      {(!agentsLoading && agents.length === 0) ? (
+                        <Text type="secondary">{uiText.noAgents}</Text>
+                      ) : null}
+                      <Select
+                        showSearch
+                        loading={agentsLoading}
+                        placeholder={uiText.selectAgent}
+                        value={selectedAgentId}
+                        onChange={setSelectedAgentId}
+                        options={agents.map((item) => ({
+                          value: item.id,
+                          label: item.id,
+                        }))}
+                      />
+                      {selectedAgent ? (
+                        <Descriptions column={1} size="small" bordered>
+                          <Descriptions.Item label={uiText.selectAgent}>{selectedAgent.id}</Descriptions.Item>
+                          <Descriptions.Item label={uiText.agentProvider}>{selectedAgent.provider ?? "-"}</Descriptions.Item>
+                          <Descriptions.Item label={uiText.agentModel}>{selectedAgent.model ?? "-"}</Descriptions.Item>
+                          <Descriptions.Item label={uiText.agenticMode}>
+                            {typeof selectedAgent.agentic === "boolean" ? String(selectedAgent.agentic) : "-"}
+                          </Descriptions.Item>
+                        </Descriptions>
+                      ) : null}
+                      <Input.TextArea
+                        rows={4}
+                        value={agentMessageInput}
+                        onChange={(event) => setAgentMessageInput(event.target.value)}
+                        placeholder={uiText.agentMessagePlaceholder}
+                      />
+                      <Button
+                        type="primary"
+                        loading={agentTaskSubmitting}
+                        disabled={disableSendAgentMessage}
+                        onClick={() => void submitAgentTask()}
+                      >
+                        {uiText.sendAgentMessage}
+                      </Button>
+                      {agentTaskProgress ? <Alert type="info" showIcon message={agentTaskProgress} /> : null}
+                      {latestAgentTask ? (
+                        <Space direction="vertical" style={{ width: "100%" }} size="small">
+                          <Descriptions column={1} size="small" bordered>
+                            <Descriptions.Item label={uiText.taskId}>{latestAgentTask.taskId}</Descriptions.Item>
+                            <Descriptions.Item label={uiText.taskStatus}>{latestAgentTask.status}</Descriptions.Item>
+                            <Descriptions.Item label={uiText.updatedAt}>{latestAgentTask.updatedAt}</Descriptions.Item>
+                          </Descriptions>
+                          {latestAgentTask.responseBody ? (
+                            <>
+                              <Text strong>{uiText.taskResult}</Text>
+                              <Paragraph style={{ marginBottom: 0 }}>
+                                <Text code style={{ whiteSpace: "pre-wrap" }}>
+                                  {latestAgentTask.responseBody}
+                                </Text>
+                              </Paragraph>
+                            </>
+                          ) : null}
+                          {latestAgentTask.errorMessage ? (
+                            <Alert type="error" showIcon message={uiText.taskError} description={latestAgentTask.errorMessage} />
+                          ) : null}
+                        </Space>
+                      ) : null}
+                    </Space>
+                  </Card>
                 </Space>
               ) : (
                 <Text type="secondary">{uiText.noInstances}</Text>

@@ -1,4 +1,5 @@
 import {
+  AgentDescriptor,
   AgentTaskConfirmRequest,
   AgentTaskConfirmResponse,
   AgentTaskPrepareRequest,
@@ -77,6 +78,10 @@ export async function deleteInstance(instanceId: string) {
 
 export async function getInstancePairingCode(instanceId: string) {
   return requestJson<PairingCodeResponse>(`/v1/instances/${instanceId}/pairing-code`);
+}
+
+export async function listInstanceAgents(instanceId: string) {
+  return requestJson<ListResponse<AgentDescriptor>>(`/v1/instances/${instanceId}/agents`);
 }
 
 export async function prepareAgentTask(request: AgentTaskPrepareRequest) {

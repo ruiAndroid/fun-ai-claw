@@ -36,6 +36,13 @@ export interface ListResponse<T> {
   items: T[];
 }
 
+export interface AgentDescriptor {
+  id: string;
+  provider?: string | null;
+  model?: string | null;
+  agentic?: boolean | null;
+}
+
 export interface ImagePreset {
   id: string;
   name: string;

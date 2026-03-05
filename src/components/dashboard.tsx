@@ -20,12 +20,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCardHeader, CardTitle as ShadCardTitle } from "@/components/ui/card";
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, AgentTaskResponse, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
-import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Switch, Table, Tag, Typography, message } from "antd";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Server, Wrench } from "lucide-react";
+import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Switch, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
+type ConsoleView = "instances" | "agents" | "skills" | "instance-detail";
 
 const uiText = {
   loadFailed: "\u52a0\u8f7dclaw\u5b9e\u4f8b\u5931\u8d25",
@@ -35,11 +37,20 @@ const uiText = {
   instanceCreatedPrefix: "\u5b9e\u4f8b\u521b\u5efa\u6210\u529f\uff1a",
   actionFailed: "\u63d0\u4ea4\u52a8\u4f5c\u5931\u8d25",
   pageTitle: "fun-ai-claw claw\u5b9e\u4f8b\u7ba1\u7406\u53f0",
+  menuCollapse: "\u6536\u8d77\u83dc\u5355",
+  menuExpand: "\u5c55\u5f00\u83dc\u5355",
+  menuInstances: "\u5b9e\u4f8b\u5217\u8868",
+  menuAgents: "Agents",
+  menuSkills: "Skills",
+  backToInstances: "\u8fd4\u56de\u5b9e\u4f8b\u5217\u8868",
   listTitle: "claw\u5b9e\u4f8b\u5217\u8868",
+  listSubtitle: "\u70b9\u51fb\u4efb\u610f claw \u5b9e\u4f8b\u8fdb\u5165\u8be6\u60c5",
+  instanceDetailTitle: "\u5b9e\u4f8b\u8be6\u60c5",
   totalInstances: "\u5b9e\u4f8b\u603b\u6570",
   runningInstances: "\u8fd0\u884c\u4e2d",
   stoppedInstances: "\u5df2\u505c\u6b62",
   errorInstances: "\u5f02\u5e38\u5b9e\u4f8b",
+  loadingInstances: "\u5b9e\u4f8b\u52a0\u8f7d\u4e2d...",
   refresh: "\u5237\u65b0",
   create: "\u65b0\u589e\u5b9e\u4f8b",
   image: "\u955c\u50cf",
@@ -101,6 +112,9 @@ const uiText = {
   instanceNotFound: "\u5b9e\u4f8b\u4e0d\u5b58\u5728\uff0c\u5df2\u5237\u65b0\u5217\u8868",
   cancel: "\u53d6\u6d88",
   noInstances: "\u5f53\u524d\u6ca1\u6709\u53ef\u7ba1\u7406\u7684claw\u5b9e\u4f8b\u3002",
+  noAgentsSection: "Agents \u533a\u57df\u6682\u672a\u5f00\u653e\uff0c\u4e0b\u4e00\u6b65\u518d\u5bf9\u63a5\u5206\u9875\u529f\u80fd\u3002",
+  noSkillsSection: "Skills \u533a\u57df\u6682\u672a\u5f00\u653e\uff0c\u4e0b\u4e00\u6b65\u518d\u5bf9\u63a5\u5206\u9875\u529f\u80fd\u3002",
+  selectInstanceFirst: "\u8bf7\u5148\u5728\u5de6\u4fa7\u5b9e\u4f8b\u5217\u8868\u9009\u62e9\u4e00\u4e2a claw \u5b9e\u4f8b\u3002",
   createModalTitle: "\u521b\u5efa\u65b0\u5b9e\u4f8b",
   desiredStateRunning: "\u8fd0\u884c",
   desiredStateStopped: "\u505c\u6b62",
@@ -192,12 +206,21 @@ function sleep(ms: number) {
   });
 }
 
+function shortInstanceId(id: string) {
+  if (!id || id.length <= 14) {
+    return id;
+  }
+  return `${id.slice(0, 8)}...${id.slice(-4)}`;
+}
+
 export function Dashboard() {
   const [messageApi, messageContext] = message.useMessage();
   const [createForm] = Form.useForm<CreateInstanceFormValues>();
   const [instances, setInstances] = useState<ClawInstance[]>([]);
   const [images, setImages] = useState<ImagePreset[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>();
+  const [activeView, setActiveView] = useState<ConsoleView>("instances");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loadingInstances, setLoadingInstances] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -299,6 +322,8 @@ export function Dashboard() {
       errorCount,
     };
   }, [instances]);
+  const activeMenuView: Exclude<ConsoleView, "instance-detail"> =
+    activeView === "instance-detail" ? "instances" : activeView;
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -316,6 +341,7 @@ export function Dashboard() {
         });
       } else {
         setSelectedInstanceId(undefined);
+        setActiveView((current) => (current === "instance-detail" ? "instances" : current));
       }
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : uiText.loadFailed);
@@ -850,12 +876,64 @@ export function Dashboard() {
     void fetchAndShowPairingCode(selectedInstance.id, selectedInstance.name);
   }, [fetchAndShowPairingCode, selectedInstance]);
 
+  const openInstanceDetail = useCallback((instanceId: string) => {
+    setSelectedInstanceId(instanceId);
+    setActiveView("instance-detail");
+  }, []);
+
+  const openMenuView = useCallback((view: Exclude<ConsoleView, "instance-detail">) => {
+    setActiveView(view);
+  }, []);
+
   return (
     <>
       {messageContext}
       <div className="ai-console">
-        <div className="mx-auto w-full max-w-[1500px]">
-          <Layout className="ai-layout" style={{ minHeight: "100vh" }}>
+        <div className="mx-auto w-full max-w-[1680px]">
+          <div className={`console-shell ${sidebarCollapsed ? "is-collapsed" : ""}`}>
+            <aside className="console-sidebar">
+              <div className="sidebar-head">
+                <Button
+                  type="text"
+                  className="sidebar-toggle"
+                  title={sidebarCollapsed ? uiText.menuExpand : uiText.menuCollapse}
+                  onClick={() => setSidebarCollapsed((value) => !value)}
+                  icon={sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                />
+                {!sidebarCollapsed ? <span className="sidebar-title">Console</span> : null}
+              </div>
+              <nav className="sidebar-nav">
+                <button
+                  type="button"
+                  className={`sidebar-item ${activeMenuView === "instances" ? "is-active" : ""}`}
+                  onClick={() => openMenuView("instances")}
+                  title={uiText.menuInstances}
+                >
+                  <Server size={16} />
+                  {!sidebarCollapsed ? <span>{uiText.menuInstances}</span> : null}
+                </button>
+                <button
+                  type="button"
+                  className={`sidebar-item ${activeMenuView === "agents" ? "is-active" : ""}`}
+                  onClick={() => openMenuView("agents")}
+                  title={uiText.menuAgents}
+                >
+                  <Bot size={16} />
+                  {!sidebarCollapsed ? <span>{uiText.menuAgents}</span> : null}
+                </button>
+                <button
+                  type="button"
+                  className={`sidebar-item ${activeMenuView === "skills" ? "is-active" : ""}`}
+                  onClick={() => openMenuView("skills")}
+                  title={uiText.menuSkills}
+                >
+                  <Wrench size={16} />
+                  {!sidebarCollapsed ? <span>{uiText.menuSkills}</span> : null}
+                </button>
+              </nav>
+            </aside>
+            <div className="console-main">
+              <Layout className="ai-layout" style={{ minHeight: "100vh" }}>
             <Header className="console-header">
               <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div className="space-y-1">
@@ -908,52 +986,61 @@ export function Dashboard() {
                 </ShadCard>
               </div>
               <Space direction="vertical" style={{ width: "100%" }} size="large">
-                <Card
-                  className="glass-card"
-              title={uiText.listTitle}
-              extra={(
-                <Space>
-                  <Button onClick={() => void loadInstances()}>{uiText.refresh}</Button>
-                  <Button type="primary" onClick={openCreateModal}>
-                    {uiText.create}
-                  </Button>
-                </Space>
-              )}
-            >
-              {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} /> : null}
-              <Table<ClawInstance>
-                className="console-table"
-                rowKey="id"
-                loading={loadingInstances}
-                dataSource={instances}
-                pagination={false}
-                size="small"
-                onRow={(record) => ({
-                  onClick: () => setSelectedInstanceId(record.id),
-                })}
-                rowClassName={(record) => (record.id === selectedInstanceId ? "ant-table-row-selected" : "")}
-                columns={[
-                  { title: uiText.instanceName, dataIndex: "name" },
-                  { title: uiText.image, dataIndex: "image" },
-                  {
-                    title: uiText.gatewayUrl,
-                    dataIndex: "gatewayUrl",
-                    render: (_: string | null | undefined, record: ClawInstance) =>
-                      resolveUiControllerUrl(record) ?? uiText.gatewayUrlUnavailable,
-                  },
-                  {
-                    title: uiText.status,
-                    dataIndex: "status",
-                    render: (value: ClawInstance["status"]) => <Tag color={statusColor(value)}>{value}</Tag>,
-                  },
-                  { title: uiText.desiredState, dataIndex: "desiredState" },
-                  { title: "Runtime", dataIndex: "runtime" },
-                  { title: uiText.updatedAt, dataIndex: "updatedAt" },
-                ]}
-              />
-            </Card>
+                {activeView === "instances" ? (
+                  <Card
+                    className="glass-card"
+                    title={uiText.listTitle}
+                    extra={(
+                      <Space>
+                        <Button loading={loadingInstances} onClick={() => void loadInstances()}>{uiText.refresh}</Button>
+                        <Button type="primary" onClick={openCreateModal}>
+                          {uiText.create}
+                        </Button>
+                      </Space>
+                    )}
+                  >
+                    {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} /> : null}
+                    <Text type="secondary">{uiText.listSubtitle}</Text>
+                    {loadingInstances ? (
+                      <div className="empty-panel">{uiText.loadingInstances}</div>
+                    ) : instances.length === 0 ? (
+                      <div className="empty-panel">{uiText.noInstances}</div>
+                    ) : (
+                      <div className="instance-card-grid">
+                        {instances.map((instance) => {
+                          const isSelected = selectedInstanceId === instance.id;
+                          const gatewayUrl = resolveUiControllerUrl(instance) ?? uiText.gatewayUrlUnavailable;
+                          return (
+                            <button
+                              key={instance.id}
+                              type="button"
+                              className={`instance-card ${isSelected ? "is-selected" : ""}`}
+                              onClick={() => openInstanceDetail(instance.id)}
+                            >
+                              <div className="instance-card-head">
+                                <strong>{instance.name}</strong>
+                                <Tag color={statusColor(instance.status)}>{instance.status}</Tag>
+                              </div>
+                              <p className="instance-card-line">{instance.image}</p>
+                              <p className="instance-card-line">{gatewayUrl}</p>
+                              <div className="instance-card-foot">
+                                <span>{shortInstanceId(instance.id)}</span>
+                                <span>{instance.updatedAt}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </Card>
+                ) : null}
 
-                <Card className="glass-card" title={selectedInstance ? `${uiText.detailTitlePrefix}${selectedInstance.name}` : uiText.selectInstance}>
+                {activeView === "instance-detail" ? (
+                  <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                    <Button icon={<ArrowLeft size={14} />} className="back-button" onClick={() => openMenuView("instances")}>
+                      {uiText.backToInstances}
+                    </Button>
+                    <Card className="glass-card" title={selectedInstance ? `${uiText.instanceDetailTitle}：${selectedInstance.name}` : uiText.selectInstance}>
               {selectedInstance ? (
                 <Space direction="vertical" style={{ width: "100%" }} size="middle">
                   <Descriptions column={2} bordered size="small">
@@ -1228,12 +1315,26 @@ export function Dashboard() {
                   </Card>
                 </Space>
               ) : (
-                <Text type="secondary">{uiText.noInstances}</Text>
+                <Text type="secondary">{uiText.selectInstanceFirst}</Text>
               )}
-                </Card>
+                    </Card>
+                  </Space>
+                ) : null}
+                {activeView === "agents" ? (
+                  <Card className="glass-card" title={uiText.menuAgents}>
+                    <div className="empty-panel">{uiText.noAgentsSection}</div>
+                  </Card>
+                ) : null}
+                {activeView === "skills" ? (
+                  <Card className="glass-card" title={uiText.menuSkills}>
+                    <div className="empty-panel">{uiText.noSkillsSection}</div>
+                  </Card>
+                ) : null}
               </Space>
             </Content>
-          </Layout>
+              </Layout>
+            </div>
+          </div>
         </div>
       </div>
       <Modal

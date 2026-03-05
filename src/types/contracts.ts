@@ -1,7 +1,7 @@
 export type InstanceStatus = "CREATING" | "RUNNING" | "STOPPED" | "ERROR";
 export type DesiredState = "RUNNING" | "STOPPED";
 export type RuntimeType = "ZEROCLAW";
-export type InstanceActionType = "START" | "STOP" | "RESTART" | "RESTART_CLAW" | "ROLLBACK";
+export type InstanceActionType = "START" | "STOP" | "RESTART" | "ROLLBACK";
 
 export interface ClawInstance {
   id: string;

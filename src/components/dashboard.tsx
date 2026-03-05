@@ -38,7 +38,6 @@ const uiText = {
   start: "\u542f\u52a8",
   stop: "\u505c\u6b62",
   restartInstance: "\u91cd\u542f\u5b9e\u4f8b",
-  restartClawOnly: "\u91cd\u542f Claw",
   rollback: "\u56de\u6eda",
   delete: "\u5220\u9664",
   remoteConnect: "\u8fdc\u7a0b\u8fde\u63a5",
@@ -152,7 +151,6 @@ export function Dashboard() {
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
   const disableStop = !selectedInstance || actionBusy || selectedStatus === "STOPPED" || selectedStatus === "CREATING";
   const disableRestartInstance = !selectedInstance || actionBusy || selectedStatus === "CREATING";
-  const disableRestartClaw = !selectedInstance || actionBusy || selectedStatus !== "RUNNING";
   const disableRollback = !selectedInstance || actionBusy || selectedStatus === "CREATING";
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
@@ -165,7 +163,6 @@ export function Dashboard() {
     START: uiText.start,
     STOP: uiText.stop,
     RESTART: uiText.restartInstance,
-    RESTART_CLAW: uiText.restartClawOnly,
     ROLLBACK: uiText.rollback,
   };
 
@@ -618,13 +615,6 @@ export function Dashboard() {
                       onClick={() => handleSensitiveAction("RESTART")}
                     >
                       {uiText.restartInstance}
-                    </Button>
-                    <Button
-                      loading={submittingAction}
-                      disabled={disableRestartClaw}
-                      onClick={() => handleSensitiveAction("RESTART_CLAW")}
-                    >
-                      {uiText.restartClawOnly}
                     </Button>
                     <Button
                       danger

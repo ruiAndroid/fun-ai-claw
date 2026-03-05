@@ -10,13 +10,14 @@ import {
   getInstancePairingCode,
   listImages,
   listInstanceAgents,
+  listInstanceSkills,
   listInstances,
   prepareAgentTask,
   submitInstanceAction,
   upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
 import { appConfig } from "@/config/app-config";
-import { AgentDescriptor, AgentTaskResponse, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse } from "@/types/contracts";
+import { AgentDescriptor, AgentTaskResponse, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Switch, Table, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -106,6 +107,16 @@ const uiText = {
   loadAgentsFailed: "\u52a0\u8f7d Agent \u5217\u8868\u5931\u8d25",
   noAgents: "\u8be5\u5b9e\u4f8b\u6682\u65e0\u53ef\u7528 Agent",
   refreshAgents: "\u5237\u65b0 Agent \u5217\u8868",
+  loadSkillsFailed: "\u52a0\u8f7d Skill \u5217\u8868\u5931\u8d25",
+  noSkills: "\u8be5\u5b9e\u4f8b\u6682\u65e0\u53ef\u7528 Skill",
+  refreshSkills: "\u5237\u65b0 Skill \u5217\u8868",
+  selectSkill: "\u9009\u62e9 Skill",
+  skillPath: "Skill \u8def\u5f84",
+  skillPrompt: "Skill \u63d0\u793a\u8bcd",
+  noSkillPrompt: "\u8bf7\u9009\u62e9 Skill \u67e5\u770b\u63d0\u793a\u8bcd",
+  skillScopeHint: "Skill \u5c5e\u4e8e\u5b9e\u4f8b\u5de5\u4f5c\u533a\u5171\u4eab\u80fd\u529b\uff0c\u5f53\u524d Agent \u80fd\u5426\u8c03\u7528\u7531 allowed_tools \u9650\u5236",
+  agentAllowedTools: "allowed_tools",
+  agentSkillNotAllowed: "\u5f53\u524d Agent \u7684 allowed_tools \u672a\u5305\u542b\u8be5 Skill ID\uff0c\u53ef\u80fd\u65e0\u6cd5\u76f4\u63a5\u8c03\u7528",
   selectAgent: "\u9009\u62e9 Agent",
   agentModel: "\u6a21\u578b",
   agentProvider: "\u63d0\u4f9b\u65b9",
@@ -200,6 +211,10 @@ export function Dashboard() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState<string>();
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
+  const [skills, setSkills] = useState<SkillDescriptor[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [skillsError, setSkillsError] = useState<string>();
+  const [selectedSkillId, setSelectedSkillId] = useState<string>();
   const [agentMessageInput, setAgentMessageInput] = useState("");
   const [agentTaskSubmitting, setAgentTaskSubmitting] = useState(false);
   const [agentTaskProgress, setAgentTaskProgress] = useState<string>();
@@ -226,6 +241,23 @@ export function Dashboard() {
     () => agents.find((item) => item.id === selectedAgentId),
     [agents, selectedAgentId]
   );
+  const selectedSkill = useMemo(
+    () => skills.find((item) => item.id === selectedSkillId),
+    [skills, selectedSkillId]
+  );
+  const selectedAgentAllowedTools = useMemo(
+    () => (selectedAgent?.allowedTools ?? []).filter((item): item is string => typeof item === "string" && item.trim().length > 0),
+    [selectedAgent]
+  );
+  const selectedSkillNotAllowed = useMemo(() => {
+    if (!selectedSkill) {
+      return false;
+    }
+    if (selectedAgentAllowedTools.length === 0) {
+      return false;
+    }
+    return !selectedAgentAllowedTools.includes(selectedSkill.id);
+  }, [selectedAgentAllowedTools, selectedSkill]);
   const selectedStatus = selectedInstance?.status;
   const actionBusy = submittingAction || deletingInstance;
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
@@ -322,6 +354,37 @@ export function Dashboard() {
     }
   }, []);
 
+  const loadSkills = useCallback(async (instanceId?: string) => {
+    if (!instanceId) {
+      setSkills([]);
+      setSelectedSkillId(undefined);
+      setSkillsError(undefined);
+      return;
+    }
+
+    setSkillsLoading(true);
+    setSkillsError(undefined);
+    try {
+      const response = await listInstanceSkills(instanceId);
+      setSkills(response.items);
+      setSelectedSkillId((current) => {
+        if (!response.items.length) {
+          return undefined;
+        }
+        if (current && response.items.some((item) => item.id === current)) {
+          return current;
+        }
+        return response.items[0].id;
+      });
+    } catch (apiError) {
+      setSkills([]);
+      setSelectedSkillId(undefined);
+      setSkillsError(apiError instanceof Error ? apiError.message : uiText.loadSkillsFailed);
+    } finally {
+      setSkillsLoading(false);
+    }
+  }, []);
+
   const loadMainAgentGuidance = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
       setMainAgentGuidance(undefined);
@@ -403,10 +466,11 @@ export function Dashboard() {
 
   useEffect(() => {
     void loadAgents(selectedInstanceId);
+    void loadSkills(selectedInstanceId);
     void loadMainAgentGuidance(selectedInstanceId);
     setLatestAgentTask(undefined);
     setAgentTaskProgress(undefined);
-  }, [loadAgents, loadMainAgentGuidance, selectedInstanceId]);
+  }, [loadAgents, loadMainAgentGuidance, loadSkills, selectedInstanceId]);
 
   useEffect(() => {
     return () => {
@@ -972,13 +1036,19 @@ export function Dashboard() {
                     size="small"
                     title={uiText.agentChatTitle}
                     extra={(
-                      <Button loading={agentsLoading} onClick={() => void loadAgents(selectedInstance.id)}>
-                        {uiText.refreshAgents}
-                      </Button>
+                      <Space>
+                        <Button loading={agentsLoading} onClick={() => void loadAgents(selectedInstance.id)}>
+                          {uiText.refreshAgents}
+                        </Button>
+                        <Button loading={skillsLoading} onClick={() => void loadSkills(selectedInstance.id)}>
+                          {uiText.refreshSkills}
+                        </Button>
+                      </Space>
                     )}
                   >
                     <Space direction="vertical" style={{ width: "100%" }} size="middle">
                       {agentsError ? <Alert type="error" showIcon message={agentsError} /> : null}
+                      {skillsError ? <Alert type="error" showIcon message={skillsError} /> : null}
                       {(!agentsLoading && agents.length === 0) ? (
                         <Text type="secondary">{uiText.noAgents}</Text>
                       ) : null}
@@ -1001,8 +1071,45 @@ export function Dashboard() {
                           <Descriptions.Item label={uiText.agenticMode}>
                             {typeof selectedAgent.agentic === "boolean" ? String(selectedAgent.agentic) : "-"}
                           </Descriptions.Item>
+                          <Descriptions.Item label={uiText.agentAllowedTools}>
+                            {selectedAgentAllowedTools.length > 0 ? selectedAgentAllowedTools.join(", ") : "-"}
+                          </Descriptions.Item>
                         </Descriptions>
                       ) : null}
+                      <Alert type="info" showIcon message={uiText.skillScopeHint} />
+                      {(!skillsLoading && skills.length === 0) ? (
+                        <Text type="secondary">{uiText.noSkills}</Text>
+                      ) : null}
+                      <Select
+                        showSearch
+                        loading={skillsLoading}
+                        placeholder={uiText.selectSkill}
+                        value={selectedSkillId}
+                        onChange={setSelectedSkillId}
+                        options={skills.map((item) => ({
+                          value: item.id,
+                          label: item.id,
+                        }))}
+                      />
+                      {selectedSkill ? (
+                        <Space direction="vertical" style={{ width: "100%" }} size="small">
+                          <Descriptions column={1} size="small" bordered>
+                            <Descriptions.Item label={uiText.selectSkill}>{selectedSkill.id}</Descriptions.Item>
+                            <Descriptions.Item label={uiText.skillPath}>
+                              <Text code copyable={{ text: selectedSkill.path }}>{selectedSkill.path}</Text>
+                            </Descriptions.Item>
+                          </Descriptions>
+                          {selectedSkillNotAllowed ? <Alert type="warning" showIcon message={uiText.agentSkillNotAllowed} /> : null}
+                          <Text strong>{uiText.skillPrompt}</Text>
+                          <Input.TextArea
+                            rows={10}
+                            readOnly
+                            value={selectedSkill.prompt}
+                          />
+                        </Space>
+                      ) : (
+                        <Text type="secondary">{uiText.noSkillPrompt}</Text>
+                      )}
                       <Input.TextArea
                         rows={4}
                         value={agentMessageInput}

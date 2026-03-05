@@ -13,6 +13,7 @@ import {
   InstanceActionType,
   ListResponse,
   PairingCodeResponse,
+  SkillDescriptor,
 } from "@/types/contracts";
 import { appConfig } from "@/config/app-config";
 
@@ -83,6 +84,10 @@ export async function getInstancePairingCode(instanceId: string) {
 
 export async function listInstanceAgents(instanceId: string) {
   return requestJson<ListResponse<AgentDescriptor>>(`/v1/instances/${instanceId}/agents`);
+}
+
+export async function listInstanceSkills(instanceId: string) {
+  return requestJson<ListResponse<SkillDescriptor>>(`/v1/instances/${instanceId}/skills`);
 }
 
 export async function getInstanceMainAgentGuidance(instanceId: string) {

@@ -41,6 +41,13 @@ export interface AgentDescriptor {
   provider?: string | null;
   model?: string | null;
   agentic?: boolean | null;
+  allowedTools?: string[] | null;
+}
+
+export interface SkillDescriptor {
+  id: string;
+  path: string;
+  prompt: string;
 }
 
 export interface ImagePreset {

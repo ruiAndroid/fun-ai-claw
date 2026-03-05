@@ -131,6 +131,9 @@ const uiText = {
   noSkills: "\u8be5\u5b9e\u4f8b\u6682\u65e0\u53ef\u7528 Skill",
   refreshSkills: "\u5237\u65b0 Skill \u5217\u8868",
   selectSkill: "\u9009\u62e9 Skill",
+  skillListHint: "\u70b9\u51fb Skill \u5361\u7247\u67e5\u770b\u8be6\u60c5",
+  skillAllowed: "\u53ef\u8c03\u7528",
+  skillNotAllowed: "\u672a\u6388\u6743",
   skillPath: "Skill \u8def\u5f84",
   skillPrompt: "Skill \u63d0\u793a\u8bcd",
   noSkillPrompt: "\u8bf7\u9009\u62e9 Skill \u67e5\u770b\u63d0\u793a\u8bcd",
@@ -157,6 +160,8 @@ const uiText = {
   missingAgentOrMessage: "\u8bf7\u5148\u9009\u62e9 Agent \u5e76\u8f93\u5165\u6d88\u606f",
   mainAgentGuidanceTitle: "\u4e3b Agent \u63d0\u793a\u8bcd",
   mainAgentGuidanceRefresh: "\u5237\u65b0\u63d0\u793a\u8bcd",
+  mainAgentGuidanceEdit: "\u7f16\u8f91",
+  mainAgentGuidanceCancel: "\u53d6\u6d88",
   mainAgentGuidanceSave: "\u4fdd\u5b58\u8986\u76d6",
   mainAgentGuidanceDelete: "\u5220\u9664\u8986\u76d6",
   mainAgentGuidanceLoadingFailed: "\u52a0\u8f7d\u4e3b Agent \u63d0\u793a\u8bcd\u5931\u8d25",
@@ -255,6 +260,7 @@ export function Dashboard() {
   const [mainAgentGuidanceError, setMainAgentGuidanceError] = useState<string>();
   const [mainAgentPromptDraft, setMainAgentPromptDraft] = useState("");
   const [mainAgentOverrideEnabledDraft, setMainAgentOverrideEnabledDraft] = useState(true);
+  const [mainAgentGuidanceEditing, setMainAgentGuidanceEditing] = useState(false);
   const terminalSocketRef = useRef<WebSocket | null>(null);
   const [terminalOutput, setTerminalOutput] = useState("");
   const [terminalCommand, setTerminalCommand] = useState("");
@@ -434,6 +440,7 @@ export function Dashboard() {
       setMainAgentGuidanceError(undefined);
       setMainAgentPromptDraft("");
       setMainAgentOverrideEnabledDraft(true);
+      setMainAgentGuidanceEditing(false);
       return;
     }
 
@@ -444,6 +451,7 @@ export function Dashboard() {
       setMainAgentGuidance(response);
       setMainAgentPromptDraft(response.overridePrompt ?? "");
       setMainAgentOverrideEnabledDraft(response.overrideEnabled ?? true);
+      setMainAgentGuidanceEditing(false);
     } catch (apiError) {
       setMainAgentGuidance(undefined);
       setMainAgentPromptDraft("");
@@ -454,13 +462,13 @@ export function Dashboard() {
     }
   }, []);
 
-  const saveMainAgentGuidance = useCallback(async () => {
+  const saveMainAgentGuidance = useCallback(async (): Promise<boolean> => {
     if (!selectedInstanceId) {
-      return;
+      return false;
     }
     if (!mainAgentGuidance?.overrideExists && !mainAgentPromptDraft.trim()) {
       messageApi.warning(uiText.mainAgentGuidancePromptRequired);
-      return;
+      return false;
     }
     setMainAgentGuidanceSaving(true);
     setMainAgentGuidanceError(undefined);
@@ -477,8 +485,10 @@ export function Dashboard() {
       setMainAgentPromptDraft(response.overridePrompt ?? "");
       setMainAgentOverrideEnabledDraft(response.overrideEnabled ?? true);
       messageApi.success(uiText.mainAgentGuidanceSaved);
+      return true;
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.mainAgentGuidanceSaveFailed);
+      return false;
     } finally {
       setMainAgentGuidanceSaving(false);
     }
@@ -495,6 +505,7 @@ export function Dashboard() {
       setMainAgentGuidance(response);
       setMainAgentPromptDraft("");
       setMainAgentOverrideEnabledDraft(true);
+      setMainAgentGuidanceEditing(false);
       messageApi.success(uiText.mainAgentGuidanceDeleted);
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.mainAgentGuidanceDeleteFailed);
@@ -502,6 +513,12 @@ export function Dashboard() {
       setMainAgentGuidanceDeleting(false);
     }
   }, [messageApi, selectedInstanceId]);
+
+  const cancelMainAgentGuidanceEdit = useCallback(() => {
+    setMainAgentPromptDraft(baselineMainAgentPrompt);
+    setMainAgentOverrideEnabledDraft(baselineMainAgentOverrideEnabled);
+    setMainAgentGuidanceEditing(false);
+  }, [baselineMainAgentOverrideEnabled, baselineMainAgentPrompt]);
 
   useEffect(() => {
     void loadInstances();
@@ -1111,12 +1128,54 @@ export function Dashboard() {
                     size="small"
                     title={uiText.mainAgentGuidanceTitle}
                     extra={(
-                      <Button
-                        loading={mainAgentGuidanceLoading}
-                        onClick={() => void loadMainAgentGuidance(selectedInstance.id)}
-                      >
-                        {uiText.mainAgentGuidanceRefresh}
-                      </Button>
+                      <Space>
+                        <Button
+                          loading={mainAgentGuidanceLoading}
+                          onClick={() => void loadMainAgentGuidance(selectedInstance.id)}
+                        >
+                          {uiText.mainAgentGuidanceRefresh}
+                        </Button>
+                        {mainAgentGuidanceEditing ? (
+                          <>
+                            <Button
+                              type="primary"
+                              loading={mainAgentGuidanceSaving}
+                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceDeleting || !mainAgentGuidanceDirty}
+                              onClick={async () => {
+                                const saved = await saveMainAgentGuidance();
+                                if (saved) {
+                                  setMainAgentGuidanceEditing(false);
+                                }
+                              }}
+                            >
+                              {uiText.mainAgentGuidanceSave}
+                            </Button>
+                            <Button
+                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                              onClick={cancelMainAgentGuidanceEdit}
+                            >
+                              {uiText.mainAgentGuidanceCancel}
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                              onClick={() => setMainAgentGuidanceEditing(true)}
+                            >
+                              {uiText.mainAgentGuidanceEdit}
+                            </Button>
+                            <Button
+                              danger
+                              loading={mainAgentGuidanceDeleting}
+                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || !mainAgentGuidance?.overrideExists}
+                              onClick={() => void removeMainAgentGuidanceOverride()}
+                            >
+                              {uiText.mainAgentGuidanceDelete}
+                            </Button>
+                          </>
+                        )}
+                      </Space>
                     )}
                   >
                     <Space direction="vertical" style={{ width: "100%" }} size="middle">
@@ -1143,48 +1202,37 @@ export function Dashboard() {
                             : "-"}
                         </Descriptions.Item>
                       </Descriptions>
-                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                        <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
-                        <Switch
-                          checked={mainAgentOverrideEnabledDraft}
-                          onChange={setMainAgentOverrideEnabledDraft}
-                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                        />
-                      </Space>
-                      <Input.TextArea
-                        rows={8}
-                        value={mainAgentPromptDraft}
-                        onChange={(event) => setMainAgentPromptDraft(event.target.value)}
-                        placeholder={uiText.mainAgentGuidanceOverridePromptPlaceholder}
-                        disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                      />
-                      <Space>
-                        <Button
-                          type="primary"
-                          loading={mainAgentGuidanceSaving}
-                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceDeleting || !mainAgentGuidanceDirty}
-                          onClick={() => void saveMainAgentGuidance()}
-                        >
-                          {uiText.mainAgentGuidanceSave}
-                        </Button>
-                        <Button
-                          danger
-                          loading={mainAgentGuidanceDeleting}
-                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || !mainAgentGuidance?.overrideExists}
-                          onClick={() => void removeMainAgentGuidanceOverride()}
-                        >
-                          {uiText.mainAgentGuidanceDelete}
-                        </Button>
-                      </Space>
-                      <Text strong>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
-                      {mainAgentGuidance?.effectivePrompt ? (
-                        <Paragraph style={{ marginBottom: 0 }}>
-                          <Text code style={{ whiteSpace: "pre-wrap" }}>
-                            {mainAgentGuidance.effectivePrompt}
-                          </Text>
-                        </Paragraph>
+                      {mainAgentGuidanceEditing ? (
+                        <>
+                          <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                            <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
+                            <Switch
+                              checked={mainAgentOverrideEnabledDraft}
+                              onChange={setMainAgentOverrideEnabledDraft}
+                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                            />
+                          </Space>
+                          <Input.TextArea
+                            rows={8}
+                            value={mainAgentPromptDraft}
+                            onChange={(event) => setMainAgentPromptDraft(event.target.value)}
+                            placeholder={uiText.mainAgentGuidanceOverridePromptPlaceholder}
+                            disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                          />
+                        </>
                       ) : (
-                        <Text type="secondary">{uiText.mainAgentGuidanceNoEffectivePrompt}</Text>
+                        <>
+                          <Text strong>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
+                          {mainAgentGuidance?.effectivePrompt ? (
+                            <Paragraph style={{ marginBottom: 0 }}>
+                              <Text code style={{ whiteSpace: "pre-wrap" }}>
+                                {mainAgentGuidance.effectivePrompt}
+                              </Text>
+                            </Paragraph>
+                          ) : (
+                            <Text type="secondary">{uiText.mainAgentGuidanceNoEffectivePrompt}</Text>
+                          )}
+                        </>
                       )}
                     </Space>
                   </Card>
@@ -1237,17 +1285,33 @@ export function Dashboard() {
                       {(!skillsLoading && skills.length === 0) ? (
                         <Text type="secondary">{uiText.noSkills}</Text>
                       ) : null}
-                      <Select
-                        showSearch
-                        loading={skillsLoading}
-                        placeholder={uiText.selectSkill}
-                        value={selectedSkillId}
-                        onChange={setSelectedSkillId}
-                        options={skills.map((item) => ({
-                          value: item.id,
-                          label: item.id,
-                        }))}
-                      />
+                      {skills.length > 0 ? (
+                        <>
+                          <Text type="secondary">{uiText.skillListHint}</Text>
+                          <div className="skill-card-grid">
+                            {skills.map((item) => {
+                              const selected = selectedSkillId === item.id;
+                              const allowed = selectedAgentAllowedTools.length === 0 || selectedAgentAllowedTools.includes(item.id);
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  className={`skill-card ${selected ? "is-selected" : ""}`}
+                                  onClick={() => setSelectedSkillId(item.id)}
+                                >
+                                  <div className="skill-card-head">
+                                    <strong className="skill-card-title">{item.id}</strong>
+                                    <Tag color={allowed ? "green" : "orange"}>
+                                      {allowed ? uiText.skillAllowed : uiText.skillNotAllowed}
+                                    </Tag>
+                                  </div>
+                                  <p className="skill-card-path">{item.path}</p>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      ) : null}
                       {selectedSkill ? (
                         <Space direction="vertical" style={{ width: "100%" }} size="small">
                           <Descriptions column={1} size="small" bordered>

@@ -112,6 +112,7 @@ const uiText = {
   deleteSuccessPrefix: "\u5b9e\u4f8b\u5df2\u5220\u9664\uff1a",
   deleteFailed: "\u5220\u9664\u5b9e\u4f8b\u5931\u8d25",
   instanceNotFound: "\u5b9e\u4f8b\u4e0d\u5b58\u5728\uff0c\u5df2\u5237\u65b0\u5217\u8868",
+  instanceIdCopied: "\u5b9e\u4f8bID\u5df2\u590d\u5236",
   cancel: "\u53d6\u6d88",
   noInstances: "\u5f53\u524d\u6ca1\u6709\u53ef\u7ba1\u7406\u7684claw\u5b9e\u4f8b\u3002",
   noAgentsSection: "Agents \u533a\u57df\u6682\u672a\u5f00\u653e\uff0c\u4e0b\u4e00\u6b65\u518d\u5bf9\u63a5\u5206\u9875\u529f\u80fd\u3002",
@@ -1092,7 +1093,20 @@ export function Dashboard() {
                                 <p className="instance-card-line">{instance.image}</p>
                                 <p className="instance-card-line">{gatewayUrl}</p>
                                 <div className="instance-card-foot">
-                                  <span>{shortInstanceId(instance.id)}</span>
+                                  <span
+                                    onClick={(event) => event.stopPropagation()}
+                                    onMouseDown={(event) => event.stopPropagation()}
+                                  >
+                                    <Text
+                                      copyable={{
+                                        text: instance.id,
+                                        onCopy: () => messageApi.success(uiText.instanceIdCopied),
+                                      }}
+                                      title={instance.id}
+                                    >
+                                      {shortInstanceId(instance.id)}
+                                    </Text>
+                                  </span>
                                   <span>{instance.updatedAt}</span>
                                 </div>
                               </button>
@@ -1113,7 +1127,17 @@ export function Dashboard() {
               {selectedInstance ? (
                 <Space direction="vertical" style={{ width: "100%" }} size="middle">
                   <Descriptions column={2} bordered size="small">
-                    <Descriptions.Item label={uiText.instanceId}>{selectedInstance.id}</Descriptions.Item>
+                    <Descriptions.Item label={uiText.instanceId}>
+                      <Text
+                        code
+                        copyable={{
+                          text: selectedInstance.id,
+                          onCopy: () => messageApi.success(uiText.instanceIdCopied),
+                        }}
+                      >
+                        {selectedInstance.id}
+                      </Text>
+                    </Descriptions.Item>
                     <Descriptions.Item label={uiText.hostId}>{selectedInstance.hostId}</Descriptions.Item>
                     <Descriptions.Item label={uiText.image}>{selectedInstance.image}</Descriptions.Item>
                     <Descriptions.Item label={uiText.gatewayHostPort}>

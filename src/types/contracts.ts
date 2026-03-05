@@ -95,3 +95,17 @@ export interface AgentTaskResponse {
   startedAt?: string | null;
   finishedAt?: string | null;
 }
+
+export interface InstanceMainAgentGuidance {
+  instanceId: string;
+  workspacePath: string;
+  source: "INSTANCE_OVERRIDE" | "GLOBAL_FILE" | "GLOBAL_INLINE" | "NONE" | string;
+  effectivePrompt?: string | null;
+  overwriteOnStart: boolean;
+  overrideExists: boolean;
+  overrideEnabled?: boolean | null;
+  overridePrompt?: string | null;
+  globalDefaultPath?: string | null;
+  overrideUpdatedAt?: string | null;
+  overrideUpdatedBy?: string | null;
+}

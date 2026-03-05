@@ -9,6 +9,7 @@ import {
   ClawInstance,
   CreateInstanceRequest,
   ImagePreset,
+  InstanceMainAgentGuidance,
   InstanceActionType,
   ListResponse,
   PairingCodeResponse,
@@ -82,6 +83,26 @@ export async function getInstancePairingCode(instanceId: string) {
 
 export async function listInstanceAgents(instanceId: string) {
   return requestJson<ListResponse<AgentDescriptor>>(`/v1/instances/${instanceId}/agents`);
+}
+
+export async function getInstanceMainAgentGuidance(instanceId: string) {
+  return requestJson<InstanceMainAgentGuidance>(`/v1/instances/${instanceId}/main-agent-guidance`);
+}
+
+export async function upsertInstanceMainAgentGuidance(
+  instanceId: string,
+  request: { prompt?: string; enabled?: boolean; updatedBy?: string }
+) {
+  return requestJson<InstanceMainAgentGuidance>(`/v1/instances/${instanceId}/main-agent-guidance`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteInstanceMainAgentGuidance(instanceId: string) {
+  return requestJson<InstanceMainAgentGuidance>(`/v1/instances/${instanceId}/main-agent-guidance`, {
+    method: "DELETE",
+  });
 }
 
 export async function prepareAgentTask(request: AgentTaskPrepareRequest) {

@@ -3,18 +3,21 @@
 import {
   confirmAgentTask,
   createInstance,
+  deleteInstanceMainAgentGuidance,
   deleteInstance,
   getAgentTask,
+  getInstanceMainAgentGuidance,
   getInstancePairingCode,
   listImages,
   listInstanceAgents,
   listInstances,
   prepareAgentTask,
   submitInstanceAction,
+  upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
 import { appConfig } from "@/config/app-config";
-import { AgentDescriptor, AgentTaskResponse, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, PairingCodeResponse } from "@/types/contracts";
-import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
+import { AgentDescriptor, AgentTaskResponse, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse } from "@/types/contracts";
+import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Switch, Table, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const { Header, Content } = Layout;
@@ -121,6 +124,25 @@ const uiText = {
   agentTaskSuccess: "Agent \u4efb\u52a1\u6267\u884c\u6210\u529f",
   agentTaskFailed: "Agent \u4efb\u52a1\u6267\u884c\u5931\u8d25",
   missingAgentOrMessage: "\u8bf7\u5148\u9009\u62e9 Agent \u5e76\u8f93\u5165\u6d88\u606f",
+  mainAgentGuidanceTitle: "\u4e3b Agent \u63d0\u793a\u8bcd",
+  mainAgentGuidanceRefresh: "\u5237\u65b0\u63d0\u793a\u8bcd",
+  mainAgentGuidanceSave: "\u4fdd\u5b58\u8986\u76d6",
+  mainAgentGuidanceDelete: "\u5220\u9664\u8986\u76d6",
+  mainAgentGuidanceLoadingFailed: "\u52a0\u8f7d\u4e3b Agent \u63d0\u793a\u8bcd\u5931\u8d25",
+  mainAgentGuidanceSaveFailed: "\u4fdd\u5b58\u4e3b Agent \u63d0\u793a\u8bcd\u5931\u8d25",
+  mainAgentGuidanceDeleteFailed: "\u5220\u9664\u4e3b Agent \u63d0\u793a\u8bcd\u8986\u76d6\u5931\u8d25",
+  mainAgentGuidanceSaved: "\u4e3b Agent \u63d0\u793a\u8bcd\u5df2\u4fdd\u5b58",
+  mainAgentGuidanceDeleted: "\u4e3b Agent \u63d0\u793a\u8bcd\u8986\u76d6\u5df2\u5220\u9664",
+  mainAgentGuidanceSource: "\u751f\u6548\u6765\u6e90",
+  mainAgentGuidanceWorkspacePath: "\u8fd0\u884c\u8def\u5f84",
+  mainAgentGuidanceGlobalPath: "\u5168\u5c40\u9ed8\u8ba4\u8def\u5f84",
+  mainAgentGuidanceOverwriteOnStart: "\u542f\u52a8\u65f6\u8986\u76d6",
+  mainAgentGuidanceOverrideEnabled: "\u5b9e\u4f8b\u8986\u76d6\u542f\u7528",
+  mainAgentGuidanceOverridePrompt: "\u5b9e\u4f8b\u8986\u76d6\u5185\u5bb9",
+  mainAgentGuidanceOverridePromptPlaceholder: "\u8f93\u5165\u6216\u7c98\u8d34\u8be5\u5b9e\u4f8b\u7684\u4e3b Agent \u63d0\u793a\u8bcd",
+  mainAgentGuidanceEffectivePrompt: "\u5f53\u524d\u751f\u6548\u5185\u5bb9\u9884\u89c8",
+  mainAgentGuidanceNoEffectivePrompt: "\u5f53\u524d\u65e0\u751f\u6548\u4e3b Agent \u63d0\u793a\u8bcd",
+  mainAgentGuidancePromptRequired: "\u9996\u6b21\u4fdd\u5b58\u5b9e\u4f8b\u8986\u76d6\u65f6\uff0c\u8bf7\u5148\u586b\u5199\u63d0\u793a\u8bcd\u5185\u5bb9",
 } as const;
 
 function statusColor(status: ClawInstance["status"]) {
@@ -182,6 +204,13 @@ export function Dashboard() {
   const [agentTaskSubmitting, setAgentTaskSubmitting] = useState(false);
   const [agentTaskProgress, setAgentTaskProgress] = useState<string>();
   const [latestAgentTask, setLatestAgentTask] = useState<AgentTaskResponse>();
+  const [mainAgentGuidance, setMainAgentGuidance] = useState<InstanceMainAgentGuidance>();
+  const [mainAgentGuidanceLoading, setMainAgentGuidanceLoading] = useState(false);
+  const [mainAgentGuidanceSaving, setMainAgentGuidanceSaving] = useState(false);
+  const [mainAgentGuidanceDeleting, setMainAgentGuidanceDeleting] = useState(false);
+  const [mainAgentGuidanceError, setMainAgentGuidanceError] = useState<string>();
+  const [mainAgentPromptDraft, setMainAgentPromptDraft] = useState("");
+  const [mainAgentOverrideEnabledDraft, setMainAgentOverrideEnabledDraft] = useState(true);
   const terminalSocketRef = useRef<WebSocket | null>(null);
   const [terminalOutput, setTerminalOutput] = useState("");
   const [terminalCommand, setTerminalCommand] = useState("");
@@ -217,6 +246,10 @@ export function Dashboard() {
     RESTART: uiText.restartInstance,
     ROLLBACK: uiText.rollback,
   };
+  const baselineMainAgentPrompt = mainAgentGuidance?.overridePrompt ?? "";
+  const baselineMainAgentOverrideEnabled = mainAgentGuidance?.overrideEnabled ?? true;
+  const mainAgentGuidanceDirty = mainAgentPromptDraft !== baselineMainAgentPrompt
+    || mainAgentOverrideEnabledDraft !== baselineMainAgentOverrideEnabled;
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -289,15 +322,91 @@ export function Dashboard() {
     }
   }, []);
 
+  const loadMainAgentGuidance = useCallback(async (instanceId?: string) => {
+    if (!instanceId) {
+      setMainAgentGuidance(undefined);
+      setMainAgentGuidanceError(undefined);
+      setMainAgentPromptDraft("");
+      setMainAgentOverrideEnabledDraft(true);
+      return;
+    }
+
+    setMainAgentGuidanceLoading(true);
+    setMainAgentGuidanceError(undefined);
+    try {
+      const response = await getInstanceMainAgentGuidance(instanceId);
+      setMainAgentGuidance(response);
+      setMainAgentPromptDraft(response.overridePrompt ?? "");
+      setMainAgentOverrideEnabledDraft(response.overrideEnabled ?? true);
+    } catch (apiError) {
+      setMainAgentGuidance(undefined);
+      setMainAgentPromptDraft("");
+      setMainAgentOverrideEnabledDraft(true);
+      setMainAgentGuidanceError(apiError instanceof Error ? apiError.message : uiText.mainAgentGuidanceLoadingFailed);
+    } finally {
+      setMainAgentGuidanceLoading(false);
+    }
+  }, []);
+
+  const saveMainAgentGuidance = useCallback(async () => {
+    if (!selectedInstanceId) {
+      return;
+    }
+    if (!mainAgentGuidance?.overrideExists && !mainAgentPromptDraft.trim()) {
+      messageApi.warning(uiText.mainAgentGuidancePromptRequired);
+      return;
+    }
+    setMainAgentGuidanceSaving(true);
+    setMainAgentGuidanceError(undefined);
+    try {
+      const request: { prompt?: string; enabled?: boolean; updatedBy?: string } = {
+        enabled: mainAgentOverrideEnabledDraft,
+        updatedBy: "ui-dashboard",
+      };
+      if (mainAgentPromptDraft.trim()) {
+        request.prompt = mainAgentPromptDraft;
+      }
+      const response = await upsertInstanceMainAgentGuidance(selectedInstanceId, request);
+      setMainAgentGuidance(response);
+      setMainAgentPromptDraft(response.overridePrompt ?? "");
+      setMainAgentOverrideEnabledDraft(response.overrideEnabled ?? true);
+      messageApi.success(uiText.mainAgentGuidanceSaved);
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.mainAgentGuidanceSaveFailed);
+    } finally {
+      setMainAgentGuidanceSaving(false);
+    }
+  }, [mainAgentGuidance?.overrideExists, mainAgentOverrideEnabledDraft, mainAgentPromptDraft, messageApi, selectedInstanceId]);
+
+  const removeMainAgentGuidanceOverride = useCallback(async () => {
+    if (!selectedInstanceId) {
+      return;
+    }
+    setMainAgentGuidanceDeleting(true);
+    setMainAgentGuidanceError(undefined);
+    try {
+      const response = await deleteInstanceMainAgentGuidance(selectedInstanceId);
+      setMainAgentGuidance(response);
+      setMainAgentPromptDraft("");
+      setMainAgentOverrideEnabledDraft(true);
+      messageApi.success(uiText.mainAgentGuidanceDeleted);
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.mainAgentGuidanceDeleteFailed);
+    } finally {
+      setMainAgentGuidanceDeleting(false);
+    }
+  }, [messageApi, selectedInstanceId]);
+
   useEffect(() => {
     void loadInstances();
   }, [loadInstances]);
 
   useEffect(() => {
     void loadAgents(selectedInstanceId);
+    void loadMainAgentGuidance(selectedInstanceId);
     setLatestAgentTask(undefined);
     setAgentTaskProgress(undefined);
-  }, [loadAgents, selectedInstanceId]);
+  }, [loadAgents, loadMainAgentGuidance, selectedInstanceId]);
 
   useEffect(() => {
     return () => {
@@ -778,6 +887,87 @@ export function Dashboard() {
                       {uiText.openVisualUi}
                     </Button>
                   </Space>
+                  <Card
+                    size="small"
+                    title={uiText.mainAgentGuidanceTitle}
+                    extra={(
+                      <Button
+                        loading={mainAgentGuidanceLoading}
+                        onClick={() => void loadMainAgentGuidance(selectedInstance.id)}
+                      >
+                        {uiText.mainAgentGuidanceRefresh}
+                      </Button>
+                    )}
+                  >
+                    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                      {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} /> : null}
+                      <Descriptions column={1} size="small" bordered>
+                        <Descriptions.Item label={uiText.mainAgentGuidanceSource}>
+                          {mainAgentGuidance?.source ?? "-"}
+                        </Descriptions.Item>
+                        <Descriptions.Item label={uiText.mainAgentGuidanceWorkspacePath}>
+                          <Text code copyable={mainAgentGuidance?.workspacePath ? { text: mainAgentGuidance.workspacePath } : false}>
+                            {mainAgentGuidance?.workspacePath ?? "-"}
+                          </Text>
+                        </Descriptions.Item>
+                        <Descriptions.Item label={uiText.mainAgentGuidanceGlobalPath}>
+                          {mainAgentGuidance?.globalDefaultPath ? (
+                            <Text code copyable={{ text: mainAgentGuidance.globalDefaultPath }}>
+                              {mainAgentGuidance.globalDefaultPath}
+                            </Text>
+                          ) : "-"}
+                        </Descriptions.Item>
+                        <Descriptions.Item label={uiText.mainAgentGuidanceOverwriteOnStart}>
+                          {typeof mainAgentGuidance?.overwriteOnStart === "boolean"
+                            ? String(mainAgentGuidance.overwriteOnStart)
+                            : "-"}
+                        </Descriptions.Item>
+                      </Descriptions>
+                      <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                        <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
+                        <Switch
+                          checked={mainAgentOverrideEnabledDraft}
+                          onChange={setMainAgentOverrideEnabledDraft}
+                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                        />
+                      </Space>
+                      <Input.TextArea
+                        rows={8}
+                        value={mainAgentPromptDraft}
+                        onChange={(event) => setMainAgentPromptDraft(event.target.value)}
+                        placeholder={uiText.mainAgentGuidanceOverridePromptPlaceholder}
+                        disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                      />
+                      <Space>
+                        <Button
+                          type="primary"
+                          loading={mainAgentGuidanceSaving}
+                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceDeleting || !mainAgentGuidanceDirty}
+                          onClick={() => void saveMainAgentGuidance()}
+                        >
+                          {uiText.mainAgentGuidanceSave}
+                        </Button>
+                        <Button
+                          danger
+                          loading={mainAgentGuidanceDeleting}
+                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || !mainAgentGuidance?.overrideExists}
+                          onClick={() => void removeMainAgentGuidanceOverride()}
+                        >
+                          {uiText.mainAgentGuidanceDelete}
+                        </Button>
+                      </Space>
+                      <Text strong>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
+                      {mainAgentGuidance?.effectivePrompt ? (
+                        <Paragraph style={{ marginBottom: 0 }}>
+                          <Text code style={{ whiteSpace: "pre-wrap" }}>
+                            {mainAgentGuidance.effectivePrompt}
+                          </Text>
+                        </Paragraph>
+                      ) : (
+                        <Text type="secondary">{uiText.mainAgentGuidanceNoEffectivePrompt}</Text>
+                      )}
+                    </Space>
+                  </Card>
                   <Card
                     size="small"
                     title={uiText.agentChatTitle}

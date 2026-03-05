@@ -42,6 +42,15 @@ export interface AgentDescriptor {
   model?: string | null;
   agentic?: boolean | null;
   allowedTools?: string[] | null;
+  systemPrompt?: string | null;
+  configPath?: string | null;
+}
+
+export interface AgentSystemPromptResponse {
+  instanceId: string;
+  agentId: string;
+  systemPrompt?: string | null;
+  configPath?: string | null;
 }
 
 export interface SkillDescriptor {

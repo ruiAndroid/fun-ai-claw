@@ -21,13 +21,14 @@ import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCar
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, AgentTaskResponse, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
 import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Server, Wrench } from "lucide-react";
-import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Switch, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail";
+type InstanceDetailTabKey = "agents" | "skills";
 
 const uiText = {
   loadFailed: "\u52a0\u8f7dclaw\u5b9e\u4f8b\u5931\u8d25",
@@ -261,6 +262,7 @@ export function Dashboard() {
   const [mainAgentPromptDraft, setMainAgentPromptDraft] = useState("");
   const [mainAgentOverrideEnabledDraft, setMainAgentOverrideEnabledDraft] = useState(true);
   const [mainAgentGuidanceEditing, setMainAgentGuidanceEditing] = useState(false);
+  const [instanceDetailTab, setInstanceDetailTab] = useState<InstanceDetailTabKey>("agents");
   const terminalSocketRef = useRef<WebSocket | null>(null);
   const [terminalOutput, setTerminalOutput] = useState("");
   const [terminalCommand, setTerminalCommand] = useState("");
@@ -896,10 +898,14 @@ export function Dashboard() {
   const openInstanceDetail = useCallback((instanceId: string) => {
     setSelectedInstanceId(instanceId);
     setActiveView("instance-detail");
+    setInstanceDetailTab("agents");
   }, []);
 
   const openMenuView = useCallback((view: Exclude<ConsoleView, "instance-detail">) => {
     setActiveView(view);
+    if (view === "instances") {
+      setInstanceDetailTab("agents");
+    }
   }, []);
 
   return (
@@ -1242,142 +1248,165 @@ export function Dashboard() {
                     title={uiText.agentChatTitle}
                     extra={(
                       <Space>
-                        <Button loading={agentsLoading} onClick={() => void loadAgents(selectedInstance.id)}>
-                          {uiText.refreshAgents}
-                        </Button>
-                        <Button loading={skillsLoading} onClick={() => void loadSkills(selectedInstance.id)}>
-                          {uiText.refreshSkills}
-                        </Button>
+                        {instanceDetailTab === "agents" ? (
+                          <Button loading={agentsLoading} onClick={() => void loadAgents(selectedInstance.id)}>
+                            {uiText.refreshAgents}
+                          </Button>
+                        ) : (
+                          <Button loading={skillsLoading} onClick={() => void loadSkills(selectedInstance.id)}>
+                            {uiText.refreshSkills}
+                          </Button>
+                        )}
                       </Space>
                     )}
                   >
-                    <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                      {agentsError ? <Alert type="error" showIcon message={agentsError} /> : null}
-                      {skillsError ? <Alert type="error" showIcon message={skillsError} /> : null}
-                      {(!agentsLoading && agents.length === 0) ? (
-                        <Text type="secondary">{uiText.noAgents}</Text>
-                      ) : null}
-                      <Select
-                        showSearch
-                        loading={agentsLoading}
-                        placeholder={uiText.selectAgent}
-                        value={selectedAgentId}
-                        onChange={setSelectedAgentId}
-                        options={agents.map((item) => ({
-                          value: item.id,
-                          label: item.id,
-                        }))}
-                      />
-                      {selectedAgent ? (
-                        <Descriptions column={1} size="small" bordered>
-                          <Descriptions.Item label={uiText.selectAgent}>{selectedAgent.id}</Descriptions.Item>
-                          <Descriptions.Item label={uiText.agentProvider}>{selectedAgent.provider ?? "-"}</Descriptions.Item>
-                          <Descriptions.Item label={uiText.agentModel}>{selectedAgent.model ?? "-"}</Descriptions.Item>
-                          <Descriptions.Item label={uiText.agenticMode}>
-                            {typeof selectedAgent.agentic === "boolean" ? String(selectedAgent.agentic) : "-"}
-                          </Descriptions.Item>
-                          <Descriptions.Item label={uiText.agentAllowedTools}>
-                            {selectedAgentAllowedTools.length > 0 ? selectedAgentAllowedTools.join(", ") : "-"}
-                          </Descriptions.Item>
-                        </Descriptions>
-                      ) : null}
-                      <Alert type="info" showIcon message={uiText.skillScopeHint} />
-                      {(!skillsLoading && skills.length === 0) ? (
-                        <Text type="secondary">{uiText.noSkills}</Text>
-                      ) : null}
-                      {skills.length > 0 ? (
-                        <>
-                          <Text type="secondary">{uiText.skillListHint}</Text>
-                          <div className="skill-card-grid">
-                            {skills.map((item) => {
-                              const selected = selectedSkillId === item.id;
-                              const allowed = selectedAgentAllowedTools.length === 0 || selectedAgentAllowedTools.includes(item.id);
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  className={`skill-card ${selected ? "is-selected" : ""}`}
-                                  onClick={() => setSelectedSkillId(item.id)}
-                                >
-                                  <div className="skill-card-head">
-                                    <strong className="skill-card-title">{item.id}</strong>
-                                    <Tag color={allowed ? "green" : "orange"}>
-                                      {allowed ? uiText.skillAllowed : uiText.skillNotAllowed}
-                                    </Tag>
+                    <Tabs
+                      activeKey={instanceDetailTab}
+                      onChange={(key) => setInstanceDetailTab(key as InstanceDetailTabKey)}
+                      items={[
+                        {
+                          key: "agents",
+                          label: uiText.menuAgents,
+                          children: (
+                            <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                              {agentsError ? <Alert type="error" showIcon message={agentsError} /> : null}
+                              {(!agentsLoading && agents.length === 0) ? (
+                                <Text type="secondary">{uiText.noAgents}</Text>
+                              ) : null}
+                              <Select
+                                showSearch
+                                loading={agentsLoading}
+                                placeholder={uiText.selectAgent}
+                                value={selectedAgentId}
+                                onChange={setSelectedAgentId}
+                                options={agents.map((item) => ({
+                                  value: item.id,
+                                  label: item.id,
+                                }))}
+                              />
+                              {selectedAgent ? (
+                                <Descriptions column={1} size="small" bordered>
+                                  <Descriptions.Item label={uiText.selectAgent}>{selectedAgent.id}</Descriptions.Item>
+                                  <Descriptions.Item label={uiText.agentProvider}>{selectedAgent.provider ?? "-"}</Descriptions.Item>
+                                  <Descriptions.Item label={uiText.agentModel}>{selectedAgent.model ?? "-"}</Descriptions.Item>
+                                  <Descriptions.Item label={uiText.agenticMode}>
+                                    {typeof selectedAgent.agentic === "boolean" ? String(selectedAgent.agentic) : "-"}
+                                  </Descriptions.Item>
+                                  <Descriptions.Item label={uiText.agentAllowedTools}>
+                                    {selectedAgentAllowedTools.length > 0 ? selectedAgentAllowedTools.join(", ") : "-"}
+                                  </Descriptions.Item>
+                                </Descriptions>
+                              ) : null}
+                              <div className="agent-sender">
+                                <Input.TextArea
+                                  rows={4}
+                                  value={agentMessageInput}
+                                  onChange={(event) => setAgentMessageInput(event.target.value)}
+                                  placeholder={uiText.agentMessagePlaceholder}
+                                  onPressEnter={(event) => {
+                                    if (!event.shiftKey) {
+                                      event.preventDefault();
+                                      void submitAgentTask();
+                                    }
+                                  }}
+                                />
+                                <div className="agent-sender-actions">
+                                  <Button
+                                    type="primary"
+                                    loading={agentTaskSubmitting}
+                                    disabled={disableSendAgentMessage}
+                                    onClick={() => void submitAgentTask()}
+                                  >
+                                    {uiText.sendAgentMessage}
+                                  </Button>
+                                </div>
+                              </div>
+                              {disableSendAgentMessage ? (
+                                <Text type="secondary">{uiText.missingAgentOrMessage}</Text>
+                              ) : null}
+                              {agentTaskProgress ? <Alert type="info" showIcon message={agentTaskProgress} /> : null}
+                              {latestAgentTask ? (
+                                <Space direction="vertical" style={{ width: "100%" }} size="small">
+                                  <Descriptions column={1} size="small" bordered>
+                                    <Descriptions.Item label={uiText.taskId}>{latestAgentTask.taskId}</Descriptions.Item>
+                                    <Descriptions.Item label={uiText.taskStatus}>{latestAgentTask.status}</Descriptions.Item>
+                                    <Descriptions.Item label={uiText.updatedAt}>{latestAgentTask.updatedAt}</Descriptions.Item>
+                                  </Descriptions>
+                                  {latestAgentTask.responseBody ? (
+                                    <div className="agent-bubble-wrap">
+                                      <Text strong>{uiText.taskResult}</Text>
+                                      <pre className="agent-bubble-text">{latestAgentTask.responseBody}</pre>
+                                    </div>
+                                  ) : null}
+                                  {latestAgentTask.errorMessage ? (
+                                    <Alert type="error" showIcon message={uiText.taskError} description={latestAgentTask.errorMessage} />
+                                  ) : null}
+                                </Space>
+                              ) : null}
+                            </Space>
+                          ),
+                        },
+                        {
+                          key: "skills",
+                          label: uiText.menuSkills,
+                          children: (
+                            <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                              {skillsError ? <Alert type="error" showIcon message={skillsError} /> : null}
+                              <Alert type="info" showIcon message={uiText.skillScopeHint} />
+                              {(!skillsLoading && skills.length === 0) ? (
+                                <Text type="secondary">{uiText.noSkills}</Text>
+                              ) : null}
+                              {skills.length > 0 ? (
+                                <>
+                                  <Text type="secondary">{uiText.skillListHint}</Text>
+                                  <div className="skill-card-grid">
+                                    {skills.map((item) => {
+                                      const selected = selectedSkillId === item.id;
+                                      const allowed = selectedAgentAllowedTools.length === 0 || selectedAgentAllowedTools.includes(item.id);
+                                      return (
+                                        <button
+                                          key={item.id}
+                                          type="button"
+                                          className={`skill-card ${selected ? "is-selected" : ""}`}
+                                          onClick={() => setSelectedSkillId(item.id)}
+                                        >
+                                          <div className="skill-card-head">
+                                            <strong className="skill-card-title">{item.id}</strong>
+                                            <Tag color={allowed ? "green" : "orange"}>
+                                              {allowed ? uiText.skillAllowed : uiText.skillNotAllowed}
+                                            </Tag>
+                                          </div>
+                                          <p className="skill-card-path">{item.path}</p>
+                                        </button>
+                                      );
+                                    })}
                                   </div>
-                                  <p className="skill-card-path">{item.path}</p>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </>
-                      ) : null}
-                      {selectedSkill ? (
-                        <Space direction="vertical" style={{ width: "100%" }} size="small">
-                          <Descriptions column={1} size="small" bordered>
-                            <Descriptions.Item label={uiText.selectSkill}>{selectedSkill.id}</Descriptions.Item>
-                            <Descriptions.Item label={uiText.skillPath}>
-                              <Text code copyable={{ text: selectedSkill.path }}>{selectedSkill.path}</Text>
-                            </Descriptions.Item>
-                          </Descriptions>
-                          {selectedSkillNotAllowed ? <Alert type="warning" showIcon message={uiText.agentSkillNotAllowed} /> : null}
-                          <Text strong>{uiText.skillPrompt}</Text>
-                          <Input.TextArea
-                            rows={10}
-                            readOnly
-                            value={selectedSkill.prompt}
-                          />
-                        </Space>
-                      ) : (
-                        <Text type="secondary">{uiText.noSkillPrompt}</Text>
-                      )}
-                      <div className="agent-sender">
-                        <Input.TextArea
-                          rows={4}
-                          value={agentMessageInput}
-                          onChange={(event) => setAgentMessageInput(event.target.value)}
-                          placeholder={uiText.agentMessagePlaceholder}
-                          onPressEnter={(event) => {
-                            if (!event.shiftKey) {
-                              event.preventDefault();
-                              void submitAgentTask();
-                            }
-                          }}
-                        />
-                        <div className="agent-sender-actions">
-                          <Button
-                            type="primary"
-                            loading={agentTaskSubmitting}
-                            disabled={disableSendAgentMessage}
-                            onClick={() => void submitAgentTask()}
-                          >
-                            {uiText.sendAgentMessage}
-                          </Button>
-                        </div>
-                      </div>
-                      {disableSendAgentMessage ? (
-                        <Text type="secondary">{uiText.missingAgentOrMessage}</Text>
-                      ) : null}
-                      {agentTaskProgress ? <Alert type="info" showIcon message={agentTaskProgress} /> : null}
-                      {latestAgentTask ? (
-                        <Space direction="vertical" style={{ width: "100%" }} size="small">
-                          <Descriptions column={1} size="small" bordered>
-                            <Descriptions.Item label={uiText.taskId}>{latestAgentTask.taskId}</Descriptions.Item>
-                            <Descriptions.Item label={uiText.taskStatus}>{latestAgentTask.status}</Descriptions.Item>
-                            <Descriptions.Item label={uiText.updatedAt}>{latestAgentTask.updatedAt}</Descriptions.Item>
-                          </Descriptions>
-                          {latestAgentTask.responseBody ? (
-                            <div className="agent-bubble-wrap">
-                              <Text strong>{uiText.taskResult}</Text>
-                              <pre className="agent-bubble-text">{latestAgentTask.responseBody}</pre>
-                            </div>
-                          ) : null}
-                          {latestAgentTask.errorMessage ? (
-                            <Alert type="error" showIcon message={uiText.taskError} description={latestAgentTask.errorMessage} />
-                          ) : null}
-                        </Space>
-                      ) : null}
-                    </Space>
+                                </>
+                              ) : null}
+                              {selectedSkill ? (
+                                <Space direction="vertical" style={{ width: "100%" }} size="small">
+                                  <Descriptions column={1} size="small" bordered>
+                                    <Descriptions.Item label={uiText.selectSkill}>{selectedSkill.id}</Descriptions.Item>
+                                    <Descriptions.Item label={uiText.skillPath}>
+                                      <Text code copyable={{ text: selectedSkill.path }}>{selectedSkill.path}</Text>
+                                    </Descriptions.Item>
+                                  </Descriptions>
+                                  {selectedSkillNotAllowed ? <Alert type="warning" showIcon message={uiText.agentSkillNotAllowed} /> : null}
+                                  <Text strong>{uiText.skillPrompt}</Text>
+                                  <Input.TextArea
+                                    rows={10}
+                                    readOnly
+                                    value={selectedSkill.prompt}
+                                  />
+                                </Space>
+                              ) : (
+                                <Text type="secondary">{uiText.noSkillPrompt}</Text>
+                              )}
+                            </Space>
+                          ),
+                        },
+                      ]}
+                    />
                   </Card>
                 </Space>
               ) : (

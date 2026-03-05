@@ -951,88 +951,90 @@ export function Dashboard() {
               <p className="console-subtitle">UI layer refreshed with modern AI-console visual style.</p>
             </Header>
             <Content className="console-content">
-              <div className="kpi-grid">
-                <ShadCard>
-                  <ShadCardHeader>
-                    <ShadCardTitle>{uiText.totalInstances}</ShadCardTitle>
-                  </ShadCardHeader>
-                  <ShadCardContent className="text-3xl font-semibold text-slate-900">
-                    {dashboardStats.total}
-                  </ShadCardContent>
-                </ShadCard>
-                <ShadCard>
-                  <ShadCardHeader>
-                    <ShadCardTitle>{uiText.runningInstances}</ShadCardTitle>
-                  </ShadCardHeader>
-                  <ShadCardContent className="text-3xl font-semibold text-emerald-700">
-                    {dashboardStats.running}
-                  </ShadCardContent>
-                </ShadCard>
-                <ShadCard>
-                  <ShadCardHeader>
-                    <ShadCardTitle>{uiText.stoppedInstances}</ShadCardTitle>
-                  </ShadCardHeader>
-                  <ShadCardContent className="text-3xl font-semibold text-slate-600">
-                    {dashboardStats.stopped}
-                  </ShadCardContent>
-                </ShadCard>
-                <ShadCard>
-                  <ShadCardHeader>
-                    <ShadCardTitle>{uiText.errorInstances}</ShadCardTitle>
-                  </ShadCardHeader>
-                  <ShadCardContent className="text-3xl font-semibold text-red-600">
-                    {dashboardStats.errorCount}
-                  </ShadCardContent>
-                </ShadCard>
-              </div>
               <Space direction="vertical" style={{ width: "100%" }} size="large">
                 {activeView === "instances" ? (
-                  <Card
-                    className="glass-card"
-                    title={uiText.listTitle}
-                    extra={(
-                      <Space>
-                        <Button loading={loadingInstances} onClick={() => void loadInstances()}>{uiText.refresh}</Button>
-                        <Button type="primary" onClick={openCreateModal}>
-                          {uiText.create}
-                        </Button>
-                      </Space>
-                    )}
-                  >
-                    {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} /> : null}
-                    <Text type="secondary">{uiText.listSubtitle}</Text>
-                    {loadingInstances ? (
-                      <div className="empty-panel">{uiText.loadingInstances}</div>
-                    ) : instances.length === 0 ? (
-                      <div className="empty-panel">{uiText.noInstances}</div>
-                    ) : (
-                      <div className="instance-card-grid">
-                        {instances.map((instance) => {
-                          const isSelected = selectedInstanceId === instance.id;
-                          const gatewayUrl = resolveUiControllerUrl(instance) ?? uiText.gatewayUrlUnavailable;
-                          return (
-                            <button
-                              key={instance.id}
-                              type="button"
-                              className={`instance-card ${isSelected ? "is-selected" : ""}`}
-                              onClick={() => openInstanceDetail(instance.id)}
-                            >
-                              <div className="instance-card-head">
-                                <strong>{instance.name}</strong>
-                                <Tag color={statusColor(instance.status)}>{instance.status}</Tag>
-                              </div>
-                              <p className="instance-card-line">{instance.image}</p>
-                              <p className="instance-card-line">{gatewayUrl}</p>
-                              <div className="instance-card-foot">
-                                <span>{shortInstanceId(instance.id)}</span>
-                                <span>{instance.updatedAt}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </Card>
+                  <>
+                    <div className="kpi-grid">
+                      <ShadCard>
+                        <ShadCardHeader>
+                          <ShadCardTitle>{uiText.totalInstances}</ShadCardTitle>
+                        </ShadCardHeader>
+                        <ShadCardContent className="text-3xl font-semibold text-slate-900">
+                          {dashboardStats.total}
+                        </ShadCardContent>
+                      </ShadCard>
+                      <ShadCard>
+                        <ShadCardHeader>
+                          <ShadCardTitle>{uiText.runningInstances}</ShadCardTitle>
+                        </ShadCardHeader>
+                        <ShadCardContent className="text-3xl font-semibold text-emerald-700">
+                          {dashboardStats.running}
+                        </ShadCardContent>
+                      </ShadCard>
+                      <ShadCard>
+                        <ShadCardHeader>
+                          <ShadCardTitle>{uiText.stoppedInstances}</ShadCardTitle>
+                        </ShadCardHeader>
+                        <ShadCardContent className="text-3xl font-semibold text-slate-600">
+                          {dashboardStats.stopped}
+                        </ShadCardContent>
+                      </ShadCard>
+                      <ShadCard>
+                        <ShadCardHeader>
+                          <ShadCardTitle>{uiText.errorInstances}</ShadCardTitle>
+                        </ShadCardHeader>
+                        <ShadCardContent className="text-3xl font-semibold text-red-600">
+                          {dashboardStats.errorCount}
+                        </ShadCardContent>
+                      </ShadCard>
+                    </div>
+                    <Card
+                      className="glass-card"
+                      title={uiText.listTitle}
+                      extra={(
+                        <Space>
+                          <Button loading={loadingInstances} onClick={() => void loadInstances()}>{uiText.refresh}</Button>
+                          <Button type="primary" onClick={openCreateModal}>
+                            {uiText.create}
+                          </Button>
+                        </Space>
+                      )}
+                    >
+                      {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} /> : null}
+                      <Text type="secondary">{uiText.listSubtitle}</Text>
+                      {loadingInstances ? (
+                        <div className="empty-panel">{uiText.loadingInstances}</div>
+                      ) : instances.length === 0 ? (
+                        <div className="empty-panel">{uiText.noInstances}</div>
+                      ) : (
+                        <div className="instance-card-grid">
+                          {instances.map((instance) => {
+                            const isSelected = selectedInstanceId === instance.id;
+                            const gatewayUrl = resolveUiControllerUrl(instance) ?? uiText.gatewayUrlUnavailable;
+                            return (
+                              <button
+                                key={instance.id}
+                                type="button"
+                                className={`instance-card ${isSelected ? "is-selected" : ""}`}
+                                onClick={() => openInstanceDetail(instance.id)}
+                              >
+                                <div className="instance-card-head">
+                                  <strong>{instance.name}</strong>
+                                  <Tag color={statusColor(instance.status)}>{instance.status}</Tag>
+                                </div>
+                                <p className="instance-card-line">{instance.image}</p>
+                                <p className="instance-card-line">{gatewayUrl}</p>
+                                <div className="instance-card-foot">
+                                  <span>{shortInstanceId(instance.id)}</span>
+                                  <span>{instance.updatedAt}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </Card>
+                  </>
                 ) : null}
 
                 {activeView === "instance-detail" ? (

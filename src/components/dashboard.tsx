@@ -16,6 +16,8 @@ import {
   submitInstanceAction,
   upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
+import { Badge } from "@/components/ui/badge";
+import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCardHeader, CardTitle as ShadCardTitle } from "@/components/ui/card";
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, AgentTaskResponse, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Switch, Table, Tag, Typography, message } from "antd";
@@ -34,6 +36,10 @@ const uiText = {
   actionFailed: "\u63d0\u4ea4\u52a8\u4f5c\u5931\u8d25",
   pageTitle: "fun-ai-claw claw\u5b9e\u4f8b\u7ba1\u7406\u53f0",
   listTitle: "claw\u5b9e\u4f8b\u5217\u8868",
+  totalInstances: "\u5b9e\u4f8b\u603b\u6570",
+  runningInstances: "\u8fd0\u884c\u4e2d",
+  stoppedInstances: "\u5df2\u505c\u6b62",
+  errorInstances: "\u5f02\u5e38\u5b9e\u4f8b",
   refresh: "\u5237\u65b0",
   create: "\u65b0\u589e\u5b9e\u4f8b",
   image: "\u955c\u50cf",
@@ -282,6 +288,17 @@ export function Dashboard() {
   const baselineMainAgentOverrideEnabled = mainAgentGuidance?.overrideEnabled ?? true;
   const mainAgentGuidanceDirty = mainAgentPromptDraft !== baselineMainAgentPrompt
     || mainAgentOverrideEnabledDraft !== baselineMainAgentOverrideEnabled;
+  const dashboardStats = useMemo(() => {
+    const running = instances.filter((item) => item.status === "RUNNING").length;
+    const stopped = instances.filter((item) => item.status === "STOPPED").length;
+    const errorCount = instances.filter((item) => item.status === "ERROR").length;
+    return {
+      total: instances.length,
+      running,
+      stopped,
+      errorCount,
+    };
+  }, [instances]);
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -836,15 +853,63 @@ export function Dashboard() {
   return (
     <>
       {messageContext}
-      <Layout style={{ minHeight: "100vh" }}>
-        <Header style={{ background: "#fff", borderBottom: "1px solid #f0f0f0" }}>
-          <Title level={4} style={{ margin: 0 }}>
-            {uiText.pageTitle}
-          </Title>
-        </Header>
-        <Content style={{ padding: 24 }}>
-          <Space direction="vertical" style={{ width: "100%" }} size="large">
-            <Card
+      <div className="ai-console">
+        <div className="mx-auto w-full max-w-[1500px]">
+          <Layout className="ai-layout" style={{ minHeight: "100vh" }}>
+            <Header className="console-header">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div className="space-y-1">
+                  <p className="console-kicker">AI Runtime Control</p>
+                  <Title level={3} style={{ margin: 0 }}>
+                    {uiText.pageTitle}
+                  </Title>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="default">shadcn/ui</Badge>
+                  <Badge variant="neutral">Tailwind CSS</Badge>
+                  <Badge variant="warning">Next.js 15</Badge>
+                </div>
+              </div>
+              <p className="console-subtitle">UI layer refreshed with modern AI-console visual style.</p>
+            </Header>
+            <Content className="console-content">
+              <div className="kpi-grid">
+                <ShadCard>
+                  <ShadCardHeader>
+                    <ShadCardTitle>{uiText.totalInstances}</ShadCardTitle>
+                  </ShadCardHeader>
+                  <ShadCardContent className="text-3xl font-semibold text-slate-900">
+                    {dashboardStats.total}
+                  </ShadCardContent>
+                </ShadCard>
+                <ShadCard>
+                  <ShadCardHeader>
+                    <ShadCardTitle>{uiText.runningInstances}</ShadCardTitle>
+                  </ShadCardHeader>
+                  <ShadCardContent className="text-3xl font-semibold text-emerald-700">
+                    {dashboardStats.running}
+                  </ShadCardContent>
+                </ShadCard>
+                <ShadCard>
+                  <ShadCardHeader>
+                    <ShadCardTitle>{uiText.stoppedInstances}</ShadCardTitle>
+                  </ShadCardHeader>
+                  <ShadCardContent className="text-3xl font-semibold text-slate-600">
+                    {dashboardStats.stopped}
+                  </ShadCardContent>
+                </ShadCard>
+                <ShadCard>
+                  <ShadCardHeader>
+                    <ShadCardTitle>{uiText.errorInstances}</ShadCardTitle>
+                  </ShadCardHeader>
+                  <ShadCardContent className="text-3xl font-semibold text-red-600">
+                    {dashboardStats.errorCount}
+                  </ShadCardContent>
+                </ShadCard>
+              </div>
+              <Space direction="vertical" style={{ width: "100%" }} size="large">
+                <Card
+                  className="glass-card"
               title={uiText.listTitle}
               extra={(
                 <Space>
@@ -857,6 +922,7 @@ export function Dashboard() {
             >
               {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} /> : null}
               <Table<ClawInstance>
+                className="console-table"
                 rowKey="id"
                 loading={loadingInstances}
                 dataSource={instances}
@@ -887,7 +953,7 @@ export function Dashboard() {
               />
             </Card>
 
-            <Card title={selectedInstance ? `${uiText.detailTitlePrefix}${selectedInstance.name}` : uiText.selectInstance}>
+                <Card className="glass-card" title={selectedInstance ? `${uiText.detailTitlePrefix}${selectedInstance.name}` : uiText.selectInstance}>
               {selectedInstance ? (
                 <Space direction="vertical" style={{ width: "100%" }} size="middle">
                   <Descriptions column={2} bordered size="small">
@@ -952,6 +1018,7 @@ export function Dashboard() {
                     </Button>
                   </Space>
                   <Card
+                    className="sub-glass-card"
                     size="small"
                     title={uiText.mainAgentGuidanceTitle}
                     extra={(
@@ -1033,6 +1100,7 @@ export function Dashboard() {
                     </Space>
                   </Card>
                   <Card
+                    className="sub-glass-card"
                     size="small"
                     title={uiText.agentChatTitle}
                     extra={(
@@ -1110,20 +1178,33 @@ export function Dashboard() {
                       ) : (
                         <Text type="secondary">{uiText.noSkillPrompt}</Text>
                       )}
-                      <Input.TextArea
-                        rows={4}
-                        value={agentMessageInput}
-                        onChange={(event) => setAgentMessageInput(event.target.value)}
-                        placeholder={uiText.agentMessagePlaceholder}
-                      />
-                      <Button
-                        type="primary"
-                        loading={agentTaskSubmitting}
-                        disabled={disableSendAgentMessage}
-                        onClick={() => void submitAgentTask()}
-                      >
-                        {uiText.sendAgentMessage}
-                      </Button>
+                      <div className="agent-sender">
+                        <Input.TextArea
+                          rows={4}
+                          value={agentMessageInput}
+                          onChange={(event) => setAgentMessageInput(event.target.value)}
+                          placeholder={uiText.agentMessagePlaceholder}
+                          onPressEnter={(event) => {
+                            if (!event.shiftKey) {
+                              event.preventDefault();
+                              void submitAgentTask();
+                            }
+                          }}
+                        />
+                        <div className="agent-sender-actions">
+                          <Button
+                            type="primary"
+                            loading={agentTaskSubmitting}
+                            disabled={disableSendAgentMessage}
+                            onClick={() => void submitAgentTask()}
+                          >
+                            {uiText.sendAgentMessage}
+                          </Button>
+                        </div>
+                      </div>
+                      {disableSendAgentMessage ? (
+                        <Text type="secondary">{uiText.missingAgentOrMessage}</Text>
+                      ) : null}
                       {agentTaskProgress ? <Alert type="info" showIcon message={agentTaskProgress} /> : null}
                       {latestAgentTask ? (
                         <Space direction="vertical" style={{ width: "100%" }} size="small">
@@ -1133,14 +1214,10 @@ export function Dashboard() {
                             <Descriptions.Item label={uiText.updatedAt}>{latestAgentTask.updatedAt}</Descriptions.Item>
                           </Descriptions>
                           {latestAgentTask.responseBody ? (
-                            <>
+                            <div className="agent-bubble-wrap">
                               <Text strong>{uiText.taskResult}</Text>
-                              <Paragraph style={{ marginBottom: 0 }}>
-                                <Text code style={{ whiteSpace: "pre-wrap" }}>
-                                  {latestAgentTask.responseBody}
-                                </Text>
-                              </Paragraph>
-                            </>
+                              <pre className="agent-bubble-text">{latestAgentTask.responseBody}</pre>
+                            </div>
                           ) : null}
                           {latestAgentTask.errorMessage ? (
                             <Alert type="error" showIcon message={uiText.taskError} description={latestAgentTask.errorMessage} />
@@ -1153,10 +1230,12 @@ export function Dashboard() {
               ) : (
                 <Text type="secondary">{uiText.noInstances}</Text>
               )}
-            </Card>
-          </Space>
-        </Content>
-      </Layout>
+                </Card>
+              </Space>
+            </Content>
+          </Layout>
+        </div>
+      </div>
       <Modal
         title={uiText.createModalTitle}
         open={createModalOpen}

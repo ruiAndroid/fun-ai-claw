@@ -1,9 +1,161 @@
+@import "tailwindcss";
+
+:root {
+  --console-bg: #f4faf8;
+  --console-surface: rgba(255, 255, 255, 0.86);
+  --console-surface-soft: rgba(255, 255, 255, 0.72);
+  --console-border: rgba(15, 118, 110, 0.12);
+  --console-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
+  min-height: 100%;
 }
 
 * {
   box-sizing: border-box;
+}
+
+body {
+  background:
+    radial-gradient(56rem 32rem at 10% -5%, rgba(15, 118, 110, 0.18), transparent 58%),
+    radial-gradient(56rem 34rem at 95% 5%, rgba(14, 165, 233, 0.14), transparent 52%),
+    var(--console-bg);
+}
+
+.ai-console {
+  min-height: 100vh;
+  padding: 28px 20px 44px;
+}
+
+.ai-layout {
+  background: transparent !important;
+}
+
+.console-header {
+  background: transparent !important;
+  border: 1px solid var(--console-border);
+  border-radius: 24px;
+  box-shadow: var(--console-shadow);
+  backdrop-filter: blur(16px);
+  padding: 22px 26px !important;
+  height: auto !important;
+  line-height: normal !important;
+  margin-bottom: 18px;
+}
+
+.console-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.console-subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.console-content {
+  padding: 0 !important;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.glass-card {
+  border: 1px solid var(--console-border) !important;
+  border-radius: 20px !important;
+  background: var(--console-surface) !important;
+  box-shadow: var(--console-shadow) !important;
+  backdrop-filter: blur(14px);
+}
+
+.sub-glass-card {
+  border: 1px solid rgba(15, 118, 110, 0.1) !important;
+  border-radius: 16px !important;
+  background: var(--console-surface-soft) !important;
+}
+
+.console-table .ant-table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.console-table .ant-table-thead > tr > th {
+  font-weight: 600;
+}
+
+.console-table .ant-table-tbody > tr:hover > td {
+  background: rgba(15, 118, 110, 0.06) !important;
+}
+
+.agent-sender {
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.agent-sender .ant-input,
+.agent-sender .ant-input:focus,
+.agent-sender .ant-input-focused {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.agent-sender-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.agent-bubble-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.agent-bubble-text {
+  margin: 0;
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+@media (max-width: 1200px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .ai-console {
+    padding: 16px 12px 28px;
+  }
+
+  .console-header {
+    border-radius: 18px;
+    padding: 16px 14px !important;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
 }

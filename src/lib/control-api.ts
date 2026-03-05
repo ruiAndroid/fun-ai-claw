@@ -1,4 +1,9 @@
 import {
+  AgentTaskConfirmRequest,
+  AgentTaskConfirmResponse,
+  AgentTaskPrepareRequest,
+  AgentTaskPrepareResponse,
+  AgentTaskResponse,
   AcceptedActionResponse,
   ClawInstance,
   CreateInstanceRequest,
@@ -72,4 +77,22 @@ export async function deleteInstance(instanceId: string) {
 
 export async function getInstancePairingCode(instanceId: string) {
   return requestJson<PairingCodeResponse>(`/v1/instances/${instanceId}/pairing-code`);
+}
+
+export async function prepareAgentTask(request: AgentTaskPrepareRequest) {
+  return requestJson<AgentTaskPrepareResponse>("/v1/agent-tasks/prepare", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function confirmAgentTask(request: AgentTaskConfirmRequest) {
+  return requestJson<AgentTaskConfirmResponse>("/v1/agent-tasks/confirm", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function getAgentTask(taskId: string) {
+  return requestJson<AgentTaskResponse>(`/v1/agent-tasks/tasks/${taskId}`);
 }

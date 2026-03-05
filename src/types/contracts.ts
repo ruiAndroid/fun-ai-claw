@@ -1,7 +1,7 @@
 export type InstanceStatus = "CREATING" | "RUNNING" | "STOPPED" | "ERROR";
 export type DesiredState = "RUNNING" | "STOPPED";
 export type RuntimeType = "ZEROCLAW";
-export type InstanceActionType = "START" | "STOP" | "RESTART" | "ROLLBACK";
+export type InstanceActionType = "START" | "STOP" | "RESTART" | "RESTART_CLAW" | "ROLLBACK";
 
 export interface ClawInstance {
   id: string;
@@ -50,4 +50,41 @@ export interface CreateInstanceRequest {
   hostId: string;
   image: string;
   desiredState: DesiredState;
+}
+
+export type AgentTaskStatus = "PREPARED" | "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+
+export interface AgentTaskPrepareRequest {
+  instanceId: string;
+  agentId: string;
+  message: string;
+}
+
+export interface AgentTaskPrepareResponse {
+  taskId: string;
+  confirmToken: string;
+  summary: string;
+  expiresAt: string;
+}
+
+export interface AgentTaskConfirmRequest {
+  confirmToken: string;
+}
+
+export interface AgentTaskConfirmResponse {
+  taskId: string;
+  status: AgentTaskStatus | string;
+  acceptedAt: string;
+}
+
+export interface AgentTaskResponse {
+  taskId: string;
+  agentId: string;
+  status: AgentTaskStatus | string;
+  responseBody?: string | null;
+  errorMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
 }

@@ -37,7 +37,8 @@ const uiText = {
   createdAt: "\u521b\u5efa\u65f6\u95f4",
   start: "\u542f\u52a8",
   stop: "\u505c\u6b62",
-  restart: "\u91cd\u542f",
+  restartInstance: "\u91cd\u542f\u5b9e\u4f8b",
+  restartClawOnly: "\u91cd\u542f Claw",
   rollback: "\u56de\u6eda",
   delete: "\u5220\u9664",
   remoteConnect: "\u8fdc\u7a0b\u8fde\u63a5",
@@ -150,7 +151,8 @@ export function Dashboard() {
   const actionBusy = submittingAction || deletingInstance;
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
   const disableStop = !selectedInstance || actionBusy || selectedStatus === "STOPPED" || selectedStatus === "CREATING";
-  const disableRestart = !selectedInstance || actionBusy || selectedStatus === "CREATING";
+  const disableRestartInstance = !selectedInstance || actionBusy || selectedStatus === "CREATING";
+  const disableRestartClaw = !selectedInstance || actionBusy || selectedStatus !== "RUNNING";
   const disableRollback = !selectedInstance || actionBusy || selectedStatus === "CREATING";
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
@@ -159,6 +161,13 @@ export function Dashboard() {
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
+  const actionLabelMap: Record<InstanceActionType, string> = {
+    START: uiText.start,
+    STOP: uiText.stop,
+    RESTART: uiText.restartInstance,
+    RESTART_CLAW: uiText.restartClawOnly,
+    ROLLBACK: uiText.rollback,
+  };
 
   const loadInstances = useCallback(async () => {
     setLoadingInstances(true);
@@ -331,7 +340,7 @@ export function Dashboard() {
     try {
       await submitInstanceAction(instanceId, action);
       await loadInstances();
-      messageApi.success(`${uiText.actionSubmittedPrefix}${action}`);
+      messageApi.success(`${uiText.actionSubmittedPrefix}${actionLabelMap[action]}`);
       if (action === "START" || action === "RESTART" || action === "ROLLBACK") {
         await fetchAndShowPairingCode(instanceId, instanceName);
       }
@@ -605,10 +614,17 @@ export function Dashboard() {
                     </Button>
                     <Button
                       loading={submittingAction}
-                      disabled={disableRestart}
+                      disabled={disableRestartInstance}
                       onClick={() => handleSensitiveAction("RESTART")}
                     >
-                      {uiText.restart}
+                      {uiText.restartInstance}
+                    </Button>
+                    <Button
+                      loading={submittingAction}
+                      disabled={disableRestartClaw}
+                      onClick={() => handleSensitiveAction("RESTART_CLAW")}
+                    >
+                      {uiText.restartClawOnly}
                     </Button>
                     <Button
                       danger
@@ -836,7 +852,7 @@ export function Dashboard() {
         okButtonProps={{ danger: pendingAction === "ROLLBACK" }}
         destroyOnHidden
       >
-        <Text>{`${uiText.confirmActionContentPrefix}${pendingAction ?? "-"} (${selectedInstance?.name ?? "-"})`}</Text>
+        <Text>{`${uiText.confirmActionContentPrefix}${pendingAction ? actionLabelMap[pendingAction] : "-"} (${selectedInstance?.name ?? "-"})`}</Text>
       </Modal>
       <Modal
         title={uiText.deleteConfirmTitle}

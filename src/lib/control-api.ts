@@ -1,6 +1,5 @@
 import {
   AgentDescriptor,
-  AgentSystemPromptResponse,
   AgentTaskConfirmRequest,
   AgentTaskConfirmResponse,
   AgentTaskPrepareRequest,
@@ -85,17 +84,6 @@ export async function getInstancePairingCode(instanceId: string) {
 
 export async function listInstanceAgents(instanceId: string) {
   return requestJson<ListResponse<AgentDescriptor>>(`/v1/instances/${instanceId}/agents`);
-}
-
-export async function upsertInstanceAgentSystemPrompt(
-  instanceId: string,
-  agentId: string,
-  request: { systemPrompt: string }
-) {
-  return requestJson<AgentSystemPromptResponse>(`/v1/instances/${instanceId}/agents/${encodeURIComponent(agentId)}/system-prompt`, {
-    method: "PUT",
-    body: JSON.stringify(request),
-  });
 }
 
 export async function listInstanceSkills(instanceId: string) {

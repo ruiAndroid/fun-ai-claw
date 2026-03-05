@@ -14,7 +14,6 @@ import {
   listInstances,
   prepareAgentTask,
   submitInstanceAction,
-  upsertInstanceAgentSystemPrompt,
   upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
 import { Badge } from "@/components/ui/badge";
@@ -148,13 +147,7 @@ const uiText = {
   agentSystemPromptTitle: "Agent system_prompt",
   agentSystemPromptPath: "\u914d\u7f6e\u8def\u5f84",
   agentSystemPromptPreview: "system_prompt \u9884\u89c8",
-  agentSystemPromptPlaceholder: "\u8f93\u5165\u5e76\u4fdd\u5b58\u8be5 Agent \u7684 system_prompt",
-  agentSystemPromptEdit: "\u7f16\u8f91",
-  agentSystemPromptSave: "\u4fdd\u5b58",
-  agentSystemPromptCancel: "\u53d6\u6d88",
-  agentSystemPromptSaved: "Agent system_prompt \u5df2\u4fdd\u5b58",
-  agentSystemPromptSaveFailed: "\u4fdd\u5b58 Agent system_prompt \u5931\u8d25",
-  agentSystemPromptMissingAgent: "\u8bf7\u5148\u9009\u62e9 Agent",
+  agentSystemPromptPlaceholder: "当前未配置 system_prompt",
   agentSkillNotAllowed: "\u5f53\u524d Agent \u7684 allowed_tools \u672a\u5305\u542b\u8be5 Skill ID\uff0c\u53ef\u80fd\u65e0\u6cd5\u76f4\u63a5\u8c03\u7528",
   selectAgent: "\u9009\u62e9 Agent",
   agentModel: "\u6a21\u578b",
@@ -269,9 +262,6 @@ export function Dashboard() {
   const [agentTaskSubmitting, setAgentTaskSubmitting] = useState(false);
   const [agentTaskProgress, setAgentTaskProgress] = useState<string>();
   const [latestAgentTask, setLatestAgentTask] = useState<AgentTaskResponse>();
-  const [agentSystemPromptEditing, setAgentSystemPromptEditing] = useState(false);
-  const [agentSystemPromptSaving, setAgentSystemPromptSaving] = useState(false);
-  const [agentSystemPromptDraft, setAgentSystemPromptDraft] = useState("");
   const [mainAgentGuidance, setMainAgentGuidance] = useState<InstanceMainAgentGuidance>();
   const [mainAgentGuidanceLoading, setMainAgentGuidanceLoading] = useState(false);
   const [mainAgentGuidanceSaving, setMainAgentGuidanceSaving] = useState(false);
@@ -335,8 +325,6 @@ export function Dashboard() {
   };
   const baselineMainAgentPrompt = mainAgentGuidance?.overridePrompt ?? "";
   const baselineMainAgentOverrideEnabled = mainAgentGuidance?.overrideEnabled ?? true;
-  const baselineAgentSystemPrompt = selectedAgent?.systemPrompt ?? "";
-  const agentSystemPromptDirty = agentSystemPromptDraft !== baselineAgentSystemPrompt;
   const mainAgentGuidanceDirty = mainAgentPromptDraft !== baselineMainAgentPrompt
     || mainAgentOverrideEnabledDraft !== baselineMainAgentOverrideEnabled;
   const dashboardStats = useMemo(() => {
@@ -542,26 +530,6 @@ export function Dashboard() {
     setMainAgentGuidanceEditing(false);
   }, [baselineMainAgentOverrideEnabled, baselineMainAgentPrompt]);
 
-  const saveAgentSystemPrompt = useCallback(async () => {
-    if (!selectedInstanceId || !selectedAgent) {
-      messageApi.warning(uiText.agentSystemPromptMissingAgent);
-      return;
-    }
-    setAgentSystemPromptSaving(true);
-    try {
-      await upsertInstanceAgentSystemPrompt(selectedInstanceId, selectedAgent.id, {
-        systemPrompt: agentSystemPromptDraft,
-      });
-      messageApi.success(uiText.agentSystemPromptSaved);
-      await loadAgents(selectedInstanceId);
-      setAgentSystemPromptEditing(false);
-    } catch (apiError) {
-      messageApi.error(apiError instanceof Error ? apiError.message : uiText.agentSystemPromptSaveFailed);
-    } finally {
-      setAgentSystemPromptSaving(false);
-    }
-  }, [agentSystemPromptDraft, loadAgents, messageApi, selectedAgent, selectedInstanceId]);
-
   useEffect(() => {
     void loadInstances();
   }, [loadInstances]);
@@ -573,11 +541,6 @@ export function Dashboard() {
     setLatestAgentTask(undefined);
     setAgentTaskProgress(undefined);
   }, [loadAgents, loadMainAgentGuidance, loadSkills, selectedInstanceId]);
-
-  useEffect(() => {
-    setAgentSystemPromptEditing(false);
-    setAgentSystemPromptDraft(selectedAgent?.systemPrompt ?? "");
-  }, [selectedAgent?.id, selectedAgent?.systemPrompt]);
 
   useEffect(() => {
     return () => {
@@ -1360,34 +1323,6 @@ export function Dashboard() {
                                   className="sub-glass-card"
                                   size="small"
                                   title={uiText.agentSystemPromptTitle}
-                                  extra={agentSystemPromptEditing ? (
-                                    <Space>
-                                      <Button
-                                        type="primary"
-                                        loading={agentSystemPromptSaving}
-                                        disabled={!agentSystemPromptDirty}
-                                        onClick={() => void saveAgentSystemPrompt()}
-                                      >
-                                        {uiText.agentSystemPromptSave}
-                                      </Button>
-                                      <Button
-                                        disabled={agentSystemPromptSaving}
-                                        onClick={() => {
-                                          setAgentSystemPromptDraft(baselineAgentSystemPrompt);
-                                          setAgentSystemPromptEditing(false);
-                                        }}
-                                      >
-                                        {uiText.agentSystemPromptCancel}
-                                      </Button>
-                                    </Space>
-                                  ) : (
-                                    <Button
-                                      disabled={agentSystemPromptSaving}
-                                      onClick={() => setAgentSystemPromptEditing(true)}
-                                    >
-                                      {uiText.agentSystemPromptEdit}
-                                    </Button>
-                                  )}
                                 >
                                   <Space direction="vertical" style={{ width: "100%" }} size="small">
                                     <Descriptions column={1} size="small" bordered>
@@ -1400,11 +1335,9 @@ export function Dashboard() {
                                     <Text strong>{uiText.agentSystemPromptPreview}</Text>
                                     <Input.TextArea
                                       rows={8}
-                                      value={agentSystemPromptDraft}
-                                      onChange={(event) => setAgentSystemPromptDraft(event.target.value)}
+                                      value={selectedAgent.systemPrompt ?? ""}
                                       placeholder={uiText.agentSystemPromptPlaceholder}
-                                      readOnly={!agentSystemPromptEditing}
-                                      disabled={agentSystemPromptSaving}
+                                      readOnly
                                     />
                                   </Space>
                                 </Card>

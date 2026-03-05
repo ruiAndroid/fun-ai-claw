@@ -46,13 +46,6 @@ export interface AgentDescriptor {
   configPath?: string | null;
 }
 
-export interface AgentSystemPromptResponse {
-  instanceId: string;
-  agentId: string;
-  systemPrompt?: string | null;
-  configPath?: string | null;
-}
-
 export interface SkillDescriptor {
   id: string;
   path: string;

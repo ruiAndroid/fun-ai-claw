@@ -1,10 +1,5 @@
 import {
   AgentDescriptor,
-  AgentTaskConfirmRequest,
-  AgentTaskConfirmResponse,
-  AgentTaskPrepareRequest,
-  AgentTaskPrepareResponse,
-  AgentTaskResponse,
   AcceptedActionResponse,
   ClawInstance,
   CreateInstanceRequest,
@@ -108,22 +103,4 @@ export async function deleteInstanceMainAgentGuidance(instanceId: string) {
   return requestJson<InstanceMainAgentGuidance>(`/v1/instances/${instanceId}/main-agent-guidance`, {
     method: "DELETE",
   });
-}
-
-export async function prepareAgentTask(request: AgentTaskPrepareRequest) {
-  return requestJson<AgentTaskPrepareResponse>("/v1/agent-tasks/prepare", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-}
-
-export async function confirmAgentTask(request: AgentTaskConfirmRequest) {
-  return requestJson<AgentTaskConfirmResponse>("/v1/agent-tasks/confirm", {
-    method: "POST",
-    body: JSON.stringify(request),
-  });
-}
-
-export async function getAgentTask(taskId: string) {
-  return requestJson<AgentTaskResponse>(`/v1/agent-tasks/tasks/${taskId}`);
 }

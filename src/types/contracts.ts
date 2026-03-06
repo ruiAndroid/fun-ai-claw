@@ -68,43 +68,6 @@ export interface CreateInstanceRequest {
   desiredState: DesiredState;
 }
 
-export type AgentTaskStatus = "PREPARED" | "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
-
-export interface AgentTaskPrepareRequest {
-  instanceId: string;
-  agentId: string;
-  message: string;
-}
-
-export interface AgentTaskPrepareResponse {
-  taskId: string;
-  confirmToken: string;
-  summary: string;
-  expiresAt: string;
-}
-
-export interface AgentTaskConfirmRequest {
-  confirmToken: string;
-}
-
-export interface AgentTaskConfirmResponse {
-  taskId: string;
-  status: AgentTaskStatus | string;
-  acceptedAt: string;
-}
-
-export interface AgentTaskResponse {
-  taskId: string;
-  agentId: string;
-  status: AgentTaskStatus | string;
-  responseBody?: string | null;
-  errorMessage?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-}
-
 export interface InstanceMainAgentGuidance {
   instanceId: string;
   workspacePath: string;

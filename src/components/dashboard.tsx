@@ -251,6 +251,24 @@ function resolveUiControllerUrl(instance: Pick<ClawInstance, "id" | "gatewayUrl"
   return gatewayUrl || undefined;
 }
 
+function canOpenUiDirectly(response?: PairingCodeResponse) {
+  const pairingLink = response?.pairingLink?.trim();
+  if (!pairingLink) {
+    return false;
+  }
+  if (!response?.pairingCode?.trim()) {
+    return true;
+  }
+  const note = response.note?.toLowerCase() ?? "";
+  const sourceLine = response.sourceLine?.toLowerCase() ?? "";
+  const normalizedLink = pairingLink.toLowerCase();
+  return note.includes("open link directly")
+    || note.includes("direct auto-login")
+    || sourceLine.includes("validated token")
+    || /(?:\?|&)autoauth=/.test(normalizedLink)
+    || /(?:\?|&)authtoken=/.test(normalizedLink);
+}
+
 function shortInstanceId(id: string) {
   if (!id || id.length <= 14) {
     return id;
@@ -282,6 +300,7 @@ export function Dashboard() {
   const [pairingCodeLoading, setPairingCodeLoading] = useState(false);
   const [pairingCodeData, setPairingCodeData] = useState<PairingCodeResponse>();
   const [pairingCodeInstanceName, setPairingCodeInstanceName] = useState<string>();
+  const [openingVisualUi, setOpeningVisualUi] = useState(false);
   const [agents, setAgents] = useState<AgentDescriptor[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState<string>();
@@ -723,13 +742,41 @@ export function Dashboard() {
     }
   }, [messageApi]);
 
+  const resolveDirectUiUrl = useCallback(async (instanceId: string, instanceName?: string) => {
+    setPairingCodeLoading(true);
+    try {
+      const response = await getInstancePairingCode(instanceId);
+      setPairingCodeData(response);
+      setPairingCodeInstanceName(instanceName);
+      const pairingLink = response.pairingLink?.trim();
+      if (pairingLink && canOpenUiDirectly(response)) {
+        return pairingLink;
+      }
+      setPairingCodeModalOpen(true);
+      return undefined;
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.pairingCodeFetchFailed);
+      return undefined;
+    } finally {
+      setPairingCodeLoading(false);
+    }
+  }, [messageApi]);
+
   const handleCreateInstance = async () => {
+    let pendingUiWindow: Window | null = null;
     try {
       const values = await createForm.validateFields();
       const request: CreateInstanceRequest = {
         ...values,
         hostId: appConfig.defaultHostId,
       };
+      if (request.desiredState === "RUNNING") {
+        pendingUiWindow = window.open("", "_blank");
+        if (pendingUiWindow) {
+          pendingUiWindow.document.title = uiText.openVisualUi;
+          pendingUiWindow.document.body.innerHTML = `<p>${uiText.instanceCreatedPrefix}${request.name}</p>`;
+        }
+      }
       setCreatingInstance(true);
       const instance = await createInstance(request);
       closeCreateModal();
@@ -737,9 +784,23 @@ export function Dashboard() {
       setSelectedInstanceId(instance.id);
       messageApi.success(`${uiText.instanceCreatedPrefix}${instance.name}`);
       if (values.desiredState === "RUNNING") {
-        await fetchAndShowPairingCode(instance.id, instance.name);
+        const directUiUrl = await resolveDirectUiUrl(instance.id, instance.name);
+        if (directUiUrl) {
+          if (pendingUiWindow && !pendingUiWindow.closed) {
+            pendingUiWindow.location.href = directUiUrl;
+            pendingUiWindow = null;
+          } else {
+            window.open(directUiUrl, "_blank", "noopener,noreferrer");
+          }
+        } else if (pendingUiWindow && !pendingUiWindow.closed) {
+          pendingUiWindow.close();
+          pendingUiWindow = null;
+        }
       }
     } catch (apiError) {
+      if (pendingUiWindow && !pendingUiWindow.closed) {
+        pendingUiWindow.close();
+      }
       const hasValidationError =
         typeof apiError === "object" &&
         apiError !== null &&
@@ -1352,12 +1413,24 @@ export function Dashboard() {
     setTerminalCommand("");
   }, [appendTerminalOutput, messageApi, terminalCommand]);
 
-  const openVisualUi = useCallback(() => {
-    if (!selectedGatewayUrl) {
+  const openVisualUi = useCallback(async () => {
+    if (!selectedInstance) {
       return;
     }
-    window.open(selectedGatewayUrl, "_blank", "noopener,noreferrer");
-  }, [selectedGatewayUrl]);
+    setOpeningVisualUi(true);
+    try {
+      const directUiUrl = await resolveDirectUiUrl(selectedInstance.id, selectedInstance.name);
+      if (!directUiUrl) {
+        if (!selectedGatewayUrl) {
+          messageApi.warning(uiText.openVisualUiUnavailable);
+        }
+        return;
+      }
+      window.open(directUiUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setOpeningVisualUi(false);
+    }
+  }, [messageApi, resolveDirectUiUrl, selectedGatewayUrl, selectedInstance]);
 
   const openPairingCodeModal = useCallback(() => {
     if (!selectedInstance) {
@@ -1619,7 +1692,12 @@ export function Dashboard() {
                     <Button loading={pairingCodeLoading} disabled={!selectedInstance} onClick={openPairingCodeModal}>
                       {uiText.fetchPairingCode}
                     </Button>
-                    <Button type="primary" onClick={openVisualUi} disabled={!selectedGatewayUrl}>
+                    <Button
+                      type="primary"
+                      loading={openingVisualUi}
+                      onClick={() => void openVisualUi()}
+                      disabled={!selectedInstance}
+                    >
                       {uiText.openVisualUi}
                     </Button>
                   </Space>

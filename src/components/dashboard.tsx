@@ -25,7 +25,7 @@ const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail";
-type InstanceDetailTabKey = "agents" | "skills";
+type InstanceDetailTabKey = "claw" | "agents" | "skills";
 
 const uiText = {
   loadFailed: "\u52a0\u8f7dclaw\u5b9e\u4f8b\u5931\u8d25",
@@ -128,6 +128,7 @@ const uiText = {
   refreshAgents: "\u5237\u65b0 Agent \u5217\u8868",
   loadSkillsFailed: "\u52a0\u8f7d Skill \u5217\u8868\u5931\u8d25",
   noSkills: "\u8be5\u5b9e\u4f8b\u6682\u65e0\u53ef\u7528 Skill",
+  tabClaw: "claw\u8be6\u60c5",
   tabAgent: "Agent",
   tabSkill: "Skill",
   agentSkillPanelTitle: "Agent / Skill",
@@ -250,7 +251,7 @@ export function Dashboard() {
   const [mainAgentPromptDraft, setMainAgentPromptDraft] = useState("");
   const [mainAgentOverrideEnabledDraft, setMainAgentOverrideEnabledDraft] = useState(true);
   const [mainAgentGuidanceEditing, setMainAgentGuidanceEditing] = useState(false);
-  const [instanceDetailTab, setInstanceDetailTab] = useState<InstanceDetailTabKey>("agents");
+  const [instanceDetailTab, setInstanceDetailTab] = useState<InstanceDetailTabKey>("claw");
   const terminalSocketRef = useRef<WebSocket | null>(null);
   const [terminalOutput, setTerminalOutput] = useState("");
   const [terminalCommand, setTerminalCommand] = useState("");
@@ -832,13 +833,13 @@ export function Dashboard() {
   const openInstanceDetail = useCallback((instanceId: string) => {
     setSelectedInstanceId(instanceId);
     setActiveView("instance-detail");
-    setInstanceDetailTab("agents");
+    setInstanceDetailTab("claw");
   }, []);
 
   const openMenuView = useCallback((view: Exclude<ConsoleView, "instance-detail">) => {
     setActiveView(view);
     if (view === "instances") {
-      setInstanceDetailTab("agents");
+      setInstanceDetailTab("claw");
     }
   }, []);
 
@@ -1089,125 +1090,131 @@ export function Dashboard() {
                   <Card
                     className="sub-glass-card"
                     size="small"
-                    title={uiText.mainAgentGuidanceTitle}
-                    extra={(
-                      <Space>
-                        <Button
-                          loading={mainAgentGuidanceLoading}
-                          onClick={() => void loadMainAgentGuidance(selectedInstance.id)}
-                        >
-                          {uiText.mainAgentGuidanceRefresh}
-                        </Button>
-                        {mainAgentGuidanceEditing ? (
-                          <>
-                            <Button
-                              type="primary"
-                              loading={mainAgentGuidanceSaving}
-                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceDeleting || !mainAgentGuidanceDirty}
-                              onClick={async () => {
-                                const saved = await saveMainAgentGuidance();
-                                if (saved) {
-                                  setMainAgentGuidanceEditing(false);
-                                }
-                              }}
-                            >
-                              {uiText.mainAgentGuidanceSave}
-                            </Button>
-                            <Button
-                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                              onClick={cancelMainAgentGuidanceEdit}
-                            >
-                              {uiText.mainAgentGuidanceCancel}
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                              onClick={() => setMainAgentGuidanceEditing(true)}
-                            >
-                              {uiText.mainAgentGuidanceEdit}
-                            </Button>
-                            <Button
-                              danger
-                              loading={mainAgentGuidanceDeleting}
-                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || !mainAgentGuidance?.overrideExists}
-                              onClick={() => void removeMainAgentGuidanceOverride()}
-                            >
-                              {uiText.mainAgentGuidanceDelete}
-                            </Button>
-                          </>
-                        )}
-                      </Space>
-                    )}
-                  >
-                    <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                      {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} /> : null}
-                      <Descriptions column={1} size="small" bordered>
-                        <Descriptions.Item label={uiText.mainAgentGuidanceSource}>
-                          {mainAgentGuidance?.source ?? "-"}
-                        </Descriptions.Item>
-                        <Descriptions.Item label={uiText.mainAgentGuidanceWorkspacePath}>
-                          <Text code copyable={mainAgentGuidance?.workspacePath ? { text: mainAgentGuidance.workspacePath } : false}>
-                            {mainAgentGuidance?.workspacePath ?? "-"}
-                          </Text>
-                        </Descriptions.Item>
-                        <Descriptions.Item label={uiText.mainAgentGuidanceGlobalPath}>
-                          {mainAgentGuidance?.globalDefaultPath ? (
-                            <Text code copyable={{ text: mainAgentGuidance.globalDefaultPath }}>
-                              {mainAgentGuidance.globalDefaultPath}
-                            </Text>
-                          ) : "-"}
-                        </Descriptions.Item>
-                        <Descriptions.Item label={uiText.mainAgentGuidanceOverwriteOnStart}>
-                          {typeof mainAgentGuidance?.overwriteOnStart === "boolean"
-                            ? String(mainAgentGuidance.overwriteOnStart)
-                            : "-"}
-                        </Descriptions.Item>
-                      </Descriptions>
-                      {mainAgentGuidanceEditing ? (
-                        <>
-                          <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                            <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
-                            <Switch
-                              checked={mainAgentOverrideEnabledDraft}
-                              onChange={setMainAgentOverrideEnabledDraft}
-                              disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                            />
-                          </Space>
-                          <Input.TextArea
-                            rows={8}
-                            value={mainAgentPromptDraft}
-                            onChange={(event) => setMainAgentPromptDraft(event.target.value)}
-                            placeholder={uiText.mainAgentGuidanceOverridePromptPlaceholder}
-                            disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <Text strong>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
-                          {mainAgentGuidance?.effectivePrompt ? (
-                            <Paragraph style={{ marginBottom: 0 }}>
-                              <Text code style={{ whiteSpace: "pre-wrap" }}>
-                                {mainAgentGuidance.effectivePrompt}
-                              </Text>
-                            </Paragraph>
-                          ) : (
-                            <Text type="secondary">{uiText.mainAgentGuidanceNoEffectivePrompt}</Text>
-                          )}
-                        </>
-                      )}
-                    </Space>
-                  </Card>
-                  <Card
-                    className="sub-glass-card"
-                    size="small"
                     title={uiText.agentSkillPanelTitle}
                   >
                     <Tabs
                       activeKey={instanceDetailTab}
                       onChange={(key) => setInstanceDetailTab(key as InstanceDetailTabKey)}
                       items={[
+                        {
+                          key: "claw",
+                          label: uiText.tabClaw,
+                          children: (
+                            <Card
+                              className="sub-glass-card"
+                              size="small"
+                              title={uiText.mainAgentGuidanceTitle}
+                              extra={(
+                                <Space>
+                                  <Button
+                                    loading={mainAgentGuidanceLoading}
+                                    onClick={() => void loadMainAgentGuidance(selectedInstance.id)}
+                                  >
+                                    {uiText.mainAgentGuidanceRefresh}
+                                  </Button>
+                                  {mainAgentGuidanceEditing ? (
+                                    <>
+                                      <Button
+                                        type="primary"
+                                        loading={mainAgentGuidanceSaving}
+                                        disabled={mainAgentGuidanceLoading || mainAgentGuidanceDeleting || !mainAgentGuidanceDirty}
+                                        onClick={async () => {
+                                          const saved = await saveMainAgentGuidance();
+                                          if (saved) {
+                                            setMainAgentGuidanceEditing(false);
+                                          }
+                                        }}
+                                      >
+                                        {uiText.mainAgentGuidanceSave}
+                                      </Button>
+                                      <Button
+                                        disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                                        onClick={cancelMainAgentGuidanceEdit}
+                                      >
+                                        {uiText.mainAgentGuidanceCancel}
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                                        onClick={() => setMainAgentGuidanceEditing(true)}
+                                      >
+                                        {uiText.mainAgentGuidanceEdit}
+                                      </Button>
+                                      <Button
+                                        danger
+                                        loading={mainAgentGuidanceDeleting}
+                                        disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || !mainAgentGuidance?.overrideExists}
+                                        onClick={() => void removeMainAgentGuidanceOverride()}
+                                      >
+                                        {uiText.mainAgentGuidanceDelete}
+                                      </Button>
+                                    </>
+                                  )}
+                                </Space>
+                              )}
+                            >
+                              <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                                {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} /> : null}
+                                <Descriptions column={1} size="small" bordered>
+                                  <Descriptions.Item label={uiText.mainAgentGuidanceSource}>
+                                    {mainAgentGuidance?.source ?? "-"}
+                                  </Descriptions.Item>
+                                  <Descriptions.Item label={uiText.mainAgentGuidanceWorkspacePath}>
+                                    <Text code copyable={mainAgentGuidance?.workspacePath ? { text: mainAgentGuidance.workspacePath } : false}>
+                                      {mainAgentGuidance?.workspacePath ?? "-"}
+                                    </Text>
+                                  </Descriptions.Item>
+                                  <Descriptions.Item label={uiText.mainAgentGuidanceGlobalPath}>
+                                    {mainAgentGuidance?.globalDefaultPath ? (
+                                      <Text code copyable={{ text: mainAgentGuidance.globalDefaultPath }}>
+                                        {mainAgentGuidance.globalDefaultPath}
+                                      </Text>
+                                    ) : "-"}
+                                  </Descriptions.Item>
+                                  <Descriptions.Item label={uiText.mainAgentGuidanceOverwriteOnStart}>
+                                    {typeof mainAgentGuidance?.overwriteOnStart === "boolean"
+                                      ? String(mainAgentGuidance.overwriteOnStart)
+                                      : "-"}
+                                  </Descriptions.Item>
+                                </Descriptions>
+                                {mainAgentGuidanceEditing ? (
+                                  <>
+                                    <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                                      <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
+                                      <Switch
+                                        checked={mainAgentOverrideEnabledDraft}
+                                        onChange={setMainAgentOverrideEnabledDraft}
+                                        disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                                      />
+                                    </Space>
+                                    <Input.TextArea
+                                      rows={8}
+                                      value={mainAgentPromptDraft}
+                                      onChange={(event) => setMainAgentPromptDraft(event.target.value)}
+                                      placeholder={uiText.mainAgentGuidanceOverridePromptPlaceholder}
+                                      disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                                    />
+                                  </>
+                                ) : (
+                                  <>
+                                    <Text strong>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
+                                    {mainAgentGuidance?.effectivePrompt ? (
+                                      <Paragraph style={{ marginBottom: 0 }}>
+                                        <Text code style={{ whiteSpace: "pre-wrap" }}>
+                                          {mainAgentGuidance.effectivePrompt}
+                                        </Text>
+                                      </Paragraph>
+                                    ) : (
+                                      <Text type="secondary">{uiText.mainAgentGuidanceNoEffectivePrompt}</Text>
+                                    )}
+                                  </>
+                                )}
+                              </Space>
+                            </Card>
+                          ),
+                        },
                         {
                           key: "agents",
                           label: uiText.tabAgent,

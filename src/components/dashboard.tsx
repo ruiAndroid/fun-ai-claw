@@ -18,7 +18,7 @@ import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCar
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
 import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Server, Wrench } from "lucide-react";
-import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Switch, Tabs, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const { Header, Content } = Layout;
@@ -83,6 +83,10 @@ const uiText = {
   restartInstance: "\u91cd\u542f\u5b9e\u4f8b",
   rollback: "\u56de\u6eda",
   delete: "\u5220\u9664",
+  actionProgressTitle: "\u5b9e\u4f8b\u52a8\u4f5c\u6267\u884c\u4e2d",
+  actionProgressHint: "\u8bf7\u4fdd\u6301\u5f53\u524d\u7a97\u53e3\u5728\u524d\u53f0\uff0c\u7cfb\u7edf\u6b63\u5728\u5904\u7406\u6307\u4ee4\u3002",
+  actionProgressCurrent: "\u5f53\u524d\u52a8\u4f5c",
+  actionProgressWaiting: "\u52a8\u4f5c\u5b8c\u6210\u540e\u5c06\u81ea\u52a8\u5173\u95ed\u6b64\u7a97\u53e3\u3002",
   remoteConnect: "\u8fdc\u7a0b\u8fde\u63a5",
   remoteConnectTitle: "\u8fdc\u7a0b\u547d\u4ee4\u884c\u8fde\u63a5",
   remoteConnectHint: "\u590d\u5236\u4e0b\u65b9\u547d\u4ee4\u540e\uff0c\u5728\u4f60\u7684\u7ec8\u7aef\u6267\u884c\u5373\u53ef\u8fdb\u5165\u5b9e\u4f8b\u3002",
@@ -271,6 +275,7 @@ export function Dashboard() {
   const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const [creatingInstance, setCreatingInstance] = useState(false);
   const [submittingAction, setSubmittingAction] = useState(false);
+  const [activeInstanceAction, setActiveInstanceAction] = useState<{ action: InstanceActionType; instanceName?: string }>();
   const [deletingInstance, setDeletingInstance] = useState(false);
   const [error, setError] = useState<string>();
   const [pairingCodeModalOpen, setPairingCodeModalOpen] = useState(false);
@@ -378,6 +383,7 @@ export function Dashboard() {
     RESTART: uiText.restartInstance,
     ROLLBACK: uiText.rollback,
   };
+  const activeActionLabel = activeInstanceAction ? actionLabelMap[activeInstanceAction.action] : "";
   const baselineMainAgentPrompt = mainAgentGuidance?.overridePrompt ?? "";
   const baselineMainAgentOverrideEnabled = mainAgentGuidance?.overrideEnabled ?? true;
   const mainAgentGuidanceDirty = mainAgentPromptDraft !== baselineMainAgentPrompt
@@ -757,12 +763,15 @@ export function Dashboard() {
       return false;
     }
     const instanceId = selectedInstanceId;
-    const instanceName = selectedInstance?.name;
+    const instanceName = selectedInstance?.name ?? "-";
+    setActiveInstanceAction({ action, instanceName });
     setSubmittingAction(true);
     try {
       await submitInstanceAction(instanceId, action);
       await loadInstances();
       messageApi.success(`${uiText.actionSubmittedPrefix}${actionLabelMap[action]}`);
+      setSubmittingAction(false);
+      setActiveInstanceAction(undefined);
       if (action === "START" || action === "RESTART" || action === "ROLLBACK") {
         await fetchAndShowPairingCode(instanceId, instanceName);
       }
@@ -796,10 +805,10 @@ export function Dashboard() {
     if (!pendingAction) {
       return;
     }
-    const succeeded = await handleAction(pendingAction);
-    if (succeeded) {
-      closeActionConfirm();
-    }
+    const action = pendingAction;
+    setActionConfirmOpen(false);
+    setPendingAction(undefined);
+    await handleAction(action);
   };
 
   const handleDeleteInstance = async () => {
@@ -2241,6 +2250,26 @@ export function Dashboard() {
           {pairingCodeData?.note ? (
             <Text type="secondary">{pairingCodeData.note}</Text>
           ) : null}
+        </Space>
+      </Modal>
+      <Modal
+        title={uiText.actionProgressTitle}
+        open={submittingAction && !!activeInstanceAction}
+        footer={null}
+        closable={false}
+        maskClosable={false}
+        keyboard={false}
+        centered
+        destroyOnHidden
+      >
+        <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          <div style={{ display: "flex", justifyContent: "center", padding: "12px 0" }}>
+            <Spin size="large" />
+          </div>
+          <Text type="secondary">{uiText.actionProgressHint}</Text>
+          <Text strong>{`${uiText.instanceName}: ${activeInstanceAction?.instanceName ?? selectedInstance?.name ?? "-"}`}</Text>
+          <Text strong>{`${uiText.actionProgressCurrent}: ${activeActionLabel || "-"}`}</Text>
+          <Text type="secondary">{uiText.actionProgressWaiting}</Text>
         </Space>
       </Modal>
       <Modal

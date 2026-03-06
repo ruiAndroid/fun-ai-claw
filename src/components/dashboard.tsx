@@ -366,6 +366,9 @@ export function Dashboard() {
     const matchedStep = content.match(/确认第([1-5])步/);
     return matchedStep?.[1];
   }, [latestAgentAssistantMessage]);
+  const pendingAgentApprovalMessageId = useMemo(() => (
+    pendingAgentApprovalStep ? latestAgentAssistantMessage?.id : undefined
+  ), [latestAgentAssistantMessage, pendingAgentApprovalStep]);
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();

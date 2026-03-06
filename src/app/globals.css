@@ -334,6 +334,80 @@ body {
   font-size: 12px;
 }
 
+.agent-session-starter {
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.agent-chat-thread {
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  background:
+    radial-gradient(circle at top right, rgba(20, 184, 166, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.agent-chat-item {
+  display: flex;
+}
+
+.agent-chat-item.is-user {
+  justify-content: flex-end;
+}
+
+.agent-chat-item.is-system {
+  justify-content: center;
+}
+
+.agent-chat-bubble {
+  max-width: min(88%, 720px);
+  border-radius: 18px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.agent-chat-item.is-assistant .agent-chat-bubble {
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.agent-chat-item.is-user .agent-chat-bubble {
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #f8fafc;
+}
+
+.agent-chat-item.is-system .agent-chat-bubble {
+  max-width: 100%;
+  background: rgba(226, 232, 240, 0.55);
+  color: #475569;
+  box-shadow: none;
+}
+
+.agent-chat-role {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.agent-chat-content {
+  font-size: 13px;
+  line-height: 1.72;
+}
+
+.agent-chat-pending {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.72;
+}
+
 @media (max-width: 1200px) {
   .console-shell,
   .console-shell.is-collapsed {

@@ -26,6 +26,19 @@ const { Title, Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail";
 type InstanceDetailTabKey = "claw" | "agents" | "skills";
+type AgentChatRole = "user" | "assistant" | "system";
+type AgentChatMessage = {
+  id: string;
+  role: AgentChatRole;
+  content: string;
+  pending?: boolean;
+};
+type AgentSessionStarterDraft = {
+  scriptType: "小说转剧本" | "一句话剧本";
+  scriptContent: string;
+  targetAudience: string;
+  expectedEpisodeCount: string;
+};
 
 const uiText = {
   loadFailed: "\u52a0\u8f7dclaw\u5b9e\u4f8b\u5931\u8d25",
@@ -152,7 +165,7 @@ const uiText = {
   agentProvider: "\u63d0\u4f9b\u65b9",
   agenticMode: "Agentic",
   agentMessage: "\u6d88\u606f",
-  agentMessagePlaceholder: "\u8f93\u5165\u53d1\u7ed9\u5f53\u524d\u5b9e\u4f8b\u4e3b Agent \u7684\u6d88\u606f\uff0c\u652f\u6301\u591a\u884c\uff1b\u5982\u201c\u786e\u8ba4\u7b2c1\u6b65\u201d\u9700\u5728\u540c\u4e00\u4f1a\u8bdd\u5185\u53d1\u9001",
+  agentMessagePlaceholder: "\u8f93\u5165\u53d1\u7ed9\u5f53\u524d\u5b9e\u4f8b\u4e3b Agent \u7684\u6d88\u606f\uff1b\u591a\u884c\u5185\u5bb9\u4f1a\u5728\u53d1\u9001\u65f6\u81ea\u52a8\u5408\u5e76\u4e3a\u540c\u4e00\u6761\u56de\u5408",
   sendAgentMessage: "\u53d1\u9001\u5230\u4f1a\u8bdd",
   missingAgentOrMessage: "\u8bf7\u5148\u9009\u62e9 Agent \u5e76\u8f93\u5165\u6d88\u606f",
   agentChatLegacyDisabled: "\u65e7 agent-task \u6a21\u5f0f\u5df2\u79fb\u9664\uff0c\u7b49\u5f85 Agent Session \u6a21\u5f0f\u63a5\u5165",
@@ -165,8 +178,26 @@ const uiText = {
   agentSessionConnected: "Agent Session \u5df2\u8fde\u63a5",
   agentSessionDisconnected: "Agent Session \u5df2\u65ad\u5f00",
   agentSessionNotRunning: "\u8bf7\u5148\u542f\u52a8\u5b9e\u4f8b\uff0c\u518d\u6253\u5f00 Agent Session",
-  agentSessionModeHint: "\u5f53\u524d\u4e3a\u957f\u4f1a\u8bdd\u6a21\u5f0f\uff0c\u7528\u6237\u7684\u201c\u786e\u8ba4\u7b2cN\u6b65 / \u91cd\u751f\u6210\u201d\u5fc5\u987b\u5728\u540c\u4e00\u6761\u8fde\u63a5\u5185\u7ee7\u7eed\u53d1\u9001\u3002",
+  agentSessionModeHint: "\u5f53\u524d\u4e3a\u957f\u4f1a\u8bdd\u6a21\u5f0f\uff0c\u7528\u6237\u7684\u201c\u786e\u8ba4\u7b2cN\u6b65 / \u91cd\u751f\u6210\u201d\u5fc5\u987b\u5728\u540c\u4e00\u6761\u8fde\u63a5\u5185\u7ee7\u7eed\u53d1\u9001\u3002\u591a\u884c\u8f93\u5165\u4f1a\u88ab\u5408\u5e76\u4e3a\u5355\u6761\u6d88\u606f\uff0c\u907f\u514d\u88ab REPL \u62c6\u6210\u591a\u4e2a\u56de\u5408\u3002",
   agentSessionMainAgentHint: "\u8be5\u4f1a\u8bdd\u76f4\u63a5\u9a71\u52a8\u5b9e\u4f8b\u5185\u7684 zeroclaw agent \u4e3b Agent\uff1b\u4e00\u65e6\u5173\u95ed\u8fde\u63a5\uff0c\u4e0a\u4e0b\u6587\u4f1a\u7acb\u5373\u6e05\u7a7a\u3002",
+  agentSessionStarterTitle: "\u53d1\u8d77\u521b\u4f5c\u9700\u6c42",
+  agentSessionStarterHint: "\u5148\u7528\u8868\u5355\u544a\u8bc9 Agent \u4f60\u8981\u751f\u6210\u4ec0\u4e48\uff0c\u540e\u7eed\u518d\u50cf\u804a\u5929\u4e00\u6837\u7ee7\u7eed\u786e\u8ba4\u6216\u4fee\u6539\u3002",
+  agentSessionScriptType: "\u5267\u672c\u7c7b\u578b",
+  agentSessionScriptContent: "\u6545\u4e8b\u5185\u5bb9",
+  agentSessionTargetAudience: "\u76ee\u6807\u53d7\u4f17",
+  agentSessionEpisodeCount: "\u9884\u671f\u96c6\u6570",
+  agentSessionSendStarter: "\u53d1\u9001\u521b\u4f5c\u9700\u6c42",
+  agentSessionNeedStarterFields: "\u8bf7\u5148\u586b\u5199\u5b8c\u6574\u7684\u521b\u4f5c\u9700\u6c42",
+  agentSessionStarterContentPlaceholder: "\u4f8b\u5982\uff1a\u4e00\u4e2a\u88ab\u9677\u5bb3\u7684\u5973\u5f8b\u5e08\u91cd\u751f\u56de\u5ead\u5ba1\u524d\u591c\uff0c\u53cd\u6740\u5e55\u540e\u9ed1\u624b\u5e76\u9006\u88ad\u6210\u5f8b\u6240\u5408\u4f19\u4eba\u3002",
+  agentSessionFollowUpPlaceholder: "\u7ee7\u7eed\u50cf\u804a\u5929\u4e00\u6837\u8bf4\u51fa\u4f60\u7684\u786e\u8ba4\u3001\u4fee\u6539\u6216\u8ffd\u52a0\u8981\u6c42",
+  agentSessionConversationEmpty: "\u4f1a\u8bdd\u542f\u52a8\u540e\uff0cAgent \u7684\u56de\u590d\u4f1a\u4ee5\u5bf9\u8bdd\u5f62\u5f0f\u663e\u793a\u5728\u8fd9\u91cc\u3002",
+  agentSessionQuickApprove: "\u786e\u8ba4\u5f53\u524d\u6b65\u9aa4",
+  agentSessionQuickRevise: "\u91cd\u751f\u6210\u5f53\u524d\u6b65\u9aa4",
+  agentSessionShowDebug: "\u663e\u793a\u8c03\u8bd5\u65e5\u5fd7",
+  agentSessionHideDebug: "\u9690\u85cf\u8c03\u8bd5\u65e5\u5fd7",
+  agentSessionDebugTitle: "\u8c03\u8bd5\u65e5\u5fd7",
+  agentSessionActiveSession: "\u5f53\u524d\u4f1a\u8bdd",
+  agentSessionPendingReply: "Agent \u6b63\u5728\u7ec4\u7ec7\u56de\u590d...",
   mainAgentGuidanceTitle: "\u4e3b Agent \u63d0\u793a\u8bcd",
   mainAgentGuidanceRefresh: "\u5237\u65b0\u63d0\u793a\u8bcd",
   mainAgentGuidanceEdit: "\u7f16\u8f91",
@@ -254,11 +285,23 @@ export function Dashboard() {
   const [selectedSkillId, setSelectedSkillId] = useState<string>();
   const [agentMessageInput, setAgentMessageInput] = useState("");
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
+  const agentQueuedMessageRef = useRef<string | null>(null);
+  const agentSessionLineBufferRef = useRef("");
+  const agentPendingAssistantMessageIdRef = useRef<string | null>(null);
+  const agentChatMessageSeqRef = useRef(0);
   const [agentSessionOutput, setAgentSessionOutput] = useState("");
   const [agentSessionConnecting, setAgentSessionConnecting] = useState(false);
   const [agentSessionConnected, setAgentSessionConnected] = useState(false);
   const agentSessionOutputRef = useRef<HTMLDivElement | null>(null);
   const agentSessionSuppressCloseMessageRef = useRef(false);
+  const [agentChatMessages, setAgentChatMessages] = useState<AgentChatMessage[]>([]);
+  const [agentSessionDebugVisible, setAgentSessionDebugVisible] = useState(false);
+  const [agentSessionStarterDraft, setAgentSessionStarterDraft] = useState<AgentSessionStarterDraft>({
+    scriptType: "一句话剧本",
+    scriptContent: "",
+    targetAudience: "女频",
+    expectedEpisodeCount: "3",
+  });
   const [mainAgentGuidance, setMainAgentGuidance] = useState<InstanceMainAgentGuidance>();
   const [mainAgentGuidanceLoading, setMainAgentGuidanceLoading] = useState(false);
   const [mainAgentGuidanceSaving, setMainAgentGuidanceSaving] = useState(false);
@@ -312,6 +355,15 @@ export function Dashboard() {
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const agentSessionRenderedLines = useMemo(() => agentSessionOutput.split("\n"), [agentSessionOutput]);
+  const latestAgentAssistantMessage = useMemo(
+    () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && item.content.trim().length > 0),
+    [agentChatMessages]
+  );
+  const pendingAgentApprovalStep = useMemo(() => {
+    const content = latestAgentAssistantMessage?.content ?? "";
+    const matchedStep = content.match(/确认第([1-5])步/);
+    return matchedStep?.[1];
+  }, [latestAgentAssistantMessage]);
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
@@ -541,6 +593,9 @@ export function Dashboard() {
   useEffect(() => {
     return () => {
       agentSessionSuppressCloseMessageRef.current = true;
+      agentQueuedMessageRef.current = null;
+      agentSessionLineBufferRef.current = "";
+      agentPendingAssistantMessageIdRef.current = null;
       agentSessionSocketRef.current?.close();
       agentSessionSocketRef.current = null;
       terminalSocketRef.current?.close();
@@ -554,7 +609,7 @@ export function Dashboard() {
       return;
     }
     outputElement.scrollTop = outputElement.scrollHeight;
-  }, [agentSessionOutput]);
+  }, [agentChatMessages]);
 
   useEffect(() => {
     const outputElement = terminalOutputRef.current;
@@ -568,7 +623,12 @@ export function Dashboard() {
     const socket = agentSessionSocketRef.current;
     if (!socket) {
       setAgentSessionOutput("");
+      setAgentChatMessages([]);
       setAgentMessageInput("");
+      setAgentSessionDebugVisible(false);
+      agentQueuedMessageRef.current = null;
+      agentSessionLineBufferRef.current = "";
+      agentPendingAssistantMessageIdRef.current = null;
       return;
     }
     agentSessionSuppressCloseMessageRef.current = true;
@@ -577,7 +637,12 @@ export function Dashboard() {
     setAgentSessionConnected(false);
     setAgentSessionConnecting(false);
     setAgentSessionOutput("");
+    setAgentChatMessages([]);
     setAgentMessageInput("");
+    setAgentSessionDebugVisible(false);
+    agentQueuedMessageRef.current = null;
+    agentSessionLineBufferRef.current = "";
+    agentPendingAssistantMessageIdRef.current = null;
   }, [selectedInstanceId]);
 
   const openCreateModal = () => {
@@ -791,6 +856,218 @@ export function Dashboard() {
     });
   }, []);
 
+  const nextAgentChatMessageId = useCallback(() => {
+    agentChatMessageSeqRef.current += 1;
+    return `agent-chat-${agentChatMessageSeqRef.current}`;
+  }, []);
+
+  const appendAgentChatMessage = useCallback((role: AgentChatRole, content: string, pending = false) => {
+    const normalizedContent = content.trim();
+    if (!normalizedContent) {
+      return;
+    }
+    setAgentChatMessages((current) => [
+      ...current,
+      {
+        id: nextAgentChatMessageId(),
+        role,
+        content: normalizedContent,
+        pending,
+      },
+    ]);
+  }, [nextAgentChatMessageId]);
+
+  const finalizePendingAssistantMessage = useCallback(() => {
+    const pendingMessageId = agentPendingAssistantMessageIdRef.current;
+    if (!pendingMessageId) {
+      return;
+    }
+    setAgentChatMessages((current) => current.flatMap((item) => {
+      if (item.id !== pendingMessageId) {
+        return [item];
+      }
+      const normalizedContent = item.content.trim();
+      if (!normalizedContent) {
+        return [];
+      }
+      return [{
+        ...item,
+        content: normalizedContent,
+        pending: false,
+      }];
+    }));
+    agentPendingAssistantMessageIdRef.current = null;
+  }, []);
+
+  const appendAssistantMessageChunk = useCallback((chunk: string) => {
+    if (!chunk && !agentPendingAssistantMessageIdRef.current) {
+      return;
+    }
+
+    setAgentChatMessages((current) => {
+      const pendingMessageId = agentPendingAssistantMessageIdRef.current;
+      if (!pendingMessageId) {
+        if (!chunk.trim()) {
+          return current;
+        }
+        const newMessageId = nextAgentChatMessageId();
+        agentPendingAssistantMessageIdRef.current = newMessageId;
+        return [
+          ...current,
+          {
+            id: newMessageId,
+            role: "assistant",
+            content: chunk,
+            pending: true,
+          },
+        ];
+      }
+
+      return current.map((item) => {
+        if (item.id !== pendingMessageId) {
+          return item;
+        }
+        return {
+          ...item,
+          content: `${item.content}${chunk}`,
+          pending: true,
+        };
+      });
+    });
+  }, [nextAgentChatMessageId]);
+
+  const isAgentSessionLogLine = useCallback((line: string) => {
+    const normalizedLine = line.trim();
+    if (!normalizedLine) {
+      return false;
+    }
+    return normalizedLine.includes("zeroclaw::")
+      || /^20\d{2}-\d{2}-\d{2}T/.test(normalizedLine);
+  }, []);
+
+  const isAgentSessionMetaLine = useCallback((line: string) => {
+    const normalizedLine = line.trim();
+    if (!normalizedLine) {
+      return false;
+    }
+    const prefixes = [
+      "The user ",
+      "The user's ",
+      "The user has ",
+      "The user is ",
+      "According to ",
+      "I need to ",
+      "I must ",
+      "I should ",
+      "Let me ",
+      "This is a follow-up",
+      "The keywords",
+      "The input contains",
+    ];
+    return prefixes.some((prefix) => normalizedLine.startsWith(prefix));
+  }, []);
+
+  const processAgentSessionLine = useCallback((rawLine: string) => {
+    const normalizedLine = rawLine.replace(/\r$/, "");
+    const trimmedLine = normalizedLine.trim();
+
+    if (!trimmedLine) {
+      appendAssistantMessageChunk("\n");
+      return;
+    }
+
+    if (normalizedLine.startsWith("[system]")) {
+      finalizePendingAssistantMessage();
+      appendAgentChatMessage("system", normalizedLine.replace(/^\[system\]\s*/, ""));
+      return;
+    }
+
+    if (trimmedLine === "🦀 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
+      appendAgentChatMessage("system", trimmedLine);
+      return;
+    }
+
+    if (trimmedLine === ">") {
+      finalizePendingAssistantMessage();
+      return;
+    }
+
+    if (trimmedLine.startsWith(">")) {
+      const lineAfterPrompt = trimmedLine.slice(1).trim();
+      if (!lineAfterPrompt) {
+        finalizePendingAssistantMessage();
+        return;
+      }
+      if (lineAfterPrompt.startsWith("[you]")) {
+        return;
+      }
+      if (isAgentSessionLogLine(lineAfterPrompt) || isAgentSessionMetaLine(lineAfterPrompt)) {
+        return;
+      }
+      appendAssistantMessageChunk(`${lineAfterPrompt}\n`);
+      return;
+    }
+
+    if (isAgentSessionLogLine(trimmedLine)) {
+      if (trimmedLine.includes("turn.complete")) {
+        finalizePendingAssistantMessage();
+      }
+      return;
+    }
+
+    if (isAgentSessionMetaLine(trimmedLine)) {
+      return;
+    }
+
+    appendAssistantMessageChunk(`${normalizedLine}\n`);
+  }, [appendAgentChatMessage, appendAssistantMessageChunk, finalizePendingAssistantMessage, isAgentSessionLogLine, isAgentSessionMetaLine]);
+
+  const processAgentSessionChunk = useCallback((chunk: string) => {
+    appendAgentSessionOutput(chunk);
+    agentSessionLineBufferRef.current += chunk;
+    const lines = agentSessionLineBufferRef.current.split("\n");
+    agentSessionLineBufferRef.current = lines.pop() ?? "";
+    lines.forEach((line) => processAgentSessionLine(line));
+  }, [appendAgentSessionOutput, processAgentSessionLine]);
+
+  const normalizeAgentSessionMessage = useCallback((rawInput: string) => {
+    const normalizedLines = rawInput
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    return normalizedLines.join(" ").trim();
+  }, []);
+
+  const sendNormalizedAgentMessage = useCallback((normalizedMessage: string) => {
+    const socket = agentSessionSocketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    finalizePendingAssistantMessage();
+    appendAgentChatMessage("user", normalizedMessage);
+    socket.send(`${normalizedMessage}\n`);
+    return true;
+  }, [appendAgentChatMessage, finalizePendingAssistantMessage]);
+
+  const buildAgentStarterMessage = useCallback(() => {
+    const scriptContent = agentSessionStarterDraft.scriptContent.trim();
+    const targetAudience = agentSessionStarterDraft.targetAudience.trim();
+    const expectedEpisodeCount = agentSessionStarterDraft.expectedEpisodeCount.trim();
+
+    if (!scriptContent || !targetAudience || !expectedEpisodeCount) {
+      return "";
+    }
+
+    return [
+      `script_type=${agentSessionStarterDraft.scriptType}`,
+      `script_content=${scriptContent}`,
+      `target_audience=${targetAudience}`,
+      `expected_episode_count=${expectedEpisodeCount}`,
+    ].join("\n");
+  }, [agentSessionStarterDraft]);
+
   const buildAgentSessionWebSocketUrl = useCallback((instanceId: string) => {
     const apiBase = appConfig.controlApiBaseUrl;
     const query = `instanceId=${encodeURIComponent(instanceId)}`;
@@ -814,7 +1091,8 @@ export function Dashboard() {
     }
     setAgentSessionConnecting(false);
     setAgentSessionConnected(false);
-  }, []);
+    finalizePendingAssistantMessage();
+  }, [finalizePendingAssistantMessage]);
 
   const connectAgentSession = useCallback(() => {
     if (!selectedInstance) {
@@ -827,6 +1105,10 @@ export function Dashboard() {
 
     disconnectAgentSession();
     setAgentSessionOutput("");
+    setAgentChatMessages([]);
+    setAgentSessionDebugVisible(false);
+    agentSessionLineBufferRef.current = "";
+    agentPendingAssistantMessageIdRef.current = null;
     setAgentSessionConnecting(true);
 
     const socket = new WebSocket(buildAgentSessionWebSocketUrl(selectedInstance.id));
@@ -836,11 +1118,16 @@ export function Dashboard() {
       setAgentSessionConnecting(false);
       setAgentSessionConnected(true);
       messageApi.success(uiText.agentSessionConnected);
+      const queuedMessage = agentQueuedMessageRef.current;
+      if (queuedMessage) {
+        agentQueuedMessageRef.current = null;
+        sendNormalizedAgentMessage(queuedMessage);
+      }
     };
 
     socket.onmessage = (event) => {
       if (typeof event.data === "string") {
-        appendAgentSessionOutput(event.data);
+        processAgentSessionChunk(event.data);
       }
     };
 
@@ -849,33 +1136,88 @@ export function Dashboard() {
     };
 
     socket.onclose = () => {
+      if (agentSessionLineBufferRef.current.trim()) {
+        processAgentSessionLine(agentSessionLineBufferRef.current);
+        agentSessionLineBufferRef.current = "";
+      }
+      finalizePendingAssistantMessage();
       agentSessionSocketRef.current = null;
       setAgentSessionConnecting(false);
       setAgentSessionConnected(false);
       const suppressCloseMessage = agentSessionSuppressCloseMessageRef.current;
       agentSessionSuppressCloseMessageRef.current = false;
       if (!suppressCloseMessage) {
-        appendAgentSessionOutput(`[system] ${uiText.agentSessionDisconnected}\n`);
+        appendAgentChatMessage("system", uiText.agentSessionDisconnected);
       }
     };
-  }, [appendAgentSessionOutput, buildAgentSessionWebSocketUrl, disconnectAgentSession, messageApi, selectedInstance]);
+  }, [
+    appendAgentChatMessage,
+    buildAgentSessionWebSocketUrl,
+    disconnectAgentSession,
+    finalizePendingAssistantMessage,
+    messageApi,
+    processAgentSessionChunk,
+    processAgentSessionLine,
+    selectedInstance,
+    sendNormalizedAgentMessage,
+  ]);
 
   const sendAgentMessage = useCallback(() => {
-    const socket = agentSessionSocketRef.current;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+    if (!agentSessionConnected) {
       messageApi.warning(uiText.agentSessionConnectFailed);
       return;
     }
-    if (!agentMessageInput.trim()) {
+    const normalizedMessage = normalizeAgentSessionMessage(agentMessageInput);
+    if (!normalizedMessage) {
       return;
     }
-    const normalizedInput = agentMessageInput.endsWith("\n")
-      ? agentMessageInput
-      : `${agentMessageInput}\n`;
-    appendAgentSessionOutput(`[you] ${normalizedInput}`);
-    socket.send(normalizedInput);
+    sendNormalizedAgentMessage(normalizedMessage);
     setAgentMessageInput("");
-  }, [agentMessageInput, appendAgentSessionOutput, messageApi]);
+  }, [agentMessageInput, agentSessionConnected, messageApi, normalizeAgentSessionMessage, sendNormalizedAgentMessage]);
+
+  const sendAgentStarterMessage = useCallback(() => {
+    const starterMessage = buildAgentStarterMessage();
+    if (!starterMessage) {
+      messageApi.warning(uiText.agentSessionNeedStarterFields);
+      return;
+    }
+    if (agentSessionConnected) {
+      sendNormalizedAgentMessage(normalizeAgentSessionMessage(starterMessage));
+      return;
+    }
+    if (!selectedInstance || selectedInstance.status !== "RUNNING") {
+      messageApi.warning(uiText.agentSessionNotRunning);
+      return;
+    }
+    agentQueuedMessageRef.current = normalizeAgentSessionMessage(starterMessage);
+    connectAgentSession();
+  }, [
+    agentSessionConnected,
+    buildAgentStarterMessage,
+    connectAgentSession,
+    messageApi,
+    normalizeAgentSessionMessage,
+    selectedInstance,
+    sendNormalizedAgentMessage,
+  ]);
+
+  const approveCurrentAgentStep = useCallback(() => {
+    if (!pendingAgentApprovalStep) {
+      return;
+    }
+    if (!agentSessionConnected) {
+      messageApi.warning(uiText.agentSessionConnectFailed);
+      return;
+    }
+    sendNormalizedAgentMessage(`确认第${pendingAgentApprovalStep}步`);
+  }, [agentSessionConnected, messageApi, pendingAgentApprovalStep, sendNormalizedAgentMessage]);
+
+  const reviseCurrentAgentStep = useCallback(() => {
+    if (!pendingAgentApprovalStep) {
+      return;
+    }
+    setAgentMessageInput(`第${pendingAgentApprovalStep}步重生成：`);
+  }, [pendingAgentApprovalStep]);
 
   const buildTerminalWebSocketUrl = useCallback((instanceId: string) => {
     const apiBase = appConfig.controlApiBaseUrl;
@@ -1375,38 +1717,106 @@ export function Dashboard() {
                               >
                                 <Space direction="vertical" style={{ width: "100%" }} size="small">
                                   <Alert type="info" showIcon message={uiText.agentSessionModeHint} description={uiText.agentSessionMainAgentHint} />
-                                  <Text>{uiText.agentSessionOutput}</Text>
+                                  <Card size="small" className="agent-session-starter" title={uiText.agentSessionStarterTitle}>
+                                    <Space direction="vertical" style={{ width: "100%" }} size="small">
+                                      <Text type="secondary">{uiText.agentSessionStarterHint}</Text>
+                                      <Select
+                                        value={agentSessionStarterDraft.scriptType}
+                                        onChange={(value) => setAgentSessionStarterDraft((current) => ({
+                                          ...current,
+                                          scriptType: value,
+                                        }))}
+                                        options={[
+                                          { value: "一句话剧本", label: "一句话剧本" },
+                                          { value: "小说转剧本", label: "小说转剧本" },
+                                        ]}
+                                      />
+                                      <Input.TextArea
+                                        rows={4}
+                                        value={agentSessionStarterDraft.scriptContent}
+                                        onChange={(event) => setAgentSessionStarterDraft((current) => ({
+                                          ...current,
+                                          scriptContent: event.target.value,
+                                        }))}
+                                        placeholder={uiText.agentSessionStarterContentPlaceholder}
+                                      />
+                                      <Space.Compact style={{ width: "100%" }}>
+                                        <Input
+                                          value={agentSessionStarterDraft.targetAudience}
+                                          onChange={(event) => setAgentSessionStarterDraft((current) => ({
+                                            ...current,
+                                            targetAudience: event.target.value,
+                                          }))}
+                                          addonBefore={uiText.agentSessionTargetAudience}
+                                        />
+                                        <Input
+                                          value={agentSessionStarterDraft.expectedEpisodeCount}
+                                          onChange={(event) => setAgentSessionStarterDraft((current) => ({
+                                            ...current,
+                                            expectedEpisodeCount: event.target.value,
+                                          }))}
+                                          addonBefore={uiText.agentSessionEpisodeCount}
+                                        />
+                                      </Space.Compact>
+                                      <div className="agent-sender-actions">
+                                        <Button
+                                          type="primary"
+                                          loading={agentSessionConnecting}
+                                          onClick={sendAgentStarterMessage}
+                                        >
+                                          {uiText.agentSessionSendStarter}
+                                        </Button>
+                                      </div>
+                                    </Space>
+                                  </Card>
+                                  <Text>{uiText.agentSessionActiveSession}</Text>
                                   <div
                                     ref={agentSessionOutputRef}
-                                    className="agent-bubble-text"
+                                    className="agent-chat-thread"
                                     style={{
                                       height: 320,
                                       overflowY: "auto",
                                       background: "#fff",
                                     }}
                                   >
-                                    {agentSessionOutput ? agentSessionRenderedLines.map((line, index) => {
-                                      const normalizedLine = line ?? "";
-                                      const isSystemLine = normalizedLine.startsWith("[system]");
-                                      const isUserLine = normalizedLine.startsWith("[you]");
-                                      const color = isUserLine ? "#1677ff" : isSystemLine ? "#8c8c8c" : "#111111";
-                                      return (
-                                        <div key={`${index}-${normalizedLine}`} style={{ whiteSpace: "pre-wrap", color }}>
-                                          {normalizedLine}
+                                    {agentChatMessages.length > 0 ? agentChatMessages.map((item) => (
+                                      <div
+                                        key={item.id}
+                                        className={`agent-chat-item ${item.role === "user" ? "is-user" : item.role === "system" ? "is-system" : "is-assistant"}`}
+                                      >
+                                        <div className="agent-chat-bubble">
+                                          <div className="agent-chat-role">
+                                            {item.role === "user" ? "你" : item.role === "system" ? "系统" : "Agent"}
+                                          </div>
+                                          <div className="agent-chat-content">{item.content}</div>
+                                          {item.pending ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
                                         </div>
-                                      );
-                                    }) : (
-                                      <Text type="secondary">{uiText.agentSessionOutputPlaceholder}</Text>
+                                      </div>
+                                    )) : (
+                                      <Text type="secondary">{uiText.agentSessionConversationEmpty}</Text>
                                     )}
                                   </div>
+                                  {pendingAgentApprovalStep ? (
+                                    <Space wrap>
+                                      <Button onClick={approveCurrentAgentStep} disabled={!agentSessionConnected}>
+                                        {uiText.agentSessionQuickApprove}
+                                      </Button>
+                                      <Button onClick={reviseCurrentAgentStep}>
+                                        {uiText.agentSessionQuickRevise}
+                                      </Button>
+                                    </Space>
+                                  ) : null}
                                   <div className="agent-sender">
                                     <Input.TextArea
                                       rows={4}
                                       value={agentMessageInput}
                                       onChange={(event) => setAgentMessageInput(event.target.value)}
-                                      placeholder={uiText.agentMessagePlaceholder}
+                                      placeholder={uiText.agentSessionFollowUpPlaceholder}
                                     />
                                     <div className="agent-sender-actions">
+                                      <Button type="text" onClick={() => setAgentSessionDebugVisible((current) => !current)}>
+                                        {agentSessionDebugVisible ? uiText.agentSessionHideDebug : uiText.agentSessionShowDebug}
+                                      </Button>
                                       <Button
                                         type="primary"
                                         disabled={disableSendAgentMessage}
@@ -1416,6 +1826,20 @@ export function Dashboard() {
                                       </Button>
                                     </div>
                                   </div>
+                                  {agentSessionDebugVisible ? (
+                                    <>
+                                      <Text>{uiText.agentSessionDebugTitle}</Text>
+                                      <div className="agent-bubble-text" style={{ maxHeight: 220, overflowY: "auto", background: "#fff" }}>
+                                        {agentSessionOutput ? agentSessionRenderedLines.map((line, index) => (
+                                          <div key={`${index}-${line ?? ""}`} style={{ whiteSpace: "pre-wrap" }}>
+                                            {line}
+                                          </div>
+                                        )) : (
+                                          <Text type="secondary">{uiText.agentSessionOutputPlaceholder}</Text>
+                                        )}
+                                      </div>
+                                    </>
+                                  ) : null}
                                 </Space>
                               </Card>
                             </Space>

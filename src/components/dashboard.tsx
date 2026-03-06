@@ -152,11 +152,21 @@ const uiText = {
   agentProvider: "\u63d0\u4f9b\u65b9",
   agenticMode: "Agentic",
   agentMessage: "\u6d88\u606f",
-  agentMessagePlaceholder: "\u8f93\u5165\u53d1\u7ed9\u5f53\u524d claw \u5b9e\u4f8b\u7684\u6d88\u606f",
-  sendAgentMessage: "\u53d1\u9001\u7ed9\u5b9e\u4f8b",
+  agentMessagePlaceholder: "\u8f93\u5165\u53d1\u7ed9\u5f53\u524d\u5b9e\u4f8b\u4e3b Agent \u7684\u6d88\u606f\uff0c\u652f\u6301\u591a\u884c\uff1b\u5982\u201c\u786e\u8ba4\u7b2c1\u6b65\u201d\u9700\u5728\u540c\u4e00\u4f1a\u8bdd\u5185\u53d1\u9001",
+  sendAgentMessage: "\u53d1\u9001\u5230\u4f1a\u8bdd",
   missingAgentOrMessage: "\u8bf7\u5148\u9009\u62e9 Agent \u5e76\u8f93\u5165\u6d88\u606f",
   agentChatLegacyDisabled: "\u65e7 agent-task \u6a21\u5f0f\u5df2\u79fb\u9664\uff0c\u7b49\u5f85 Agent Session \u6a21\u5f0f\u63a5\u5165",
   agentChatLegacyHint: "\u5f53\u524d\u4ec5\u4fdd\u7559 UI\uff0c\u540e\u7eed\u5c06\u6539\u4e3a\u957f\u4f1a\u8bdd Agent Session \u9a71\u52a8",
+  agentSessionConnect: "\u542f\u52a8\u4f1a\u8bdd",
+  agentSessionDisconnect: "\u7ed3\u675f\u4f1a\u8bdd",
+  agentSessionOutput: "\u4f1a\u8bdd\u8f93\u51fa",
+  agentSessionOutputPlaceholder: "\u8fde\u63a5 Agent Session \u540e\uff0c\u5b9e\u4f8b\u5185 zeroclaw agent \u7684\u8f93\u51fa\u4f1a\u5b9e\u65f6\u663e\u793a\u5728\u8fd9\u91cc\u3002",
+  agentSessionConnectFailed: "Agent Session \u8fde\u63a5\u5931\u8d25",
+  agentSessionConnected: "Agent Session \u5df2\u8fde\u63a5",
+  agentSessionDisconnected: "Agent Session \u5df2\u65ad\u5f00",
+  agentSessionNotRunning: "\u8bf7\u5148\u542f\u52a8\u5b9e\u4f8b\uff0c\u518d\u6253\u5f00 Agent Session",
+  agentSessionModeHint: "\u5f53\u524d\u4e3a\u957f\u4f1a\u8bdd\u6a21\u5f0f\uff0c\u7528\u6237\u7684\u201c\u786e\u8ba4\u7b2cN\u6b65 / \u91cd\u751f\u6210\u201d\u5fc5\u987b\u5728\u540c\u4e00\u6761\u8fde\u63a5\u5185\u7ee7\u7eed\u53d1\u9001\u3002",
+  agentSessionMainAgentHint: "\u8be5\u4f1a\u8bdd\u76f4\u63a5\u9a71\u52a8\u5b9e\u4f8b\u5185\u7684 zeroclaw agent \u4e3b Agent\uff1b\u4e00\u65e6\u5173\u95ed\u8fde\u63a5\uff0c\u4e0a\u4e0b\u6587\u4f1a\u7acb\u5373\u6e05\u7a7a\u3002",
   mainAgentGuidanceTitle: "\u4e3b Agent \u63d0\u793a\u8bcd",
   mainAgentGuidanceRefresh: "\u5237\u65b0\u63d0\u793a\u8bcd",
   mainAgentGuidanceEdit: "\u7f16\u8f91",
@@ -243,6 +253,12 @@ export function Dashboard() {
   const [skillsError, setSkillsError] = useState<string>();
   const [selectedSkillId, setSelectedSkillId] = useState<string>();
   const [agentMessageInput, setAgentMessageInput] = useState("");
+  const agentSessionSocketRef = useRef<WebSocket | null>(null);
+  const [agentSessionOutput, setAgentSessionOutput] = useState("");
+  const [agentSessionConnecting, setAgentSessionConnecting] = useState(false);
+  const [agentSessionConnected, setAgentSessionConnected] = useState(false);
+  const agentSessionOutputRef = useRef<HTMLDivElement | null>(null);
+  const agentSessionSuppressCloseMessageRef = useRef(false);
   const [mainAgentGuidance, setMainAgentGuidance] = useState<InstanceMainAgentGuidance>();
   const [mainAgentGuidanceLoading, setMainAgentGuidanceLoading] = useState(false);
   const [mainAgentGuidanceSaving, setMainAgentGuidanceSaving] = useState(false);
@@ -292,9 +308,10 @@ export function Dashboard() {
   const disableRollback = !selectedInstance || actionBusy || selectedStatus === "CREATING";
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
-  const disableSendAgentMessage = true;
+  const disableSendAgentMessage = !selectedInstance || !agentSessionConnected || !agentMessageInput.trim();
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
+  const agentSessionRenderedLines = useMemo(() => agentSessionOutput.split("\n"), [agentSessionOutput]);
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
@@ -523,10 +540,21 @@ export function Dashboard() {
 
   useEffect(() => {
     return () => {
+      agentSessionSuppressCloseMessageRef.current = true;
+      agentSessionSocketRef.current?.close();
+      agentSessionSocketRef.current = null;
       terminalSocketRef.current?.close();
       terminalSocketRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const outputElement = agentSessionOutputRef.current;
+    if (!outputElement) {
+      return;
+    }
+    outputElement.scrollTop = outputElement.scrollHeight;
+  }, [agentSessionOutput]);
 
   useEffect(() => {
     const outputElement = terminalOutputRef.current;
@@ -535,6 +563,22 @@ export function Dashboard() {
     }
     outputElement.scrollTop = outputElement.scrollHeight;
   }, [terminalOutput]);
+
+  useEffect(() => {
+    const socket = agentSessionSocketRef.current;
+    if (!socket) {
+      setAgentSessionOutput("");
+      setAgentMessageInput("");
+      return;
+    }
+    agentSessionSuppressCloseMessageRef.current = true;
+    socket.close();
+    agentSessionSocketRef.current = null;
+    setAgentSessionConnected(false);
+    setAgentSessionConnecting(false);
+    setAgentSessionOutput("");
+    setAgentMessageInput("");
+  }, [selectedInstanceId]);
 
   const openCreateModal = () => {
     setCreateModalOpen(true);
@@ -736,6 +780,102 @@ export function Dashboard() {
       return next.slice(next.length - 120000);
     });
   }, []);
+
+  const appendAgentSessionOutput = useCallback((chunk: string) => {
+    setAgentSessionOutput((current) => {
+      const next = `${current}${chunk}`;
+      if (next.length <= 120000) {
+        return next;
+      }
+      return next.slice(next.length - 120000);
+    });
+  }, []);
+
+  const buildAgentSessionWebSocketUrl = useCallback((instanceId: string) => {
+    const apiBase = appConfig.controlApiBaseUrl;
+    const query = `instanceId=${encodeURIComponent(instanceId)}`;
+
+    if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
+      const wsBase = apiBase.replace(/^http/i, "ws").replace(/\/$/, "");
+      return `${wsBase}/v1/agent-session/ws?${query}`;
+    }
+
+    const normalizedApiBase = apiBase.startsWith("/") ? apiBase : `/${apiBase}`;
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${protocol}://${window.location.host}${normalizedApiBase}/v1/agent-session/ws?${query}`;
+  }, []);
+
+  const disconnectAgentSession = useCallback(() => {
+    const socket = agentSessionSocketRef.current;
+    agentSessionSocketRef.current = null;
+    if (socket) {
+      agentSessionSuppressCloseMessageRef.current = true;
+      socket.close();
+    }
+    setAgentSessionConnecting(false);
+    setAgentSessionConnected(false);
+  }, []);
+
+  const connectAgentSession = useCallback(() => {
+    if (!selectedInstance) {
+      return;
+    }
+    if (selectedInstance.status !== "RUNNING") {
+      messageApi.warning(uiText.agentSessionNotRunning);
+      return;
+    }
+
+    disconnectAgentSession();
+    setAgentSessionOutput("");
+    setAgentSessionConnecting(true);
+
+    const socket = new WebSocket(buildAgentSessionWebSocketUrl(selectedInstance.id));
+    agentSessionSocketRef.current = socket;
+
+    socket.onopen = () => {
+      setAgentSessionConnecting(false);
+      setAgentSessionConnected(true);
+      messageApi.success(uiText.agentSessionConnected);
+    };
+
+    socket.onmessage = (event) => {
+      if (typeof event.data === "string") {
+        appendAgentSessionOutput(event.data);
+      }
+    };
+
+    socket.onerror = () => {
+      messageApi.error(uiText.agentSessionConnectFailed);
+    };
+
+    socket.onclose = () => {
+      agentSessionSocketRef.current = null;
+      setAgentSessionConnecting(false);
+      setAgentSessionConnected(false);
+      const suppressCloseMessage = agentSessionSuppressCloseMessageRef.current;
+      agentSessionSuppressCloseMessageRef.current = false;
+      if (!suppressCloseMessage) {
+        appendAgentSessionOutput(`[system] ${uiText.agentSessionDisconnected}\n`);
+      }
+    };
+  }, [appendAgentSessionOutput, buildAgentSessionWebSocketUrl, disconnectAgentSession, messageApi, selectedInstance]);
+
+  const sendAgentMessage = useCallback(() => {
+    const socket = agentSessionSocketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      messageApi.warning(uiText.agentSessionConnectFailed);
+      return;
+    }
+    if (!agentMessageInput.trim()) {
+      return;
+    }
+    const normalizedInput = agentMessageInput.endsWith("\n")
+      ? agentMessageInput
+      : `${agentMessageInput}\n`;
+    appendAgentSessionOutput(`[you] ${normalizedInput}`);
+    socket.send(normalizedInput);
+    setAgentMessageInput("");
+  }, [agentMessageInput, appendAgentSessionOutput, messageApi]);
 
   const buildTerminalWebSocketUrl = useCallback((instanceId: string) => {
     const apiBase = appConfig.controlApiBaseUrl;
@@ -1217,8 +1357,48 @@ export function Dashboard() {
                                 className="sub-glass-card"
                                 size="small"
                                 title={uiText.agentChatTitle}
+                                extra={(
+                                  <Space>
+                                    <Button
+                                      type="primary"
+                                      loading={agentSessionConnecting}
+                                      disabled={!selectedInstance || selectedStatus !== "RUNNING" || agentSessionConnected}
+                                      onClick={connectAgentSession}
+                                    >
+                                      {uiText.agentSessionConnect}
+                                    </Button>
+                                    <Button disabled={!agentSessionConnected} onClick={disconnectAgentSession}>
+                                      {uiText.agentSessionDisconnect}
+                                    </Button>
+                                  </Space>
+                                )}
                               >
                                 <Space direction="vertical" style={{ width: "100%" }} size="small">
+                                  <Alert type="info" showIcon message={uiText.agentSessionModeHint} description={uiText.agentSessionMainAgentHint} />
+                                  <Text>{uiText.agentSessionOutput}</Text>
+                                  <div
+                                    ref={agentSessionOutputRef}
+                                    className="agent-bubble-text"
+                                    style={{
+                                      height: 320,
+                                      overflowY: "auto",
+                                      background: "#fff",
+                                    }}
+                                  >
+                                    {agentSessionOutput ? agentSessionRenderedLines.map((line, index) => {
+                                      const normalizedLine = line ?? "";
+                                      const isSystemLine = normalizedLine.startsWith("[system]");
+                                      const isUserLine = normalizedLine.startsWith("[you]");
+                                      const color = isUserLine ? "#1677ff" : isSystemLine ? "#8c8c8c" : "#111111";
+                                      return (
+                                        <div key={`${index}-${normalizedLine}`} style={{ whiteSpace: "pre-wrap", color }}>
+                                          {normalizedLine}
+                                        </div>
+                                      );
+                                    }) : (
+                                      <Text type="secondary">{uiText.agentSessionOutputPlaceholder}</Text>
+                                    )}
+                                  </div>
                                   <div className="agent-sender">
                                     <Input.TextArea
                                       rows={4}
@@ -1230,12 +1410,12 @@ export function Dashboard() {
                                       <Button
                                         type="primary"
                                         disabled={disableSendAgentMessage}
+                                        onClick={sendAgentMessage}
                                       >
                                         {uiText.sendAgentMessage}
                                       </Button>
                                     </div>
                                   </div>
-                                  <Alert type="info" showIcon message={uiText.agentChatLegacyDisabled} description={uiText.agentChatLegacyHint} />
                                 </Space>
                               </Card>
                             </Space>

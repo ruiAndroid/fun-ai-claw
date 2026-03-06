@@ -198,6 +198,8 @@ const uiText = {
   agentSessionDebugTitle: "\u8c03\u8bd5\u65e5\u5fd7",
   agentSessionActiveSession: "\u5f53\u524d\u4f1a\u8bdd",
   agentSessionPendingReply: "Agent \u6b63\u5728\u7ec4\u7ec7\u56de\u590d...",
+  agentSessionConnectedHint: "\u5df2\u8fde\u63a5\u5230\u5f53\u524d\u5b9e\u4f8b\u4f1a\u8bdd",
+  agentSessionIdleHint: "\u672a\u8fde\u63a5",
   mainAgentGuidanceTitle: "\u4e3b Agent \u63d0\u793a\u8bcd",
   mainAgentGuidanceRefresh: "\u5237\u65b0\u63d0\u793a\u8bcd",
   mainAgentGuidanceEdit: "\u7f16\u8f91",
@@ -856,6 +858,24 @@ export function Dashboard() {
     });
   }, []);
 
+  const formatAgentMessageForDisplay = useCallback((normalizedMessage: string) => {
+    const scriptTypeMatch = normalizedMessage.match(/script_type=([^\s]+)/);
+    const scriptContentMatch = normalizedMessage.match(/script_content=(.+?)(?=\s+target_audience=|\s+expected_episode_count=|$)/);
+    const targetAudienceMatch = normalizedMessage.match(/target_audience=([^\s]+)/);
+    const episodeCountMatch = normalizedMessage.match(/expected_episode_count=([^\s]+)/);
+
+    if (scriptTypeMatch && scriptContentMatch && targetAudienceMatch && episodeCountMatch) {
+      return [
+        `请帮我生成${scriptTypeMatch[1]}`,
+        `故事：${scriptContentMatch[1].trim()}`,
+        `受众：${targetAudienceMatch[1]}`,
+        `集数：${episodeCountMatch[1]}`,
+      ].join("\n");
+    }
+
+    return normalizedMessage;
+  }, []);
+
   const nextAgentChatMessageId = useCallback(() => {
     agentChatMessageSeqRef.current += 1;
     return `agent-chat-${agentChatMessageSeqRef.current}`;
@@ -967,6 +987,19 @@ export function Dashboard() {
     return prefixes.some((prefix) => normalizedLine.startsWith(prefix));
   }, []);
 
+  const isAgentSessionInternalSystemMessage = useCallback((line: string) => {
+    const normalizedLine = line.trim();
+    if (!normalizedLine) {
+      return false;
+    }
+    const ignoredPrefixes = [
+      "connected:",
+      "agent session ready:",
+      "tip:",
+    ];
+    return ignoredPrefixes.some((prefix) => normalizedLine.startsWith(prefix));
+  }, []);
+
   const processAgentSessionLine = useCallback((rawLine: string) => {
     const normalizedLine = rawLine.replace(/\r$/, "");
     const trimmedLine = normalizedLine.trim();
@@ -978,12 +1011,14 @@ export function Dashboard() {
 
     if (normalizedLine.startsWith("[system]")) {
       finalizePendingAssistantMessage();
-      appendAgentChatMessage("system", normalizedLine.replace(/^\[system\]\s*/, ""));
+      const systemContent = normalizedLine.replace(/^\[system\]\s*/, "");
+      if (!isAgentSessionInternalSystemMessage(systemContent)) {
+        appendAgentChatMessage("system", systemContent);
+      }
       return;
     }
 
     if (trimmedLine === "🦀 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
-      appendAgentChatMessage("system", trimmedLine);
       return;
     }
 
@@ -1020,7 +1055,14 @@ export function Dashboard() {
     }
 
     appendAssistantMessageChunk(`${normalizedLine}\n`);
-  }, [appendAgentChatMessage, appendAssistantMessageChunk, finalizePendingAssistantMessage, isAgentSessionLogLine, isAgentSessionMetaLine]);
+  }, [
+    appendAgentChatMessage,
+    appendAssistantMessageChunk,
+    finalizePendingAssistantMessage,
+    isAgentSessionInternalSystemMessage,
+    isAgentSessionLogLine,
+    isAgentSessionMetaLine,
+  ]);
 
   const processAgentSessionChunk = useCallback((chunk: string) => {
     appendAgentSessionOutput(chunk);
@@ -1046,10 +1088,10 @@ export function Dashboard() {
       return false;
     }
     finalizePendingAssistantMessage();
-    appendAgentChatMessage("user", normalizedMessage);
+    appendAgentChatMessage("user", formatAgentMessageForDisplay(normalizedMessage));
     socket.send(`${normalizedMessage}\n`);
     return true;
-  }, [appendAgentChatMessage, finalizePendingAssistantMessage]);
+  }, [appendAgentChatMessage, finalizePendingAssistantMessage, formatAgentMessageForDisplay]);
 
   const buildAgentStarterMessage = useCallback(() => {
     const scriptContent = agentSessionStarterDraft.scriptContent.trim();
@@ -1720,44 +1762,54 @@ export function Dashboard() {
                                   <Card size="small" className="agent-session-starter" title={uiText.agentSessionStarterTitle}>
                                     <Space direction="vertical" style={{ width: "100%" }} size="small">
                                       <Text type="secondary">{uiText.agentSessionStarterHint}</Text>
-                                      <Select
-                                        value={agentSessionStarterDraft.scriptType}
-                                        onChange={(value) => setAgentSessionStarterDraft((current) => ({
-                                          ...current,
-                                          scriptType: value,
-                                        }))}
-                                        options={[
-                                          { value: "一句话剧本", label: "一句话剧本" },
-                                          { value: "小说转剧本", label: "小说转剧本" },
-                                        ]}
-                                      />
-                                      <Input.TextArea
-                                        rows={4}
-                                        value={agentSessionStarterDraft.scriptContent}
-                                        onChange={(event) => setAgentSessionStarterDraft((current) => ({
-                                          ...current,
-                                          scriptContent: event.target.value,
-                                        }))}
-                                        placeholder={uiText.agentSessionStarterContentPlaceholder}
-                                      />
-                                      <Space.Compact style={{ width: "100%" }}>
-                                        <Input
-                                          value={agentSessionStarterDraft.targetAudience}
+                                      <div className="agent-session-starter-field">
+                                        <Text strong>{uiText.agentSessionScriptType}</Text>
+                                        <Select
+                                          value={agentSessionStarterDraft.scriptType}
+                                          onChange={(value) => setAgentSessionStarterDraft((current) => ({
+                                            ...current,
+                                            scriptType: value,
+                                          }))}
+                                          options={[
+                                            { value: "一句话剧本", label: "一句话剧本" },
+                                            { value: "小说转剧本", label: "小说转剧本" },
+                                          ]}
+                                        />
+                                      </div>
+                                      <div className="agent-session-starter-field">
+                                        <Text strong>{uiText.agentSessionScriptContent}</Text>
+                                        <Input.TextArea
+                                          rows={4}
+                                          value={agentSessionStarterDraft.scriptContent}
                                           onChange={(event) => setAgentSessionStarterDraft((current) => ({
                                             ...current,
-                                            targetAudience: event.target.value,
+                                            scriptContent: event.target.value,
                                           }))}
-                                          addonBefore={uiText.agentSessionTargetAudience}
+                                          placeholder={uiText.agentSessionStarterContentPlaceholder}
                                         />
-                                        <Input
-                                          value={agentSessionStarterDraft.expectedEpisodeCount}
-                                          onChange={(event) => setAgentSessionStarterDraft((current) => ({
-                                            ...current,
-                                            expectedEpisodeCount: event.target.value,
-                                          }))}
-                                          addonBefore={uiText.agentSessionEpisodeCount}
-                                        />
-                                      </Space.Compact>
+                                      </div>
+                                      <div className="agent-session-starter-grid">
+                                        <div className="agent-session-starter-field">
+                                          <Text strong>{uiText.agentSessionTargetAudience}</Text>
+                                          <Input
+                                            value={agentSessionStarterDraft.targetAudience}
+                                            onChange={(event) => setAgentSessionStarterDraft((current) => ({
+                                              ...current,
+                                              targetAudience: event.target.value,
+                                            }))}
+                                          />
+                                        </div>
+                                        <div className="agent-session-starter-field">
+                                          <Text strong>{uiText.agentSessionEpisodeCount}</Text>
+                                          <Input
+                                            value={agentSessionStarterDraft.expectedEpisodeCount}
+                                            onChange={(event) => setAgentSessionStarterDraft((current) => ({
+                                              ...current,
+                                              expectedEpisodeCount: event.target.value,
+                                            }))}
+                                          />
+                                        </div>
+                                      </div>
                                       <div className="agent-sender-actions">
                                         <Button
                                           type="primary"
@@ -1769,7 +1821,12 @@ export function Dashboard() {
                                       </div>
                                     </Space>
                                   </Card>
-                                  <Text>{uiText.agentSessionActiveSession}</Text>
+                                  <div className="agent-session-section-head">
+                                    <Text strong>{uiText.agentSessionActiveSession}</Text>
+                                    <Tag color={agentSessionConnected ? "cyan" : "default"}>
+                                      {agentSessionConnected ? uiText.agentSessionConnectedHint : uiText.agentSessionIdleHint}
+                                    </Tag>
+                                  </div>
                                   <div
                                     ref={agentSessionOutputRef}
                                     className="agent-chat-thread"

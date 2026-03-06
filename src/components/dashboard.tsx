@@ -256,11 +256,8 @@ function canOpenUiDirectly(response?: PairingCodeResponse) {
   if (!pairingLink) {
     return false;
   }
-  if (!response?.pairingCode?.trim()) {
-    return true;
-  }
-  const note = response.note?.toLowerCase() ?? "";
-  const sourceLine = response.sourceLine?.toLowerCase() ?? "";
+  const note = response?.note?.toLowerCase() ?? "";
+  const sourceLine = response?.sourceLine?.toLowerCase() ?? "";
   const normalizedLink = pairingLink.toLowerCase();
   return note.includes("open link directly")
     || note.includes("direct auto-login")

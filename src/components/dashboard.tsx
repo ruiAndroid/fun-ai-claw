@@ -1090,7 +1090,6 @@ export function Dashboard() {
                   <Card
                     className="sub-glass-card"
                     size="small"
-                    title={uiText.agentSkillPanelTitle}
                   >
                     <Tabs
                       activeKey={instanceDetailTab}

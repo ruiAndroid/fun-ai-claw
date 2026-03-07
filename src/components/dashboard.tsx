@@ -169,6 +169,64 @@ function sanitizeAgentChatRole(value: unknown): AgentChatRole | undefined {
   return undefined;
 }
 
+function escapeMultilineJsonStrings(input: string): string {
+  let result = "";
+  let inString = false;
+  let escaping = false;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+
+    if (escaping) {
+      result += char;
+      escaping = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      result += char;
+      escaping = true;
+      continue;
+    }
+
+    if (char === "\"") {
+      result += char;
+      inString = !inString;
+      continue;
+    }
+
+    if (inString && char === "\n") {
+      result += "\\n";
+      continue;
+    }
+
+    if (inString && char === "\r") {
+      result += "\\r";
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+function parseStructuredAgentInteractionBlock(jsonBlock: string): AgentInteraction | undefined {
+  const candidates = [jsonBlock, escapeMultilineJsonStrings(jsonBlock)];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+      const sanitized = sanitizeAgentInteraction(parsed);
+      if (sanitized) {
+        return sanitized;
+      }
+    } catch {
+      // Try next candidate.
+    }
+  }
+  return undefined;
+}
+
 function getAgentInteractionStateLabel(stateId?: string): string | undefined {
   if (!stateId) {
     return undefined;
@@ -317,17 +375,12 @@ function extractStructuredAgentInteraction(content: string): ParsedAgentMessageC
   const normalizedContent = content.replace(/\r\n/g, "\n");
   let extractedInteraction: AgentInteraction | undefined;
   const displayContent = normalizedContent.replace(AGENT_INTERACTION_BLOCK_PATTERN, (_, jsonBlock: string) => {
-    try {
-      const parsed = JSON.parse(jsonBlock) as unknown;
-      const sanitized = sanitizeAgentInteraction(parsed);
-      if (sanitized) {
-        extractedInteraction = sanitized;
-        return "";
-      }
-    } catch {
-      return _;
+    const sanitized = parseStructuredAgentInteractionBlock(jsonBlock);
+    if (sanitized) {
+      extractedInteraction = sanitized;
+      return "";
     }
-    return "";
+    return _;
   }).trim();
   return {
     displayContent,

@@ -18,7 +18,7 @@ import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCar
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
 import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Server, Wrench } from "lucide-react";
-import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const { Header, Content } = Layout;
@@ -26,6 +26,7 @@ const { Title, Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail";
 type InstanceDetailTabKey = "claw" | "agents" | "skills";
+type AgentSessionMode = "auto" | "direct";
 type AgentChatRole = "user" | "assistant" | "system";
 type AgentInteractionActionKind = "send" | "prefill";
 type AgentInteractionAction = {
@@ -601,7 +602,16 @@ const uiText = {
   agentSessionDisconnected: "Agent Session \u5df2\u65ad\u5f00",
   agentSessionNotRunning: "\u8bf7\u5148\u542f\u52a8\u5b9e\u4f8b\uff0c\u518d\u6253\u5f00 Agent Session",
   agentSessionModeHint: "\u5f53\u524d\u4e3a\u957f\u4f1a\u8bdd\u6a21\u5f0f\uff0c\u7528\u6237\u7684\u201c\u786e\u8ba4\u7b2cN\u6b65 / \u91cd\u751f\u6210\u201d\u5fc5\u987b\u5728\u540c\u4e00\u6761\u8fde\u63a5\u5185\u7ee7\u7eed\u53d1\u9001\u3002\u591a\u884c\u8f93\u5165\u4f1a\u88ab\u5408\u5e76\u4e3a\u5355\u6761\u6d88\u606f\uff0c\u907f\u514d\u88ab REPL \u62c6\u6210\u591a\u4e2a\u56de\u5408\u3002",
-  agentSessionMainAgentHint: "\u8be5\u4f1a\u8bdd\u4f1a\u76f4\u63a5\u8fdb\u5165\u5f53\u524d\u6240\u9009\u7684 Agent\uff1b\u4e00\u65e6\u5173\u95ed\u8fde\u63a5\uff0c\u4e0a\u4e0b\u6587\u4f1a\u7acb\u5373\u6e05\u7a7a\u3002",
+  agentSessionMainAgentHint: "\u4f1a\u8bdd\u6a21\u5f0f\u51b3\u5b9a\u7531 claw \u81ea\u52a8\u8def\u7531\uff0c\u8fd8\u662f\u76f4\u63a5\u8fdb\u5165\u4f60\u6307\u5b9a\u7684 Agent\u3002\u4e00\u65e6\u5173\u95ed\u8fde\u63a5\uff0c\u4e0a\u4e0b\u6587\u4f1a\u7acb\u5373\u6e05\u7a7a\u3002",
+  agentSessionRouteMode: "\u4f1a\u8bdd\u6a21\u5f0f",
+  agentSessionRouteModeAuto: "\u81ea\u52a8\u8def\u7531",
+  agentSessionRouteModeDirect: "\u6307\u5b9a Agent",
+  agentSessionRouteModeAutoHint: "\u4e0d\u4f20 agentId\uff0c\u7531 claw \u5148\u8fdb\u5165\u4e3b Agent\uff0c\u518d\u81ea\u4e3b\u9009\u62e9\u6216 delegate \u7ed9\u5408\u9002\u7684 Agent\u3002",
+  agentSessionRouteModeDirectHint: "\u4f20\u5165 agentId\uff0c\u4f1a\u8bdd\u76f4\u63a5\u8fdb\u5165\u5f53\u524d\u6240\u9009 Agent\uff0c\u9002\u5408\u5df2\u77e5\u76ee\u6807 Agent \u7684\u5feb\u901f\u8def\u5f84\u3002",
+  agentSessionCurrentAgent: "\u5f53\u524d Agent",
+  agentSessionCurrentAgentHint: "\u4f1a\u8bdd\u4f1a\u76f4\u63a5\u8fdb\u5165\u5f53\u524d\u6240\u9009 Agent\u3002\u8fde\u63a5\u5efa\u7acb\u540e\u5982\u9700\u5207\u6362\uff0c\u8bf7\u5148\u7ed3\u675f\u5f53\u524d\u4f1a\u8bdd\u3002",
+  agentSessionSelectAgentRequired: "\u8bf7\u5148\u9009\u62e9\u4e00\u4e2a Agent \u518d\u542f\u52a8\u4f1a\u8bdd",
+  agentSessionNoAgentsAvailable: "\u5f53\u524d\u5b9e\u4f8b\u6ca1\u6709\u53ef\u7528 Agent\uff0c\u65e0\u6cd5\u542f\u52a8\u76f4\u8fde Agent \u4f1a\u8bdd",
   agentSessionStarterTitle: "\u53d1\u8d77\u521b\u4f5c\u9700\u6c42",
   agentSessionStarterHint: "\u5148\u7528\u8868\u5355\u544a\u8bc9 Agent \u4f60\u8981\u751f\u6210\u4ec0\u4e48\uff0c\u540e\u7eed\u518d\u50cf\u804a\u5929\u4e00\u6837\u7ee7\u7eed\u786e\u8ba4\u6216\u4fee\u6539\u3002",
   agentSessionScriptType: "\u5267\u672c\u7c7b\u578b",
@@ -713,6 +723,7 @@ export function Dashboard() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState<string>();
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
+  const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("auto");
   const [skills, setSkills] = useState<SkillDescriptor[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsError, setSkillsError] = useState<string>();
@@ -789,6 +800,21 @@ export function Dashboard() {
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
   const disableSendAgentMessage = !selectedInstance || !agentSessionConnected || !agentMessageInput.trim();
+  const agentSessionRequiresDirectAgent = agentSessionMode === "direct";
+  const agentSessionTargetAgentId = agentSessionRequiresDirectAgent ? selectedAgentId : undefined;
+  const disableConnectAgentSession = !selectedInstance
+    || selectedStatus !== "RUNNING"
+    || agentSessionConnecting
+    || agentSessionConnected
+    || agentsLoading
+    || (agentSessionRequiresDirectAgent && !selectedAgentId);
+  const disableSendAgentStarter = !selectedInstance
+    || agentSessionConnecting
+    || (!agentSessionConnected && selectedStatus !== "RUNNING")
+    || (agentSessionRequiresDirectAgent && !selectedAgentId);
+  const agentSessionRouteModeDescription = agentSessionRequiresDirectAgent
+    ? uiText.agentSessionRouteModeDirectHint
+    : uiText.agentSessionRouteModeAutoHint;
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const agentSessionRenderedLines = useMemo(() => agentSessionOutput.split("\n"), [agentSessionOutput]);
@@ -1714,6 +1740,10 @@ export function Dashboard() {
       messageApi.warning(uiText.agentSessionNotRunning);
       return;
     }
+    if (agentSessionRequiresDirectAgent && !agentSessionTargetAgentId) {
+      messageApi.warning(agents.length === 0 ? uiText.agentSessionNoAgentsAvailable : uiText.agentSessionSelectAgentRequired);
+      return;
+    }
 
     disconnectAgentSession();
     setAgentSessionOutput("");
@@ -1727,7 +1757,7 @@ export function Dashboard() {
     agentSessionDebugEntrySeqRef.current = 0;
     setAgentSessionConnecting(true);
 
-    const socket = new WebSocket(buildAgentSessionWebSocketUrl(selectedInstance.id, selectedAgentId));
+    const socket = new WebSocket(buildAgentSessionWebSocketUrl(selectedInstance.id, agentSessionTargetAgentId));
     agentSessionSocketRef.current = socket;
 
     socket.onopen = () => {
@@ -1773,9 +1803,11 @@ export function Dashboard() {
     finalizePendingAssistantMessage,
     handleAgentSessionSocketMessage,
     messageApi,
+    agentSessionRequiresDirectAgent,
+    agentSessionTargetAgentId,
+    agents.length,
     processAgentSessionLine,
     selectedInstance,
-    selectedAgentId,
     sendNormalizedAgentMessage,
   ]);
 
@@ -1832,6 +1864,10 @@ export function Dashboard() {
       messageApi.warning(uiText.agentSessionNeedStarterFields);
       return;
     }
+    if (agentSessionRequiresDirectAgent && !agentSessionTargetAgentId) {
+      messageApi.warning(agents.length === 0 ? uiText.agentSessionNoAgentsAvailable : uiText.agentSessionSelectAgentRequired);
+      return;
+    }
     if (agentSessionConnected) {
       sendNormalizedAgentMessage(normalizeAgentSessionMessage(starterMessage));
       return;
@@ -1844,6 +1880,9 @@ export function Dashboard() {
     connectAgentSession();
   }, [
     agentSessionConnected,
+    agentSessionRequiresDirectAgent,
+    agentSessionTargetAgentId,
+    agents.length,
     buildAgentStarterMessage,
     connectAgentSession,
     messageApi,
@@ -2378,7 +2417,7 @@ export function Dashboard() {
                                     <Button
                                       type="primary"
                                       loading={agentSessionConnecting}
-                                      disabled={!selectedInstance || selectedStatus !== "RUNNING" || agentSessionConnected}
+                                      disabled={disableConnectAgentSession}
                                       onClick={connectAgentSession}
                                     >
                                       {uiText.agentSessionConnect}
@@ -2391,6 +2430,55 @@ export function Dashboard() {
                               >
                                 <Space direction="vertical" style={{ width: "100%" }} size="small">
                                   <Alert type="info" showIcon message={uiText.agentSessionModeHint} description={uiText.agentSessionMainAgentHint} />
+                                  <Card size="small">
+                                    <Space direction="vertical" style={{ width: "100%" }} size="small">
+                                      <Text strong>{uiText.agentSessionRouteMode}</Text>
+                                      <Segmented
+                                        block
+                                        value={agentSessionMode}
+                                        onChange={(value) => setAgentSessionMode(value as AgentSessionMode)}
+                                        disabled={agentSessionConnected || agentSessionConnecting}
+                                        options={[
+                                          {
+                                            label: uiText.agentSessionRouteModeAuto,
+                                            value: "auto",
+                                          },
+                                          {
+                                            label: uiText.agentSessionRouteModeDirect,
+                                            value: "direct",
+                                          },
+                                        ]}
+                                      />
+                                      <Text type="secondary">{agentSessionRouteModeDescription}</Text>
+                                    </Space>
+                                  </Card>
+                                  {agentSessionRequiresDirectAgent ? (
+                                    <Card size="small">
+                                      <Space direction="vertical" style={{ width: "100%" }} size="small">
+                                        <Text strong>{uiText.agentSessionCurrentAgent}</Text>
+                                        <Select
+                                          showSearch
+                                          loading={agentsLoading}
+                                          placeholder={uiText.selectAgent}
+                                          value={selectedAgentId}
+                                          onChange={setSelectedAgentId}
+                                          disabled={agentSessionConnected || agentSessionConnecting}
+                                          options={agents.map((item) => ({
+                                            value: item.id,
+                                            label: item.id,
+                                          }))}
+                                        />
+                                        <Text type="secondary">{uiText.agentSessionCurrentAgentHint}</Text>
+                                        {selectedAgent ? (
+                                          <Space size={[8, 8]} wrap>
+                                            <Tag color="blue">{selectedAgent.id}</Tag>
+                                            <Tag>{selectedAgent.provider ?? "-"}</Tag>
+                                            <Tag>{selectedAgent.model ?? "-"}</Tag>
+                                          </Space>
+                                        ) : null}
+                                      </Space>
+                                    </Card>
+                                  ) : null}
                                   <Card size="small" className="agent-session-starter" title={uiText.agentSessionStarterTitle}>
                                     <Space direction="vertical" style={{ width: "100%" }} size="small">
                                       <Text type="secondary">{uiText.agentSessionStarterHint}</Text>
@@ -2446,6 +2534,7 @@ export function Dashboard() {
                                         <Button
                                           type="primary"
                                           loading={agentSessionConnecting}
+                                          disabled={disableSendAgentStarter}
                                           onClick={sendAgentStarterMessage}
                                         >
                                           {uiText.agentSessionSendStarter}

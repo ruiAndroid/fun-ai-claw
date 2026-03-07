@@ -48,6 +48,7 @@ type AgentChatMessage = {
   pending?: boolean;
   interaction?: AgentInteraction;
   interactionResolved?: boolean;
+  interactionResolvedNote?: string;
 };
 type AgentSessionStreamMessage = {
   version: string;
@@ -214,6 +215,20 @@ function formatAgentInteractionPayloadForDisplay(rawInput: string): string | und
     return "开始新的多轮交互";
   }
   return `已提交交互：${parsed.interactionAction}`;
+}
+
+function getAgentInteractionResolvedNote(rawInput: string): string | undefined {
+  const parsed = parseAgentInteractionPayload(rawInput);
+  if (!parsed?.interactionAction) {
+    return undefined;
+  }
+  if (parsed.interactionAction === "confirm") {
+    return uiText.agentSessionInteractionConfirmed;
+  }
+  if (parsed.interactionAction === "revise") {
+    return uiText.agentSessionInteractionRevised;
+  }
+  return uiText.agentSessionInteractionSubmitted;
 }
 
 function sanitizeAgentSessionMessage(value: unknown): AgentSessionStreamMessage | undefined {
@@ -551,6 +566,9 @@ const uiText = {
   agentSessionCopyOutput: "\u590d\u5236\u4ea7\u51fa",
   agentSessionCopyOutputSuccess: "\u4ea7\u51fa\u5185\u5bb9\u5df2\u590d\u5236",
   agentSessionCopyOutputFailed: "\u590d\u5236\u4ea7\u51fa\u5931\u8d25\uff0c\u8bf7\u624b\u52a8\u590d\u5236",
+  agentSessionInteractionConfirmed: "\u5df2\u63d0\u4ea4\u786e\u8ba4",
+  agentSessionInteractionRevised: "\u5df2\u63d0\u4ea4\u4fee\u6539",
+  agentSessionInteractionSubmitted: "\u5df2\u63d0\u4ea4\u4ea4\u4e92",
   agentSessionQuickApprove: "\u786e\u8ba4\u5f53\u524d\u6b65\u9aa4",
   agentSessionQuickRevise: "\u91cd\u751f\u6210\u5f53\u524d\u6b65\u9aa4",
   agentSessionShowDebug: "\u663e\u793a\u8c03\u8bd5\u65e5\u5fd7",
@@ -1550,7 +1568,7 @@ export function Dashboard() {
     return normalizedLines.join(" ").trim();
   }, []);
 
-  const markAgentInteractionResolved = useCallback((messageId?: string) => {
+  const markAgentInteractionResolved = useCallback((messageId?: string, note?: string) => {
     if (!messageId) {
       return;
     }
@@ -1559,6 +1577,7 @@ export function Dashboard() {
         ? {
           ...item,
           interactionResolved: true,
+          interactionResolvedNote: note ?? item.interactionResolvedNote,
         }
         : item
     )));
@@ -1569,6 +1588,7 @@ export function Dashboard() {
     options?: {
       displayText?: string;
       resolveInteractionMessageId?: string;
+      resolvedInteractionNote?: string;
     }
   ) => {
     const socket = agentSessionSocketRef.current;
@@ -1577,7 +1597,10 @@ export function Dashboard() {
     }
     finalizePendingAssistantMessage();
     appendAgentChatMessage("user", options?.displayText ?? formatAgentMessageForDisplay(normalizedMessage));
-    markAgentInteractionResolved(options?.resolveInteractionMessageId);
+    markAgentInteractionResolved(
+      options?.resolveInteractionMessageId,
+      options?.resolvedInteractionNote ?? getAgentInteractionResolvedNote(normalizedMessage)
+    );
     socket.send(`${normalizedMessage}\n`);
     return true;
   }, [appendAgentChatMessage, finalizePendingAssistantMessage, formatAgentMessageForDisplay, markAgentInteractionResolved]);
@@ -2424,6 +2447,9 @@ export function Dashboard() {
                                                 </Button>
                                               ))}
                                             </div>
+                                          ) : null}
+                                          {item.role === "assistant" && item.interactionResolvedNote ? (
+                                            <div className="agent-chat-resolution-hint">{item.interactionResolvedNote}</div>
                                           ) : null}
                                         </div>
                                       </div>

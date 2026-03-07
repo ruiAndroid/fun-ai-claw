@@ -69,6 +69,13 @@ type AgentSessionFrame = {
   chunk?: string;
   emittedAt: string;
 };
+type AgentSessionDebugEntry = {
+  id: string;
+  eventType: "message" | "debug" | "raw";
+  role?: AgentChatRole;
+  emittedAt?: string;
+  content: string;
+};
 type AgentSessionStarterDraft = {
   scriptType: "小说转剧本" | "一句话剧本";
   scriptContent: string;
@@ -448,6 +455,22 @@ function normalizeStructuredAgentChatMessage(message: AgentSessionStreamMessage)
   };
 }
 
+function formatAgentSessionDebugTimestamp(emittedAt?: string): string | undefined {
+  if (!emittedAt) {
+    return undefined;
+  }
+  const parsed = new Date(emittedAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return emittedAt;
+  }
+  return parsed.toLocaleTimeString("zh-CN", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 const uiText = {
   loadFailed: "\u52a0\u8f7dclaw\u5b9e\u4f8b\u5931\u8d25",
   loadImagesFailed: "\u52a0\u8f7d\u955c\u50cf\u5217\u8868\u5931\u8d25",
@@ -704,6 +727,7 @@ export function Dashboard() {
   const agentSessionLineBufferRef = useRef("");
   const agentPendingAssistantMessageIdRef = useRef<string | null>(null);
   const agentChatMessageSeqRef = useRef(0);
+  const agentSessionDebugEntrySeqRef = useRef(0);
   const [agentSessionOutput, setAgentSessionOutput] = useState("");
   const [agentSessionConnecting, setAgentSessionConnecting] = useState(false);
   const [agentSessionConnected, setAgentSessionConnected] = useState(false);
@@ -711,6 +735,7 @@ export function Dashboard() {
   const agentSessionSuppressCloseMessageRef = useRef(false);
   const [agentChatMessages, setAgentChatMessages] = useState<AgentChatMessage[]>([]);
   const [agentSessionDebugVisible, setAgentSessionDebugVisible] = useState(false);
+  const [agentSessionDebugEntries, setAgentSessionDebugEntries] = useState<AgentSessionDebugEntry[]>([]);
   const [agentSessionStarterDraft, setAgentSessionStarterDraft] = useState<AgentSessionStarterDraft>({
     scriptType: "一句话剧本",
     scriptContent: "",

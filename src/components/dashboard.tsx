@@ -27,11 +27,47 @@ type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail";
 type InstanceDetailTabKey = "claw" | "agents" | "skills";
 type AgentChatRole = "user" | "assistant" | "system";
+type AgentInteractionActionKind = "send" | "prefill";
+type AgentInteractionAction = {
+  id: string;
+  label: string;
+  kind: AgentInteractionActionKind;
+  payload: string;
+};
+type AgentInteraction = {
+  version: string;
+  type: string;
+  stateId?: string;
+  title?: string;
+  actions: AgentInteractionAction[];
+};
 type AgentChatMessage = {
   id: string;
   role: AgentChatRole;
   content: string;
   pending?: boolean;
+  interaction?: AgentInteraction;
+};
+type AgentSessionStreamMessage = {
+  version: string;
+  messageId: string;
+  instanceId: string;
+  sessionId: string;
+  sequence: number;
+  role: AgentChatRole;
+  content: string;
+  pending: boolean;
+  interaction?: AgentInteraction;
+  emittedAt: string;
+};
+type AgentSessionFrame = {
+  version: string;
+  eventType: "message" | "debug";
+  instanceId: string;
+  sessionId: string;
+  message?: AgentSessionStreamMessage;
+  chunk?: string;
+  emittedAt: string;
 };
 type AgentSessionStarterDraft = {
   scriptType: "小说转剧本" | "一句话剧本";
@@ -39,6 +75,378 @@ type AgentSessionStarterDraft = {
   targetAudience: string;
   expectedEpisodeCount: string;
 };
+
+type ParsedAgentMessageContent = {
+  displayContent: string;
+  interaction?: AgentInteraction;
+};
+
+const AGENT_INTERACTION_BLOCK_PATTERN = /<fun_claw_interaction>\s*([\s\S]*?)\s*<\/fun_claw_interaction>/gi;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function findLastStepMatch(content: string, pattern: RegExp): string | undefined {
+  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+  const matcher = new RegExp(pattern.source, flags);
+  let match: RegExpExecArray | null = null;
+  let lastStep: string | undefined;
+  while ((match = matcher.exec(content)) !== null) {
+    const step = match[1]?.trim();
+    if (step) {
+      lastStep = step;
+    }
+  }
+  return lastStep;
+}
+
+function sanitizeAgentInteractionAction(value: unknown): AgentInteractionAction | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const id = typeof value.id === "string" ? value.id.trim() : "";
+  const label = typeof value.label === "string" ? value.label.trim() : "";
+  const kind = value.kind === "send" || value.kind === "prefill" ? value.kind : undefined;
+  const payload = typeof value.payload === "string" ? value.payload : "";
+  if (!id || !label || !kind || !payload.trim()) {
+    return undefined;
+  }
+  return {
+    id,
+    label,
+    kind,
+    payload,
+  };
+}
+
+function sanitizeAgentInteraction(value: unknown): AgentInteraction | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const version = typeof value.version === "string" && value.version.trim() ? value.version.trim() : "1.0";
+  const type = typeof value.type === "string" ? value.type.trim() : "";
+  const stateId = typeof value.state_id === "string" && value.state_id.trim()
+    ? value.state_id.trim()
+    : typeof value.stateId === "string" && value.stateId.trim()
+      ? value.stateId.trim()
+      : undefined;
+  const title = typeof value.title === "string" && value.title.trim() ? value.title.trim() : undefined;
+  const rawActions = Array.isArray(value.actions) ? value.actions : [];
+  const actions = rawActions
+    .map((item) => sanitizeAgentInteractionAction(item))
+    .filter((item): item is AgentInteractionAction => Boolean(item));
+  if (!type || actions.length === 0) {
+    return undefined;
+  }
+  return {
+    version,
+    type,
+    stateId,
+    title,
+    actions,
+  };
+}
+
+function sanitizeAgentChatRole(value: unknown): AgentChatRole | undefined {
+  if (value === "user" || value === "assistant" || value === "system") {
+    return value;
+  }
+  return undefined;
+}
+
+function sanitizeAgentSessionMessage(value: unknown): AgentSessionStreamMessage | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const version = typeof value.version === "string" && value.version.trim() ? value.version.trim() : "1.0";
+  const messageId = typeof value.messageId === "string" ? value.messageId.trim() : "";
+  const instanceId = typeof value.instanceId === "string" ? value.instanceId.trim() : "";
+  const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
+  const sequence = typeof value.sequence === "number" && Number.isInteger(value.sequence) && value.sequence > 0
+    ? value.sequence
+    : undefined;
+  const role = sanitizeAgentChatRole(value.role);
+  const content = typeof value.content === "string" ? value.content : "";
+  const pending = typeof value.pending === "boolean" ? value.pending : false;
+  const interaction = sanitizeAgentInteraction(value.interaction);
+  const emittedAt = typeof value.emittedAt === "string" ? value.emittedAt.trim() : "";
+  if (!messageId || !instanceId || !sessionId || !sequence || !role || !emittedAt) {
+    return undefined;
+  }
+  return {
+    version,
+    messageId,
+    instanceId,
+    sessionId,
+    sequence,
+    role,
+    content,
+    pending,
+    interaction,
+    emittedAt,
+  };
+}
+
+function parseAgentSessionFrame(content: string): AgentSessionFrame | undefined {
+  const normalizedContent = content.trim();
+  if (!normalizedContent.startsWith("{")) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(normalizedContent) as unknown;
+    if (!isRecord(parsed)) {
+      return undefined;
+    }
+    const version = typeof parsed.version === "string" && parsed.version.trim() ? parsed.version.trim() : "1.0";
+    const eventType = parsed.eventType === "message" || parsed.eventType === "debug"
+      ? parsed.eventType
+      : undefined;
+    const instanceId = typeof parsed.instanceId === "string" ? parsed.instanceId.trim() : "";
+    const sessionId = typeof parsed.sessionId === "string" ? parsed.sessionId.trim() : "";
+    const emittedAt = typeof parsed.emittedAt === "string" ? parsed.emittedAt.trim() : "";
+    if (!eventType || !instanceId || !sessionId || !emittedAt) {
+      return undefined;
+    }
+
+    const frame: AgentSessionFrame = {
+      version,
+      eventType,
+      instanceId,
+      sessionId,
+      emittedAt,
+    };
+
+    if (eventType === "message") {
+      const message = sanitizeAgentSessionMessage(parsed.message);
+      if (!message) {
+        return undefined;
+      }
+      frame.message = message;
+      return frame;
+    }
+
+    const chunk = typeof parsed.chunk === "string" ? parsed.chunk : undefined;
+    if (typeof chunk !== "string") {
+      return undefined;
+    }
+    frame.chunk = chunk;
+    return frame;
+  } catch {
+    return undefined;
+  }
+}
+
+function extractStructuredAgentInteraction(content: string): ParsedAgentMessageContent {
+  const normalizedContent = content.replace(/\r\n/g, "\n");
+  let extractedInteraction: AgentInteraction | undefined;
+  const displayContent = normalizedContent.replace(AGENT_INTERACTION_BLOCK_PATTERN, (_, jsonBlock: string) => {
+    try {
+      const parsed = JSON.parse(jsonBlock) as unknown;
+      const sanitized = sanitizeAgentInteraction(parsed);
+      if (sanitized) {
+        extractedInteraction = sanitized;
+        return "";
+      }
+    } catch {
+      return _;
+    }
+    return "";
+  }).trim();
+  return {
+    displayContent,
+    interaction: extractedInteraction,
+  };
+}
+
+function buildLegacyApprovalInteraction(content: string): AgentInteraction | undefined {
+  const normalizedContent = content.replace(/\r\n/g, "\n").trim();
+  if (!normalizedContent) {
+    return undefined;
+  }
+
+  const confirmRequired = /\[USER_CONFIRM_REQUIRED\]\s*[:：]?\s*true\b/i.test(normalizedContent)
+    || /\bUSER_CONFIRM_REQUIRED\b\s*[:：]?\s*true\b/i.test(normalizedContent)
+    || /等待用户确认/.test(normalizedContent)
+    || /请回复[：:][^\n]*确认第[1-5]步/.test(normalizedContent)
+    || /确认后[，,\s]*进入第[1-5]步/.test(normalizedContent);
+
+  if (!confirmRequired) {
+    return undefined;
+  }
+
+  const explicitConfirmStep = findLastStepMatch(normalizedContent, /确认第([1-5])步/g);
+  if (explicitConfirmStep) {
+    return {
+      version: "legacy",
+      type: "approval_request",
+      stateId: `step-${explicitConfirmStep}`,
+      title: "待确认操作",
+      actions: [
+        {
+          id: `approve-step-${explicitConfirmStep}`,
+          label: "确认并继续",
+          kind: "send",
+          payload: `确认第${explicitConfirmStep}步`,
+        },
+        {
+          id: `revise-step-${explicitConfirmStep}`,
+          label: "提出修改",
+          kind: "prefill",
+          payload: `第${explicitConfirmStep}步重生成：`,
+        },
+      ],
+    };
+  }
+
+  const stepIdStep = findLastStepMatch(
+    normalizedContent,
+    /(?:\[STEP_ID\]\s*[:：]?\s*|step_id\s*[:：]\s*)(?:step)?([1-5])(?:[_\-\s]|$)/gi
+  );
+  if (stepIdStep) {
+    return {
+      version: "legacy",
+      type: "approval_request",
+      stateId: `step-${stepIdStep}`,
+      title: "待确认操作",
+      actions: [
+        {
+          id: `approve-step-${stepIdStep}`,
+          label: "确认并继续",
+          kind: "send",
+          payload: `确认第${stepIdStep}步`,
+        },
+        {
+          id: `revise-step-${stepIdStep}`,
+          label: "提出修改",
+          kind: "prefill",
+          payload: `第${stepIdStep}步重生成：`,
+        },
+      ],
+    };
+  }
+
+  const nextStep = findLastStepMatch(
+    normalizedContent,
+    /(?:\[NEXT_ACTION\]|\bNEXT_ACTION\b|#\s*下一步操作|下一步操作)[^\n]*?(?:进入|前往)第([2-5])步/gi
+  ) ?? findLastStepMatch(
+    normalizedContent,
+    /等待用户确认后[，,\s]*进入第([2-5])步/gi
+  );
+  if (nextStep) {
+    const approvalStep = String(Math.max(1, Number(nextStep) - 1));
+    return {
+      version: "legacy",
+      type: "approval_request",
+      stateId: `step-${approvalStep}`,
+      title: "待确认操作",
+      actions: [
+        {
+          id: `approve-step-${approvalStep}`,
+          label: "确认并继续",
+          kind: "send",
+          payload: `确认第${approvalStep}步`,
+        },
+        {
+          id: `revise-step-${approvalStep}`,
+          label: "提出修改",
+          kind: "prefill",
+          payload: `第${approvalStep}步重生成：`,
+        },
+      ],
+    };
+  }
+
+  const currentStep = findLastStepMatch(
+    normalizedContent,
+    /(?:^|\n)\s*#\s*第([1-5])步\b/g
+  );
+  if (currentStep) {
+    return {
+      version: "legacy",
+      type: "approval_request",
+      stateId: `step-${currentStep}`,
+      title: "待确认操作",
+      actions: [
+        {
+          id: `approve-step-${currentStep}`,
+          label: "确认并继续",
+          kind: "send",
+          payload: `确认第${currentStep}步`,
+        },
+        {
+          id: `revise-step-${currentStep}`,
+          label: "提出修改",
+          kind: "prefill",
+          payload: `第${currentStep}步重生成：`,
+        },
+      ],
+    };
+  }
+
+  return undefined;
+}
+
+function parseAgentMessageContent(content: string): ParsedAgentMessageContent {
+  const parsedStructured = extractStructuredAgentInteraction(content);
+  if (parsedStructured.interaction) {
+    return parsedStructured;
+  }
+  return {
+    displayContent: parsedStructured.displayContent,
+    interaction: buildLegacyApprovalInteraction(parsedStructured.displayContent),
+  };
+}
+
+function normalizeAgentChatMessage(role: AgentChatRole, content: string, pending = false): Omit<AgentChatMessage, "id"> | undefined {
+  const normalizedContent = content.trim();
+  if (!normalizedContent) {
+    return undefined;
+  }
+  if (role !== "assistant" || pending) {
+    return {
+      role,
+      content: normalizedContent,
+      pending,
+    };
+  }
+  const parsedContent = parseAgentMessageContent(normalizedContent);
+  const displayContent = parsedContent.displayContent.trim() || parsedContent.interaction?.title || normalizedContent;
+  return {
+    role,
+    content: displayContent,
+    pending: false,
+    interaction: parsedContent.interaction,
+  };
+}
+
+function normalizeStructuredAgentChatMessage(message: AgentSessionStreamMessage): AgentChatMessage | undefined {
+  const normalizedContent = message.content.trim();
+  if (message.role !== "assistant" || message.pending) {
+    if (!normalizedContent) {
+      return undefined;
+    }
+    return {
+      id: message.messageId,
+      role: message.role,
+      content: normalizedContent,
+      pending: message.pending,
+    };
+  }
+
+  const parsedContent = parseAgentMessageContent(message.content);
+  const displayContent = parsedContent.displayContent.trim() || message.interaction?.title || normalizedContent;
+  if (!displayContent) {
+    return undefined;
+  }
+  return {
+    id: message.messageId,
+    role: "assistant",
+    content: displayContent,
+    pending: false,
+    interaction: message.interaction ?? parsedContent.interaction,
+  };
+}
 
 const uiText = {
   loadFailed: "\u52a0\u8f7dclaw\u5b9e\u4f8b\u5931\u8d25",
@@ -362,18 +770,11 @@ export function Dashboard() {
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const agentSessionRenderedLines = useMemo(() => agentSessionOutput.split("\n"), [agentSessionOutput]);
-  const latestAgentAssistantMessage = useMemo(
-    () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && item.content.trim().length > 0),
+  const latestInteractiveAgentMessage = useMemo(
+    () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && (item.interaction?.actions.length ?? 0) > 0),
     [agentChatMessages]
   );
-  const pendingAgentApprovalStep = useMemo(() => {
-    const content = latestAgentAssistantMessage?.content ?? "";
-    const matchedStep = content.match(/确认第([1-5])步/);
-    return matchedStep?.[1];
-  }, [latestAgentAssistantMessage]);
-  const pendingAgentApprovalMessageId = useMemo(() => (
-    pendingAgentApprovalStep ? latestAgentAssistantMessage?.id : undefined
-  ), [latestAgentAssistantMessage, pendingAgentApprovalStep]);
+  const pendingAgentApprovalMessageId = latestInteractiveAgentMessage?.interaction ? latestInteractiveAgentMessage.id : undefined;
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
@@ -894,17 +1295,15 @@ export function Dashboard() {
   }, []);
 
   const appendAgentChatMessage = useCallback((role: AgentChatRole, content: string, pending = false) => {
-    const normalizedContent = content.trim();
-    if (!normalizedContent) {
+    const normalizedMessage = normalizeAgentChatMessage(role, content, pending);
+    if (!normalizedMessage) {
       return;
     }
     setAgentChatMessages((current) => [
       ...current,
       {
         id: nextAgentChatMessageId(),
-        role,
-        content: normalizedContent,
-        pending,
+        ...normalizedMessage,
       },
     ]);
   }, [nextAgentChatMessageId]);
@@ -918,18 +1317,32 @@ export function Dashboard() {
       if (item.id !== pendingMessageId) {
         return [item];
       }
-      const normalizedContent = item.content.trim();
-      if (!normalizedContent) {
+      const normalizedMessage = normalizeAgentChatMessage(item.role, item.content, false);
+      if (!normalizedMessage) {
         return [];
       }
       return [{
         ...item,
-        content: normalizedContent,
-        pending: false,
+        ...normalizedMessage,
       }];
     }));
     agentPendingAssistantMessageIdRef.current = null;
   }, []);
+
+  const appendStructuredAgentSessionMessage = useCallback((message: AgentSessionStreamMessage) => {
+    finalizePendingAssistantMessage();
+    const normalizedMessage = normalizeStructuredAgentChatMessage(message);
+    if (!normalizedMessage) {
+      return;
+    }
+    setAgentChatMessages((current) => {
+      const existingIndex = current.findIndex((item) => item.id === normalizedMessage.id);
+      if (existingIndex < 0) {
+        return [...current, normalizedMessage];
+      }
+      return current.map((item) => (item.id === normalizedMessage.id ? normalizedMessage : item));
+    });
+  }, [finalizePendingAssistantMessage]);
 
   const appendAssistantMessageChunk = useCallback((chunk: string) => {
     if (!chunk && !agentPendingAssistantMessageIdRef.current) {
@@ -1084,6 +1497,28 @@ export function Dashboard() {
     lines.forEach((line) => processAgentSessionLine(line));
   }, [appendAgentSessionOutput, processAgentSessionLine]);
 
+  const handleAgentSessionSocketMessage = useCallback((data: string) => {
+    const frame = parseAgentSessionFrame(data);
+    if (!frame) {
+      processAgentSessionChunk(data);
+      return;
+    }
+
+    if (frame.eventType === "debug") {
+      if (typeof frame.chunk === "string") {
+        appendAgentSessionOutput(frame.chunk);
+      }
+      return;
+    }
+
+    if (frame.eventType === "message" && frame.message) {
+      appendStructuredAgentSessionMessage(frame.message);
+      return;
+    }
+
+    processAgentSessionChunk(data);
+  }, [appendAgentSessionOutput, appendStructuredAgentSessionMessage, processAgentSessionChunk]);
+
   const normalizeAgentSessionMessage = useCallback((rawInput: string) => {
     const normalizedLines = rawInput
       .replace(/\r\n/g, "\n")
@@ -1181,7 +1616,7 @@ export function Dashboard() {
 
     socket.onmessage = (event) => {
       if (typeof event.data === "string") {
-        processAgentSessionChunk(event.data);
+        handleAgentSessionSocketMessage(event.data);
       }
     };
 
@@ -1209,8 +1644,8 @@ export function Dashboard() {
     buildAgentSessionWebSocketUrl,
     disconnectAgentSession,
     finalizePendingAssistantMessage,
+    handleAgentSessionSocketMessage,
     messageApi,
-    processAgentSessionChunk,
     processAgentSessionLine,
     selectedInstance,
     sendNormalizedAgentMessage,
@@ -1255,23 +1690,21 @@ export function Dashboard() {
     sendNormalizedAgentMessage,
   ]);
 
-  const approveCurrentAgentStep = useCallback(() => {
-    if (!pendingAgentApprovalStep) {
+  const runAgentInteractionAction = useCallback((action: AgentInteractionAction) => {
+    if (action.kind === "send") {
+      if (!agentSessionConnected) {
+        messageApi.warning(uiText.agentSessionConnectFailed);
+        return;
+      }
+      const normalizedPayload = normalizeAgentSessionMessage(action.payload);
+      if (!normalizedPayload) {
+        return;
+      }
+      sendNormalizedAgentMessage(normalizedPayload);
       return;
     }
-    if (!agentSessionConnected) {
-      messageApi.warning(uiText.agentSessionConnectFailed);
-      return;
-    }
-    sendNormalizedAgentMessage(`确认第${pendingAgentApprovalStep}步`);
-  }, [agentSessionConnected, messageApi, pendingAgentApprovalStep, sendNormalizedAgentMessage]);
-
-  const reviseCurrentAgentStep = useCallback(() => {
-    if (!pendingAgentApprovalStep) {
-      return;
-    }
-    setAgentMessageInput(`第${pendingAgentApprovalStep}步重生成：`);
-  }, [pendingAgentApprovalStep]);
+    setAgentMessageInput(action.payload);
+  }, [agentSessionConnected, messageApi, normalizeAgentSessionMessage, sendNormalizedAgentMessage]);
 
   const buildTerminalWebSocketUrl = useCallback((instanceId: string) => {
     const apiBase = appConfig.controlApiBaseUrl;
@@ -1859,22 +2292,26 @@ export function Dashboard() {
                                           </div>
                                           <div className="agent-chat-content">{item.content}</div>
                                           {item.pending ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
+                                          {item.id === pendingAgentApprovalMessageId && item.interaction?.actions.length ? (
+                                            <div className="agent-chat-actions">
+                                              {item.interaction.actions.map((action) => (
+                                                <Button
+                                                  key={`${item.id}-${action.id}`}
+                                                  type={action.kind === "send" ? "primary" : "default"}
+                                                  onClick={() => runAgentInteractionAction(action)}
+                                                  disabled={action.kind === "send" && !agentSessionConnected}
+                                                >
+                                                  {action.label}
+                                                </Button>
+                                              ))}
+                                            </div>
+                                          ) : null}
                                         </div>
                                       </div>
                                     )) : (
                                       <Text type="secondary">{uiText.agentSessionConversationEmpty}</Text>
                                     )}
                                   </div>
-                                  {pendingAgentApprovalStep ? (
-                                    <Space wrap>
-                                      <Button onClick={approveCurrentAgentStep} disabled={!agentSessionConnected}>
-                                        {uiText.agentSessionQuickApprove}
-                                      </Button>
-                                      <Button onClick={reviseCurrentAgentStep}>
-                                        {uiText.agentSessionQuickRevise}
-                                      </Button>
-                                    </Space>
-                                  ) : null}
                                   <div className="agent-sender">
                                     <Input.TextArea
                                       rows={4}

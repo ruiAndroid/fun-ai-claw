@@ -426,6 +426,13 @@ body {
   opacity: 0.72;
 }
 
+.agent-chat-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 @media (max-width: 1200px) {
   .console-shell,
   .console-shell.is-collapsed {

@@ -47,6 +47,7 @@ type AgentChatMessage = {
   content: string;
   pending?: boolean;
   interaction?: AgentInteraction;
+  interactionResolved?: boolean;
 };
 type AgentSessionStreamMessage = {
   version: string;
@@ -83,12 +84,31 @@ type AgentSessionStarterDraft = {
   expectedEpisodeCount: string;
 };
 
+type AgentComposerInteractionDraft = {
+  sourceMessageId: string;
+  interactionAction: string;
+  stateId?: string;
+};
+
 type ParsedAgentMessageContent = {
   displayContent: string;
   interaction?: AgentInteraction;
 };
 
 const AGENT_INTERACTION_BLOCK_PATTERN = /<fun_claw_interaction>\s*([\s\S]*?)\s*<\/fun_claw_interaction>/gi;
+const AGENT_INTERACTION_STATE_LABELS: Record<string, string> = {
+  step1_input_parse: "输入解析",
+  step2_story_synopsis: "故事梗概",
+  step3_character_profile: "角色设定",
+  step4_episode_outline: "分集大纲",
+  step5_full_script: "全集剧本",
+};
+
+type ParsedAgentInteractionPayload = {
+  interactionAction?: string;
+  stateId?: string;
+  feedback?: string;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -146,6 +166,54 @@ function sanitizeAgentChatRole(value: unknown): AgentChatRole | undefined {
     return value;
   }
   return undefined;
+}
+
+function getAgentInteractionStateLabel(stateId?: string): string | undefined {
+  if (!stateId) {
+    return undefined;
+  }
+  return AGENT_INTERACTION_STATE_LABELS[stateId] ?? stateId;
+}
+
+function parseAgentInteractionPayload(rawInput: string): ParsedAgentInteractionPayload | undefined {
+  const normalizedInput = rawInput.replace(/\r\n/g, "\n").trim();
+  if (!normalizedInput) {
+    return undefined;
+  }
+  const flattenedInput = normalizedInput.replace(/\n+/g, " ");
+  const interactionActionMatch = flattenedInput.match(/(?:^|\s)interaction_action=([^\s]+)/i);
+  if (!interactionActionMatch) {
+    return undefined;
+  }
+  const stateIdMatch = flattenedInput.match(/(?:^|\s)(?:stateId|state_id)=([^\s]+)/i);
+  const feedbackMatch = flattenedInput.match(/(?:^|\s)(?:step_feedback|user_feedback|feedback)=(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|$)/i);
+  return {
+    interactionAction: interactionActionMatch[1]?.trim(),
+    stateId: stateIdMatch?.[1]?.trim(),
+    feedback: feedbackMatch?.[1]?.trim(),
+  };
+}
+
+function formatAgentInteractionPayloadForDisplay(rawInput: string): string | undefined {
+  const parsed = parseAgentInteractionPayload(rawInput);
+  if (!parsed?.interactionAction) {
+    return undefined;
+  }
+
+  const stateLabel = getAgentInteractionStateLabel(parsed.stateId) ?? "当前内容";
+  if (parsed.interactionAction === "confirm") {
+    return `已确认「${stateLabel}」，继续下一步`;
+  }
+  if (parsed.interactionAction === "revise") {
+    if (parsed.feedback) {
+      return `修改「${stateLabel}」\n要求：${parsed.feedback}`;
+    }
+    return `修改「${stateLabel}」`;
+  }
+  if (parsed.interactionAction === "start") {
+    return "开始新的多轮交互";
+  }
+  return `已提交交互：${parsed.interactionAction}`;
 }
 
 function sanitizeAgentSessionMessage(value: unknown): AgentSessionStreamMessage | undefined {
@@ -477,6 +545,12 @@ const uiText = {
   agentSessionStarterContentPlaceholder: "\u4f8b\u5982\uff1a\u4e00\u4e2a\u88ab\u9677\u5bb3\u7684\u5973\u5f8b\u5e08\u91cd\u751f\u56de\u5ead\u5ba1\u524d\u591c\uff0c\u53cd\u6740\u5e55\u540e\u9ed1\u624b\u5e76\u9006\u88ad\u6210\u5f8b\u6240\u5408\u4f19\u4eba\u3002",
   agentSessionFollowUpPlaceholder: "\u7ee7\u7eed\u50cf\u804a\u5929\u4e00\u6837\u8bf4\u51fa\u4f60\u7684\u786e\u8ba4\u3001\u4fee\u6539\u6216\u8ffd\u52a0\u8981\u6c42",
   agentSessionConversationEmpty: "\u4f1a\u8bdd\u542f\u52a8\u540e\uff0cAgent \u7684\u56de\u590d\u4f1a\u4ee5\u5bf9\u8bdd\u5f62\u5f0f\u663e\u793a\u5728\u8fd9\u91cc\u3002",
+  agentSessionReviseModeTitle: "\u5f53\u524d\u6b63\u5728\u4fee\u6539",
+  agentSessionReviseModeHint: "\u8bf7\u76f4\u63a5\u8f93\u5165\u4f60\u7684\u4fee\u6539\u8981\u6c42\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u8865\u9f50\u4ea4\u4e92\u534f\u8bae\u5b57\u6bb5\u3002",
+  agentSessionReviseModeCancel: "\u53d6\u6d88\u4fee\u6539",
+  agentSessionCopyOutput: "\u590d\u5236\u4ea7\u51fa",
+  agentSessionCopyOutputSuccess: "\u4ea7\u51fa\u5185\u5bb9\u5df2\u590d\u5236",
+  agentSessionCopyOutputFailed: "\u590d\u5236\u4ea7\u51fa\u5931\u8d25\uff0c\u8bf7\u624b\u52a8\u590d\u5236",
   agentSessionQuickApprove: "\u786e\u8ba4\u5f53\u524d\u6b65\u9aa4",
   agentSessionQuickRevise: "\u91cd\u751f\u6210\u5f53\u524d\u6b65\u9aa4",
   agentSessionShowDebug: "\u663e\u793a\u8c03\u8bd5\u65e5\u5fd7",
@@ -573,6 +647,7 @@ export function Dashboard() {
   const [skillsError, setSkillsError] = useState<string>();
   const [selectedSkillId, setSelectedSkillId] = useState<string>();
   const [agentMessageInput, setAgentMessageInput] = useState("");
+  const [agentComposerInteractionDraft, setAgentComposerInteractionDraft] = useState<AgentComposerInteractionDraft>();
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
   const agentQueuedMessageRef = useRef<string | null>(null);
   const agentSessionLineBufferRef = useRef("");
@@ -651,10 +726,14 @@ export function Dashboard() {
     [agentSessionDebugEntries, agentSessionOutput]
   );
   const latestInteractiveAgentMessage = useMemo(
-    () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && (item.interaction?.actions.length ?? 0) > 0),
+    () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && !item.interactionResolved && (item.interaction?.actions.length ?? 0) > 0),
     [agentChatMessages]
   );
   const pendingAgentApprovalMessageId = latestInteractiveAgentMessage?.interaction ? latestInteractiveAgentMessage.id : undefined;
+  const agentMessageComposerPlaceholder = agentComposerInteractionDraft?.interactionAction === "revise"
+    ? `请补充你对「${getAgentInteractionStateLabel(agentComposerInteractionDraft.stateId) ?? "当前内容"}」的修改要求`
+    : uiText.agentSessionFollowUpPlaceholder;
+  const agentComposerDraftStateLabel = getAgentInteractionStateLabel(agentComposerInteractionDraft?.stateId) ?? "当前内容";
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
@@ -1135,6 +1214,24 @@ export function Dashboard() {
     }
   };
 
+  const clearAgentComposerInteractionDraft = useCallback(() => {
+    setAgentComposerInteractionDraft(undefined);
+    setAgentMessageInput("");
+  }, []);
+
+  const copyAgentChatContent = useCallback(async (content: string) => {
+    const normalizedContent = content.trim();
+    if (!normalizedContent) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(normalizedContent);
+      messageApi.success(uiText.agentSessionCopyOutputSuccess);
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.agentSessionCopyOutputFailed);
+    }
+  }, [messageApi]);
+
   const appendTerminalOutput = useCallback((chunk: string) => {
     setTerminalOutput((current) => {
       const next = `${current}${chunk}`;
@@ -1156,6 +1253,11 @@ export function Dashboard() {
   }, []);
 
   const formatAgentMessageForDisplay = useCallback((normalizedMessage: string) => {
+    const interactionDisplay = formatAgentInteractionPayloadForDisplay(normalizedMessage);
+    if (interactionDisplay) {
+      return interactionDisplay;
+    }
+
     const scriptTypeMatch = normalizedMessage.match(/script_type=([^\s]+)/);
     const scriptContentMatch = normalizedMessage.match(/script_content=(.+?)(?=\s+target_audience=|\s+expected_episode_count=|$)/);
     const targetAudienceMatch = normalizedMessage.match(/target_audience=([^\s]+)/);
@@ -1244,7 +1346,7 @@ export function Dashboard() {
       if (existingIndex < 0) {
         return [...current, normalizedMessage];
       }
-      return current.map((item) => (item.id === normalizedMessage.id ? normalizedMessage : item));
+      return current.map((item) => (item.id === normalizedMessage.id ? { ...item, ...normalizedMessage } : item));
     });
   }, [finalizePendingAssistantMessage]);
 
@@ -1448,16 +1550,37 @@ export function Dashboard() {
     return normalizedLines.join(" ").trim();
   }, []);
 
-  const sendNormalizedAgentMessage = useCallback((normalizedMessage: string) => {
+  const markAgentInteractionResolved = useCallback((messageId?: string) => {
+    if (!messageId) {
+      return;
+    }
+    setAgentChatMessages((current) => current.map((item) => (
+      item.id === messageId
+        ? {
+          ...item,
+          interactionResolved: true,
+        }
+        : item
+    )));
+  }, []);
+
+  const sendNormalizedAgentMessage = useCallback((
+    normalizedMessage: string,
+    options?: {
+      displayText?: string;
+      resolveInteractionMessageId?: string;
+    }
+  ) => {
     const socket = agentSessionSocketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return false;
     }
     finalizePendingAssistantMessage();
-    appendAgentChatMessage("user", formatAgentMessageForDisplay(normalizedMessage));
+    appendAgentChatMessage("user", options?.displayText ?? formatAgentMessageForDisplay(normalizedMessage));
+    markAgentInteractionResolved(options?.resolveInteractionMessageId);
     socket.send(`${normalizedMessage}\n`);
     return true;
-  }, [appendAgentChatMessage, finalizePendingAssistantMessage, formatAgentMessageForDisplay]);
+  }, [appendAgentChatMessage, finalizePendingAssistantMessage, formatAgentMessageForDisplay, markAgentInteractionResolved]);
 
   const buildAgentStarterMessage = useCallback(() => {
     const scriptContent = agentSessionStarterDraft.scriptContent.trim();
@@ -1499,6 +1622,8 @@ export function Dashboard() {
     }
     setAgentSessionConnecting(false);
     setAgentSessionConnected(false);
+    setAgentComposerInteractionDraft(undefined);
+    setAgentMessageInput("");
     finalizePendingAssistantMessage();
   }, [finalizePendingAssistantMessage]);
 
@@ -1514,6 +1639,8 @@ export function Dashboard() {
     disconnectAgentSession();
     setAgentSessionOutput("");
     setAgentChatMessages([]);
+    setAgentComposerInteractionDraft(undefined);
+    setAgentMessageInput("");
     setAgentSessionDebugVisible(false);
     setAgentSessionDebugEntries([]);
     agentSessionLineBufferRef.current = "";
@@ -1577,13 +1704,47 @@ export function Dashboard() {
       messageApi.warning(uiText.agentSessionConnectFailed);
       return;
     }
-    const normalizedMessage = normalizeAgentSessionMessage(agentMessageInput);
+    const trimmedInput = agentMessageInput.trim();
+    if (!trimmedInput) {
+      return;
+    }
+
+    let normalizedMessage = normalizeAgentSessionMessage(agentMessageInput);
+    let displayText: string | undefined;
+    let resolveInteractionMessageId: string | undefined;
+
+    if (agentComposerInteractionDraft?.interactionAction === "revise") {
+      const feedback = trimmedInput;
+      const payloadLines = [
+        `interaction_action=revise`,
+        agentComposerInteractionDraft.stateId ? `stateId=${agentComposerInteractionDraft.stateId}` : "",
+        `step_feedback=${feedback}`,
+      ].filter((line) => line.length > 0);
+      normalizedMessage = normalizeAgentSessionMessage(payloadLines.join("\n"));
+      displayText = formatAgentInteractionPayloadForDisplay(payloadLines.join("\n"));
+      resolveInteractionMessageId = agentComposerInteractionDraft.sourceMessageId;
+    }
+
     if (!normalizedMessage) {
       return;
     }
-    sendNormalizedAgentMessage(normalizedMessage);
+    const sent = sendNormalizedAgentMessage(normalizedMessage, {
+      displayText,
+      resolveInteractionMessageId,
+    });
+    if (!sent) {
+      return;
+    }
     setAgentMessageInput("");
-  }, [agentMessageInput, agentSessionConnected, messageApi, normalizeAgentSessionMessage, sendNormalizedAgentMessage]);
+    setAgentComposerInteractionDraft(undefined);
+  }, [
+    agentComposerInteractionDraft,
+    agentMessageInput,
+    agentSessionConnected,
+    messageApi,
+    normalizeAgentSessionMessage,
+    sendNormalizedAgentMessage,
+  ]);
 
   const sendAgentStarterMessage = useCallback(() => {
     const starterMessage = buildAgentStarterMessage();
@@ -1611,7 +1772,7 @@ export function Dashboard() {
     sendNormalizedAgentMessage,
   ]);
 
-  const runAgentInteractionAction = useCallback((action: AgentInteractionAction) => {
+  const runAgentInteractionAction = useCallback((messageId: string, action: AgentInteractionAction) => {
     if (action.kind === "send") {
       if (!agentSessionConnected) {
         messageApi.warning(uiText.agentSessionConnectFailed);
@@ -1621,9 +1782,34 @@ export function Dashboard() {
       if (!normalizedPayload) {
         return;
       }
-      sendNormalizedAgentMessage(normalizedPayload);
+      const sent = sendNormalizedAgentMessage(normalizedPayload, {
+        resolveInteractionMessageId: messageId,
+      });
+      if (sent) {
+        setAgentComposerInteractionDraft(undefined);
+      }
       return;
     }
+    const parsedPayload = parseAgentInteractionPayload(action.payload);
+    if (parsedPayload?.interactionAction === "revise") {
+      setAgentComposerInteractionDraft({
+        sourceMessageId: messageId,
+        interactionAction: parsedPayload.interactionAction,
+        stateId: parsedPayload.stateId,
+      });
+      setAgentMessageInput(parsedPayload.feedback ?? "");
+      return;
+    }
+    if (action.payload.includes("interaction_action=")) {
+      setAgentComposerInteractionDraft({
+        sourceMessageId: messageId,
+        interactionAction: parsedPayload?.interactionAction ?? "revise",
+        stateId: parsedPayload?.stateId,
+      });
+      setAgentMessageInput(parsedPayload?.feedback ?? "");
+      return;
+    }
+    setAgentComposerInteractionDraft(undefined);
     setAgentMessageInput(action.payload);
   }, [agentSessionConnected, messageApi, normalizeAgentSessionMessage, sendNormalizedAgentMessage]);
 
@@ -2208,8 +2394,20 @@ export function Dashboard() {
                                         className={`agent-chat-item ${item.role === "user" ? "is-user" : item.role === "system" ? "is-system" : "is-assistant"}`}
                                       >
                                         <div className="agent-chat-bubble">
-                                          <div className="agent-chat-role">
-                                            {item.role === "user" ? "你" : item.role === "system" ? "系统" : "Agent"}
+                                          <div className="agent-chat-head">
+                                            <div className="agent-chat-role">
+                                              {item.role === "user" ? "你" : item.role === "system" ? "系统" : "Agent"}
+                                            </div>
+                                            {item.role === "assistant" && item.content.trim() ? (
+                                              <Button
+                                                type="text"
+                                                size="small"
+                                                className="agent-chat-copy-button"
+                                                onClick={() => void copyAgentChatContent(item.content)}
+                                              >
+                                                {uiText.agentSessionCopyOutput}
+                                              </Button>
+                                            ) : null}
                                           </div>
                                           <div className="agent-chat-content">{item.content}</div>
                                           {item.pending ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
@@ -2219,7 +2417,7 @@ export function Dashboard() {
                                                 <Button
                                                   key={`${item.id}-${action.id}`}
                                                   type={action.kind === "send" ? "primary" : "default"}
-                                                  onClick={() => runAgentInteractionAction(action)}
+                                                  onClick={() => runAgentInteractionAction(item.id, action)}
                                                   disabled={action.kind === "send" && !agentSessionConnected}
                                                 >
                                                   {action.label}
@@ -2234,12 +2432,25 @@ export function Dashboard() {
                                     )}
                                   </div>
                                   <div className="agent-sender">
+                                    {agentComposerInteractionDraft?.interactionAction === "revise" ? (
+                                      <div className="agent-composer-mode">
+                                        <div className="agent-composer-mode-copy">
+                                          <div className="agent-composer-mode-title">
+                                            {uiText.agentSessionReviseModeTitle}：{agentComposerDraftStateLabel}
+                                          </div>
+                                          <div className="agent-composer-mode-hint">{uiText.agentSessionReviseModeHint}</div>
+                                        </div>
+                                        <Button type="text" size="small" onClick={clearAgentComposerInteractionDraft}>
+                                          {uiText.agentSessionReviseModeCancel}
+                                        </Button>
+                                      </div>
+                                    ) : null}
                                     <Input.TextArea
                                       rows={4}
                                       value={agentMessageInput}
                                       onChange={(event) => setAgentMessageInput(event.target.value)}
-                                      placeholder={uiText.agentSessionFollowUpPlaceholder}
-                                    />
+                                      placeholder={agentMessageComposerPlaceholder}
+                                      />
                                     <div className="agent-sender-actions">
                                       <Button type="text" onClick={() => setAgentSessionDebugVisible((current) => !current)}>
                                         {agentSessionDebugVisible ? uiText.agentSessionHideDebug : uiText.agentSessionShowDebug}

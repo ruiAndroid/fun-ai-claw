@@ -389,6 +389,13 @@ body {
   word-break: break-word;
 }
 
+.agent-chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .agent-chat-item.is-assistant .agent-chat-bubble {
   background: #ffffff;
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -415,6 +422,10 @@ body {
   opacity: 0.72;
 }
 
+.agent-chat-copy-button {
+  color: #0f766e !important;
+}
+
 .agent-chat-content {
   font-size: 13px;
   line-height: 1.72;
@@ -431,6 +442,33 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.agent-composer-mode {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(15, 118, 110, 0.12);
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.9), rgba(255, 255, 255, 0.92));
+}
+
+.agent-composer-mode-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.agent-composer-mode-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f766e;
+}
+
+.agent-composer-mode-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
 }
 
 .agent-debug-thread {

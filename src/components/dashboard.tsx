@@ -795,6 +795,10 @@ export function Dashboard() {
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const agentSessionRenderedLines = useMemo(() => agentSessionOutput.split("\n"), [agentSessionOutput]);
+  const hasAgentSessionDebugData = useMemo(
+    () => agentSessionDebugEntries.length > 0 || agentSessionOutput.trim().length > 0,
+    [agentSessionDebugEntries, agentSessionOutput]
+  );
   const latestInteractiveAgentMessage = useMemo(
     () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && (item.interaction?.actions.length ?? 0) > 0),
     [agentChatMessages]
@@ -1063,9 +1067,11 @@ export function Dashboard() {
       setAgentChatMessages([]);
       setAgentMessageInput("");
       setAgentSessionDebugVisible(false);
+      setAgentSessionDebugEntries([]);
       agentQueuedMessageRef.current = null;
       agentSessionLineBufferRef.current = "";
       agentPendingAssistantMessageIdRef.current = null;
+      agentSessionDebugEntrySeqRef.current = 0;
       return;
     }
     agentSessionSuppressCloseMessageRef.current = true;
@@ -1077,9 +1083,11 @@ export function Dashboard() {
     setAgentChatMessages([]);
     setAgentMessageInput("");
     setAgentSessionDebugVisible(false);
+    setAgentSessionDebugEntries([]);
     agentQueuedMessageRef.current = null;
     agentSessionLineBufferRef.current = "";
     agentPendingAssistantMessageIdRef.current = null;
+    agentSessionDebugEntrySeqRef.current = 0;
   }, [selectedInstanceId]);
 
   const openCreateModal = () => {
@@ -1319,6 +1327,26 @@ export function Dashboard() {
     return `agent-chat-${agentChatMessageSeqRef.current}`;
   }, []);
 
+  const nextAgentSessionDebugEntryId = useCallback(() => {
+    agentSessionDebugEntrySeqRef.current += 1;
+    return `agent-debug-${agentSessionDebugEntrySeqRef.current}`;
+  }, []);
+
+  const appendAgentSessionDebugEntry = useCallback((entry: Omit<AgentSessionDebugEntry, "id">) => {
+    const normalizedContent = entry.content.trim();
+    if (!normalizedContent) {
+      return;
+    }
+    setAgentSessionDebugEntries((current) => [
+      ...current,
+      {
+        id: nextAgentSessionDebugEntryId(),
+        ...entry,
+        content: normalizedContent,
+      },
+    ]);
+  }, [nextAgentSessionDebugEntryId]);
+
   const appendAgentChatMessage = useCallback((role: AgentChatRole, content: string, pending = false) => {
     const normalizedMessage = normalizeAgentChatMessage(role, content, pending);
     if (!normalizedMessage) {
@@ -1525,24 +1553,39 @@ export function Dashboard() {
   const handleAgentSessionSocketMessage = useCallback((data: string) => {
     const frame = parseAgentSessionFrame(data);
     if (!frame) {
+      appendAgentSessionDebugEntry({
+        eventType: "raw",
+        content: data,
+      });
       processAgentSessionChunk(data);
       return;
     }
 
     if (frame.eventType === "debug") {
       if (typeof frame.chunk === "string") {
+        appendAgentSessionDebugEntry({
+          eventType: "debug",
+          emittedAt: frame.emittedAt,
+          content: frame.chunk,
+        });
         appendAgentSessionOutput(frame.chunk);
       }
       return;
     }
 
     if (frame.eventType === "message" && frame.message) {
+      appendAgentSessionDebugEntry({
+        eventType: "message",
+        role: frame.message.role,
+        emittedAt: frame.message.emittedAt,
+        content: frame.message.content,
+      });
       appendStructuredAgentSessionMessage(frame.message);
       return;
     }
 
     processAgentSessionChunk(data);
-  }, [appendAgentSessionOutput, appendStructuredAgentSessionMessage, processAgentSessionChunk]);
+  }, [appendAgentSessionDebugEntry, appendAgentSessionOutput, appendStructuredAgentSessionMessage, processAgentSessionChunk]);
 
   const normalizeAgentSessionMessage = useCallback((rawInput: string) => {
     const normalizedLines = rawInput
@@ -1621,8 +1664,10 @@ export function Dashboard() {
     setAgentSessionOutput("");
     setAgentChatMessages([]);
     setAgentSessionDebugVisible(false);
+    setAgentSessionDebugEntries([]);
     agentSessionLineBufferRef.current = "";
     agentPendingAssistantMessageIdRef.current = null;
+    agentSessionDebugEntrySeqRef.current = 0;
     setAgentSessionConnecting(true);
 
     const socket = new WebSocket(buildAgentSessionWebSocketUrl(selectedInstance.id));
@@ -2360,10 +2405,32 @@ export function Dashboard() {
                                   {agentSessionDebugVisible ? (
                                     <>
                                       <Text>{uiText.agentSessionDebugTitle}</Text>
-                                      <div className="agent-bubble-text" style={{ maxHeight: 220, overflowY: "auto", background: "#fff" }}>
-                                        {agentSessionOutput ? agentSessionRenderedLines.map((line, index) => (
-                                          <div key={`${index}-${line ?? ""}`} style={{ whiteSpace: "pre-wrap" }}>
-                                            {line}
+                                      <div className="agent-debug-thread">
+                                        {agentSessionDebugEntries.length > 0 ? agentSessionDebugEntries.map((entry) => (
+                                          <div
+                                            key={entry.id}
+                                            className={`agent-debug-entry is-${entry.eventType}${entry.role ? ` role-${entry.role}` : ""}`}
+                                          >
+                                            <div className="agent-debug-meta">
+                                              <Space size={8} wrap>
+                                                <Tag color={entry.eventType === "debug" ? "gold" : entry.eventType === "message" ? "cyan" : "default"}>
+                                                  {entry.eventType}
+                                                </Tag>
+                                                {entry.role ? (
+                                                  <Tag color={entry.role === "assistant" ? "blue" : entry.role === "system" ? "default" : "green"}>
+                                                    {entry.role}
+                                                  </Tag>
+                                                ) : null}
+                                                {entry.emittedAt ? (
+                                                  <Text type="secondary">{formatAgentSessionDebugTimestamp(entry.emittedAt)}</Text>
+                                                ) : null}
+                                              </Space>
+                                            </div>
+                                            <div className="agent-debug-content">{entry.content}</div>
+                                          </div>
+                                        )) : hasAgentSessionDebugData ? agentSessionRenderedLines.map((line, index) => (
+                                          <div key={`${index}-${line ?? ""}`} className="agent-debug-entry is-raw">
+                                            <div className="agent-debug-content">{line}</div>
                                           </div>
                                         )) : (
                                           <Text type="secondary">{uiText.agentSessionOutputPlaceholder}</Text>

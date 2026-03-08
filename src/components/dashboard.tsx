@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   createInstance,
@@ -80,7 +80,7 @@ type AgentSessionDebugEntry = {
   content: string;
 };
 type AgentSessionStarterDraft = {
-  scriptType: "小说转剧本" | "一句话剧本";
+  scriptType: "灏忚杞墽鏈? | "涓€鍙ヨ瘽鍓ф湰";
   scriptContent: string;
   targetAudience: string;
   expectedEpisodeCount: string;
@@ -99,11 +99,11 @@ type ParsedAgentMessageContent = {
 
 const AGENT_INTERACTION_BLOCK_PATTERN = /<fun_claw_interaction>\s*([\s\S]*?)\s*<\/fun_claw_interaction>/gi;
 const AGENT_INTERACTION_STATE_LABELS: Record<string, string> = {
-  step1_input_parse: "输入解析",
-  step2_story_synopsis: "故事梗概",
-  step3_character_profile: "角色设定",
-  step4_episode_outline: "分集大纲",
-  step5_full_script: "全集剧本",
+  step1_input_parse: "杈撳叆瑙ｆ瀽",
+  step2_story_synopsis: "鏁呬簨姊楁",
+  step3_character_profile: "瑙掕壊璁惧畾",
+  step4_episode_outline: "鍒嗛泦澶х翰",
+  step5_full_script: "鍏ㄩ泦鍓ф湰",
 };
 
 type ParsedAgentInteractionPayload = {
@@ -260,20 +260,20 @@ function formatAgentInteractionPayloadForDisplay(rawInput: string): string | und
     return undefined;
   }
 
-  const stateLabel = getAgentInteractionStateLabel(parsed.stateId) ?? "当前内容";
+  const stateLabel = getAgentInteractionStateLabel(parsed.stateId) ?? "褰撳墠鍐呭";
   if (parsed.interactionAction === "confirm") {
-    return `已确认「${stateLabel}」，继续下一步`;
+    return `宸茬‘璁ゃ€?{stateLabel}銆嶏紝缁х画涓嬩竴姝;
   }
   if (parsed.interactionAction === "revise") {
     if (parsed.feedback) {
-      return `修改「${stateLabel}」\n要求：${parsed.feedback}`;
+      return `淇敼銆?{stateLabel}銆峔n瑕佹眰锛?{parsed.feedback}`;
     }
-    return `修改「${stateLabel}」`;
+    return `淇敼銆?{stateLabel}銆峘;
   }
   if (parsed.interactionAction === "start") {
-    return "开始新的多轮交互";
+    return "寮€濮嬫柊鐨勫杞氦浜?;
   }
-  return `已提交交互：${parsed.interactionAction}`;
+  return `宸叉彁浜や氦浜掞細${parsed.interactionAction}`;
 }
 
 function getAgentInteractionResolvedNote(rawInput: string): string | undefined {
@@ -581,7 +581,7 @@ const uiText = {
   agentSystemPromptTitle: "Agent system_prompt",
   agentSystemPromptPath: "\u914d\u7f6e\u8def\u5f84",
   agentSystemPromptPreview: "system_prompt \u9884\u89c8",
-  agentSystemPromptPlaceholder: "当前未配置 system_prompt",
+  agentSystemPromptPlaceholder: "褰撳墠鏈厤缃?system_prompt",
   agentSkillNotAllowed: "\u5f53\u524d Agent \u7684 allowed_tools \u672a\u5305\u542b\u8be5 Skill ID\uff0c\u53ef\u80fd\u65e0\u6cd5\u76f4\u63a5\u8c03\u7528",
   selectAgent: "\u9009\u62e9 Agent",
   agentModel: "\u6a21\u578b",
@@ -600,6 +600,7 @@ const uiText = {
   agentSessionConnectFailed: "Agent Session \u8fde\u63a5\u5931\u8d25",
   agentSessionConnected: "Agent Session \u5df2\u8fde\u63a5",
   agentSessionDisconnected: "Agent Session \u5df2\u65ad\u5f00",
+  agentSessionConnectFirst: "\u8bf7\u5148\u542f\u52a8\u4f1a\u8bdd\uff0c\u518d\u8fdb\u884c\u586b\u5199\u3001\u53d1\u9001\u6216\u4ea4\u4e92\u64cd\u4f5c",
   agentSessionNotRunning: "\u8bf7\u5148\u542f\u52a8\u5b9e\u4f8b\uff0c\u518d\u6253\u5f00 Agent Session",
   agentSessionModeHint: "\u5f53\u524d\u4e3a\u957f\u4f1a\u8bdd\u6a21\u5f0f\uff0c\u7528\u6237\u7684\u201c\u786e\u8ba4\u7b2cN\u6b65 / \u91cd\u751f\u6210\u201d\u5fc5\u987b\u5728\u540c\u4e00\u6761\u8fde\u63a5\u5185\u7ee7\u7eed\u53d1\u9001\u3002\u591a\u884c\u8f93\u5165\u4f1a\u88ab\u5408\u5e76\u4e3a\u5355\u6761\u6d88\u606f\uff0c\u907f\u514d\u88ab REPL \u62c6\u6210\u591a\u4e2a\u56de\u5408\u3002",
   agentSessionMainAgentHint: "\u4f1a\u8bdd\u6a21\u5f0f\u51b3\u5b9a\u7531 claw \u81ea\u52a8\u8def\u7531\uff0c\u8fd8\u662f\u76f4\u63a5\u8fdb\u5165\u4f60\u6307\u5b9a\u7684 Agent\u3002\u4e00\u65e6\u5173\u95ed\u8fde\u63a5\uff0c\u4e0a\u4e0b\u6587\u4f1a\u7acb\u5373\u6e05\u7a7a\u3002",
@@ -745,9 +746,9 @@ export function Dashboard() {
   const [agentSessionDebugVisible, setAgentSessionDebugVisible] = useState(false);
   const [agentSessionDebugEntries, setAgentSessionDebugEntries] = useState<AgentSessionDebugEntry[]>([]);
   const [agentSessionStarterDraft, setAgentSessionStarterDraft] = useState<AgentSessionStarterDraft>({
-    scriptType: "一句话剧本",
+    scriptType: "涓€鍙ヨ瘽鍓ф湰",
     scriptContent: "",
-    targetAudience: "女频",
+    targetAudience: "濂抽",
     expectedEpisodeCount: "3",
   });
   const [mainAgentGuidance, setMainAgentGuidance] = useState<InstanceMainAgentGuidance>();
@@ -800,6 +801,7 @@ export function Dashboard() {
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
   const disableSendAgentMessage = !selectedInstance || !agentSessionConnected || !agentMessageInput.trim();
+  const agentSessionInputLocked = !agentSessionConnected || agentSessionConnecting;
   const agentSessionRequiresDirectAgent = agentSessionMode === "direct";
   const agentSessionTargetAgentId = agentSessionRequiresDirectAgent ? selectedAgentId : undefined;
   const disableConnectAgentSession = !selectedInstance
@@ -809,12 +811,8 @@ export function Dashboard() {
     || agentsLoading
     || (agentSessionRequiresDirectAgent && !selectedAgentId);
   const disableSendAgentStarter = !selectedInstance
-    || agentSessionConnecting
-    || (!agentSessionConnected && selectedStatus !== "RUNNING")
+    || agentSessionInputLocked
     || (agentSessionRequiresDirectAgent && !selectedAgentId);
-  const agentSessionRouteModeDescription = agentSessionRequiresDirectAgent
-    ? uiText.agentSessionRouteModeDirectHint
-    : uiText.agentSessionRouteModeAutoHint;
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const agentSessionRenderedLines = useMemo(() => agentSessionOutput.split("\n"), [agentSessionOutput]);
@@ -828,9 +826,11 @@ export function Dashboard() {
   );
   const pendingAgentApprovalMessageId = latestInteractiveAgentMessage?.interaction ? latestInteractiveAgentMessage.id : undefined;
   const agentMessageComposerPlaceholder = agentComposerInteractionDraft?.interactionAction === "revise"
-    ? `请补充你对「${getAgentInteractionStateLabel(agentComposerInteractionDraft.stateId) ?? "当前内容"}」的修改要求`
-    : uiText.agentSessionFollowUpPlaceholder;
-  const agentComposerDraftStateLabel = getAgentInteractionStateLabel(agentComposerInteractionDraft?.stateId) ?? "当前内容";
+    ? `璇疯ˉ鍏呬綘瀵广€?{getAgentInteractionStateLabel(agentComposerInteractionDraft.stateId) ?? "褰撳墠鍐呭"}銆嶇殑淇敼瑕佹眰`
+    : agentSessionInputLocked
+      ? uiText.agentSessionConnectFirst
+      : uiText.agentSessionFollowUpPlaceholder;
+  const agentComposerDraftStateLabel = getAgentInteractionStateLabel(agentComposerInteractionDraft?.stateId) ?? "褰撳墠鍐呭";
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
@@ -1362,10 +1362,10 @@ export function Dashboard() {
 
     if (scriptTypeMatch && scriptContentMatch && targetAudienceMatch && episodeCountMatch) {
       return [
-        `请帮我生成${scriptTypeMatch[1]}`,
-        `故事：${scriptContentMatch[1].trim()}`,
-        `受众：${targetAudienceMatch[1]}`,
-        `集数：${episodeCountMatch[1]}`,
+        `璇峰府鎴戠敓鎴?{scriptTypeMatch[1]}`,
+        `鏁呬簨锛?{scriptContentMatch[1].trim()}`,
+        `鍙椾紬锛?{targetAudienceMatch[1]}`,
+        `闆嗘暟锛?{episodeCountMatch[1]}`,
       ].join("\n");
     }
 
@@ -1546,7 +1546,7 @@ export function Dashboard() {
       return;
     }
 
-    if (trimmedLine === "🦀 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
+    if (trimmedLine === "馃 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
       return;
     }
 
@@ -1864,30 +1864,23 @@ export function Dashboard() {
       messageApi.warning(uiText.agentSessionNeedStarterFields);
       return;
     }
+    if (!agentSessionConnected) {
+      messageApi.warning(uiText.agentSessionConnectFirst);
+      return;
+    }
     if (agentSessionRequiresDirectAgent && !agentSessionTargetAgentId) {
       messageApi.warning(agents.length === 0 ? uiText.agentSessionNoAgentsAvailable : uiText.agentSessionSelectAgentRequired);
       return;
     }
-    if (agentSessionConnected) {
-      sendNormalizedAgentMessage(normalizeAgentSessionMessage(starterMessage));
-      return;
-    }
-    if (!selectedInstance || selectedInstance.status !== "RUNNING") {
-      messageApi.warning(uiText.agentSessionNotRunning);
-      return;
-    }
-    agentQueuedMessageRef.current = normalizeAgentSessionMessage(starterMessage);
-    connectAgentSession();
+    sendNormalizedAgentMessage(normalizeAgentSessionMessage(starterMessage));
   }, [
     agentSessionConnected,
-    agentSessionRequiresDirectAgent,
     agentSessionTargetAgentId,
+    agentSessionRequiresDirectAgent,
     agents.length,
     buildAgentStarterMessage,
-    connectAgentSession,
     messageApi,
     normalizeAgentSessionMessage,
-    selectedInstance,
     sendNormalizedAgentMessage,
   ]);
 
@@ -2208,7 +2201,7 @@ export function Dashboard() {
                     <Button icon={<ArrowLeft size={14} />} className="back-button" onClick={() => openMenuView("instances")}>
                       {uiText.backToInstances}
                     </Button>
-                    <Card className="glass-card" title={selectedInstance ? `${uiText.instanceDetailTitle}：${selectedInstance.name}` : uiText.selectInstance}>
+                    <Card className="glass-card" title={selectedInstance ? `${uiText.instanceDetailTitle}锛?{selectedInstance.name}` : uiText.selectInstance}>
               {selectedInstance ? (
                 <Space direction="vertical" style={{ width: "100%" }} size="middle">
                   <Descriptions column={2} bordered size="small">
@@ -2429,27 +2422,42 @@ export function Dashboard() {
                                 )}
                               >
                                 <Space direction="vertical" style={{ width: "100%" }} size="small">
-                                  <Alert type="info" showIcon message={uiText.agentSessionModeHint} description={uiText.agentSessionMainAgentHint} />
-                                  <Card size="small">
+                                  <Card size="small" className="agent-session-mode-card">
                                     <Space direction="vertical" style={{ width: "100%" }} size="small">
                                       <Text strong>{uiText.agentSessionRouteMode}</Text>
                                       <Segmented
                                         block
+                                        className="agent-session-mode-switch"
                                         value={agentSessionMode}
                                         onChange={(value) => setAgentSessionMode(value as AgentSessionMode)}
                                         disabled={agentSessionConnected || agentSessionConnecting}
                                         options={[
                                           {
-                                            label: uiText.agentSessionRouteModeAuto,
+                                            label: (
+                                              <div className="agent-session-mode-option">
+                                                <div className="agent-session-mode-option-title">
+                                                  <Bot size={15} />
+                                                  <span>{uiText.agentSessionRouteModeAuto}</span>
+                                                </div>
+                                                <div className="agent-session-mode-option-hint">{uiText.agentSessionRouteModeAutoHint}</div>
+                                              </div>
+                                            ),
                                             value: "auto",
                                           },
                                           {
-                                            label: uiText.agentSessionRouteModeDirect,
+                                            label: (
+                                              <div className="agent-session-mode-option">
+                                                <div className="agent-session-mode-option-title">
+                                                  <Server size={15} />
+                                                  <span>{uiText.agentSessionRouteModeDirect}</span>
+                                                </div>
+                                                <div className="agent-session-mode-option-hint">{uiText.agentSessionRouteModeDirectHint}</div>
+                                              </div>
+                                            ),
                                             value: "direct",
                                           },
                                         ]}
                                       />
-                                      <Text type="secondary">{agentSessionRouteModeDescription}</Text>
                                     </Space>
                                   </Card>
                                   {agentSessionRequiresDirectAgent ? (
@@ -2479,26 +2487,32 @@ export function Dashboard() {
                                       </Space>
                                     </Card>
                                   ) : null}
-                                  <Card size="small" className="agent-session-starter" title={uiText.agentSessionStarterTitle}>
+                                  <Card
+                                    size="small"
+                                    className={`agent-session-starter${agentSessionInputLocked ? " is-disabled" : ""}`}
+                                    title={uiText.agentSessionStarterTitle}
+                                  >
                                     <Space direction="vertical" style={{ width: "100%" }} size="small">
                                       <Text type="secondary">{uiText.agentSessionStarterHint}</Text>
                                       <div className="agent-session-starter-field">
                                         <Text strong>{uiText.agentSessionScriptType}</Text>
                                         <Select
+                                          disabled={agentSessionInputLocked}
                                           value={agentSessionStarterDraft.scriptType}
                                           onChange={(value) => setAgentSessionStarterDraft((current) => ({
                                             ...current,
                                             scriptType: value,
                                           }))}
                                           options={[
-                                            { value: "一句话剧本", label: "一句话剧本" },
-                                            { value: "小说转剧本", label: "小说转剧本" },
+                                            { value: "涓€鍙ヨ瘽鍓ф湰", label: "涓€鍙ヨ瘽鍓ф湰" },
+                                            { value: "灏忚杞墽鏈?, label: "灏忚杞墽鏈? },
                                           ]}
                                         />
                                       </div>
                                       <div className="agent-session-starter-field">
                                         <Text strong>{uiText.agentSessionScriptContent}</Text>
                                         <Input.TextArea
+                                          disabled={agentSessionInputLocked}
                                           rows={4}
                                           value={agentSessionStarterDraft.scriptContent}
                                           onChange={(event) => setAgentSessionStarterDraft((current) => ({
@@ -2512,6 +2526,7 @@ export function Dashboard() {
                                         <div className="agent-session-starter-field">
                                           <Text strong>{uiText.agentSessionTargetAudience}</Text>
                                           <Input
+                                            disabled={agentSessionInputLocked}
                                             value={agentSessionStarterDraft.targetAudience}
                                             onChange={(event) => setAgentSessionStarterDraft((current) => ({
                                               ...current,
@@ -2522,6 +2537,7 @@ export function Dashboard() {
                                         <div className="agent-session-starter-field">
                                           <Text strong>{uiText.agentSessionEpisodeCount}</Text>
                                           <Input
+                                            disabled={agentSessionInputLocked}
                                             value={agentSessionStarterDraft.expectedEpisodeCount}
                                             onChange={(event) => setAgentSessionStarterDraft((current) => ({
                                               ...current,
@@ -2552,7 +2568,7 @@ export function Dashboard() {
                                     ref={agentSessionOutputRef}
                                     className="agent-chat-thread"
                                     style={{
-                                      height: 320,
+                                      height: 440,
                                       overflowY: "auto",
                                       background: "#fff",
                                     }}
@@ -2565,7 +2581,7 @@ export function Dashboard() {
                                         <div className="agent-chat-bubble">
                                           <div className="agent-chat-head">
                                             <div className="agent-chat-role">
-                                              {item.role === "user" ? "你" : item.role === "system" ? "系统" : "Agent"}
+                                              {item.role === "user" ? "浣? : item.role === "system" ? "绯荤粺" : "Agent"}
                                             </div>
                                             {item.role === "assistant" && item.content.trim() ? (
                                               <Button
@@ -2587,7 +2603,7 @@ export function Dashboard() {
                                                   key={`${item.id}-${action.id}`}
                                                   type={action.kind === "send" ? "primary" : "default"}
                                                   onClick={() => runAgentInteractionAction(item.id, action)}
-                                                  disabled={action.kind === "send" && !agentSessionConnected}
+                                                  disabled={!agentSessionConnected}
                                                 >
                                                   {action.label}
                                                 </Button>
@@ -2603,12 +2619,12 @@ export function Dashboard() {
                                       <Text type="secondary">{uiText.agentSessionConversationEmpty}</Text>
                                     )}
                                   </div>
-                                  <div className="agent-sender">
+                                  <div className={`agent-sender${agentSessionInputLocked ? " is-disabled" : ""}`}>
                                     {agentComposerInteractionDraft?.interactionAction === "revise" ? (
                                       <div className="agent-composer-mode">
                                         <div className="agent-composer-mode-copy">
                                           <div className="agent-composer-mode-title">
-                                            {uiText.agentSessionReviseModeTitle}：{agentComposerDraftStateLabel}
+                                            {uiText.agentSessionReviseModeTitle}锛歿agentComposerDraftStateLabel}
                                           </div>
                                           <div className="agent-composer-mode-hint">{uiText.agentSessionReviseModeHint}</div>
                                         </div>
@@ -2618,13 +2634,18 @@ export function Dashboard() {
                                       </div>
                                     ) : null}
                                     <Input.TextArea
+                                      disabled={agentSessionInputLocked}
                                       rows={4}
                                       value={agentMessageInput}
                                       onChange={(event) => setAgentMessageInput(event.target.value)}
                                       placeholder={agentMessageComposerPlaceholder}
                                       />
                                     <div className="agent-sender-actions">
-                                      <Button type="text" onClick={() => setAgentSessionDebugVisible((current) => !current)}>
+                                      <Button
+                                        type="text"
+                                        disabled={agentSessionInputLocked}
+                                        onClick={() => setAgentSessionDebugVisible((current) => !current)}
+                                      >
                                         {agentSessionDebugVisible ? uiText.agentSessionHideDebug : uiText.agentSessionShowDebug}
                                       </Button>
                                       <Button
@@ -3064,3 +3085,4 @@ export function Dashboard() {
     </>
   );
 }
+

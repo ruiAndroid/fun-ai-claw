@@ -339,6 +339,76 @@ body {
   background: linear-gradient(180deg, rgba(240, 253, 250, 0.95), rgba(255, 255, 255, 0.98));
 }
 
+.agent-session-starter.is-disabled,
+.agent-sender.is-disabled {
+  opacity: 0.64;
+}
+
+.agent-session-mode-card {
+  border-radius: 18px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  background:
+    radial-gradient(circle at top right, rgba(20, 184, 166, 0.14), transparent 38%),
+    linear-gradient(180deg, rgba(240, 253, 250, 0.96), rgba(255, 255, 255, 0.98));
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+}
+
+.agent-session-mode-switch {
+  padding: 6px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.agent-session-mode-switch .ant-segmented-group {
+  gap: 8px;
+}
+
+.agent-session-mode-switch .ant-segmented-item {
+  min-height: 82px;
+  border-radius: 16px;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.agent-session-mode-switch .ant-segmented-item:hover {
+  transform: translateY(-1px);
+}
+
+.agent-session-mode-switch .ant-segmented-item-selected {
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  box-shadow: 0 16px 30px rgba(15, 118, 110, 0.24);
+}
+
+.agent-session-mode-switch .ant-segmented-item-label {
+  padding: 0;
+}
+
+.agent-session-mode-option {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.agent-session-mode-option-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.agent-session-mode-option-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.agent-session-mode-switch .ant-segmented-item-selected .agent-session-mode-option-title,
+.agent-session-mode-switch .ant-segmented-item-selected .agent-session-mode-option-hint {
+  color: #f8fafc;
+}
+
 .agent-session-starter-field {
   display: grid;
   gap: 8px;

@@ -86,6 +86,13 @@ type AgentSessionStarterDraft = {
   expectedEpisodeCount: string;
 };
 
+type AgentSessionCoreFields = {
+  scriptType: string;
+  scriptContent: string;
+  targetAudience: string;
+  expectedEpisodeCount: string;
+};
+
 type AgentComposerInteractionDraft = {
   sourceMessageId: string;
   interactionAction: string;
@@ -252,6 +259,34 @@ function parseAgentInteractionPayload(rawInput: string): ParsedAgentInteractionP
     stateId: stateIdMatch?.[1]?.trim(),
     feedback: feedbackMatch?.[1]?.trim(),
   };
+}
+
+function parseAgentSessionCoreFields(rawInput: string): AgentSessionCoreFields | undefined {
+  const normalizedInput = rawInput.replace(/\r\n/g, "\n").trim();
+  if (!normalizedInput) {
+    return undefined;
+  }
+  const flattenedInput = normalizedInput.replace(/\n+/g, " ");
+  const scriptTypeMatch = flattenedInput.match(/(?:^|\s)script_type=(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|$)/i);
+  const scriptContentMatch = flattenedInput.match(/(?:^|\s)script_content=(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|$)/i);
+  const targetAudienceMatch = flattenedInput.match(/(?:^|\s)target_audience=(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|$)/i);
+  const expectedEpisodeCountMatch = flattenedInput.match(/(?:^|\s)expected_episode_count=(.*?)(?=\s+[A-Za-z_][A-Za-z0-9_]*=|$)/i);
+  if (!scriptTypeMatch || !scriptContentMatch || !targetAudienceMatch || !expectedEpisodeCountMatch) {
+    return undefined;
+  }
+  return {
+    scriptType: scriptTypeMatch[1]?.trim(),
+    scriptContent: scriptContentMatch[1]?.trim(),
+    targetAudience: targetAudienceMatch[1]?.trim(),
+    expectedEpisodeCount: expectedEpisodeCountMatch[1]?.trim(),
+  };
+}
+
+function isAgentSessionPlaceholderValue(value?: string): boolean {
+  if (!value) {
+    return true;
+  }
+  return /^<[^>]+>$/.test(value.trim());
 }
 
 function formatAgentInteractionPayloadForDisplay(rawInput: string): string | undefined {
@@ -751,6 +786,7 @@ export function Dashboard() {
     targetAudience: "女频",
     expectedEpisodeCount: "3",
   });
+  const [agentSessionCoreFields, setAgentSessionCoreFields] = useState<AgentSessionCoreFields>();
   const [mainAgentGuidance, setMainAgentGuidance] = useState<InstanceMainAgentGuidance>();
   const [mainAgentGuidanceLoading, setMainAgentGuidanceLoading] = useState(false);
   const [mainAgentGuidanceSaving, setMainAgentGuidanceSaving] = useState(false);
@@ -1674,6 +1710,10 @@ export function Dashboard() {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return false;
     }
+    const parsedCoreFields = parseAgentSessionCoreFields(normalizedMessage);
+    if (parsedCoreFields) {
+      setAgentSessionCoreFields(parsedCoreFields);
+    }
     finalizePendingAssistantMessage();
     appendAgentChatMessage("user", options?.displayText ?? formatAgentMessageForDisplay(normalizedMessage));
     markAgentInteractionResolved(
@@ -1700,6 +1740,39 @@ export function Dashboard() {
       `expected_episode_count=${expectedEpisodeCount}`,
     ].join("\n");
   }, [agentSessionStarterDraft]);
+
+  const getAgentSessionCoreFields = useCallback((): AgentSessionCoreFields | undefined => {
+    return parseAgentSessionCoreFields(buildAgentStarterMessage()) ?? agentSessionCoreFields;
+  }, [agentSessionCoreFields, buildAgentStarterMessage]);
+
+  const enrichAgentInteractionMessage = useCallback((rawInput: string) => {
+    const normalizedInput = normalizeAgentSessionMessage(rawInput);
+    if (!normalizedInput) {
+      return "";
+    }
+    const parsedInteraction = parseAgentInteractionPayload(normalizedInput);
+    if (!parsedInteraction?.interactionAction) {
+      return normalizedInput;
+    }
+    const payloadCoreFields = parseAgentSessionCoreFields(normalizedInput);
+    const sessionCoreFields = getAgentSessionCoreFields();
+    const mergedCoreFields = {
+      scriptType: !isAgentSessionPlaceholderValue(payloadCoreFields?.scriptType) ? payloadCoreFields?.scriptType : sessionCoreFields?.scriptType,
+      scriptContent: !isAgentSessionPlaceholderValue(payloadCoreFields?.scriptContent) ? payloadCoreFields?.scriptContent : sessionCoreFields?.scriptContent,
+      targetAudience: !isAgentSessionPlaceholderValue(payloadCoreFields?.targetAudience) ? payloadCoreFields?.targetAudience : sessionCoreFields?.targetAudience,
+      expectedEpisodeCount: !isAgentSessionPlaceholderValue(payloadCoreFields?.expectedEpisodeCount) ? payloadCoreFields?.expectedEpisodeCount : sessionCoreFields?.expectedEpisodeCount,
+    };
+    const payloadLines = [
+      `interaction_action=${parsedInteraction.interactionAction}`,
+      parsedInteraction.stateId ? `stateId=${parsedInteraction.stateId}` : "",
+      mergedCoreFields.scriptType ? `script_type=${mergedCoreFields.scriptType}` : "",
+      mergedCoreFields.scriptContent ? `script_content=${mergedCoreFields.scriptContent}` : "",
+      mergedCoreFields.targetAudience ? `target_audience=${mergedCoreFields.targetAudience}` : "",
+      mergedCoreFields.expectedEpisodeCount ? `expected_episode_count=${mergedCoreFields.expectedEpisodeCount}` : "",
+      parsedInteraction.feedback ? `step_feedback=${parsedInteraction.feedback}` : "",
+    ].filter((line) => line.length > 0);
+    return normalizeAgentSessionMessage(payloadLines.join("\n"));
+  }, [getAgentSessionCoreFields, normalizeAgentSessionMessage]);
 
   const buildAgentSessionWebSocketUrl = useCallback((instanceId: string, agentId?: string) => {
     const apiBase = appConfig.controlApiBaseUrl;
@@ -1729,6 +1802,7 @@ export function Dashboard() {
     setAgentSessionConnected(false);
     setAgentComposerInteractionDraft(undefined);
     setAgentMessageInput("");
+    setAgentSessionCoreFields(undefined);
     finalizePendingAssistantMessage();
   }, [finalizePendingAssistantMessage]);
 
@@ -1832,8 +1906,8 @@ export function Dashboard() {
         agentComposerInteractionDraft.stateId ? `stateId=${agentComposerInteractionDraft.stateId}` : "",
         `step_feedback=${feedback}`,
       ].filter((line) => line.length > 0);
-      normalizedMessage = normalizeAgentSessionMessage(payloadLines.join("\n"));
-      displayText = formatAgentInteractionPayloadForDisplay(payloadLines.join("\n"));
+      normalizedMessage = enrichAgentInteractionMessage(payloadLines.join("\n"));
+      displayText = formatAgentInteractionPayloadForDisplay(normalizedMessage);
       resolveInteractionMessageId = agentComposerInteractionDraft.sourceMessageId;
     }
 
@@ -1855,6 +1929,7 @@ export function Dashboard() {
     agentSessionConnected,
     messageApi,
     normalizeAgentSessionMessage,
+    enrichAgentInteractionMessage,
     sendNormalizedAgentMessage,
   ]);
 
@@ -1890,7 +1965,7 @@ export function Dashboard() {
         messageApi.warning(uiText.agentSessionConnectFailed);
         return;
       }
-      const normalizedPayload = normalizeAgentSessionMessage(action.payload);
+      const normalizedPayload = enrichAgentInteractionMessage(action.payload);
       if (!normalizedPayload) {
         return;
       }
@@ -1923,7 +1998,7 @@ export function Dashboard() {
     }
     setAgentComposerInteractionDraft(undefined);
     setAgentMessageInput(action.payload);
-  }, [agentSessionConnected, messageApi, normalizeAgentSessionMessage, sendNormalizedAgentMessage]);
+  }, [agentSessionConnected, enrichAgentInteractionMessage, messageApi, sendNormalizedAgentMessage]);
 
   const buildTerminalWebSocketUrl = useCallback((instanceId: string) => {
     const apiBase = appConfig.controlApiBaseUrl;

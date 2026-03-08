@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   createInstance,
@@ -80,7 +80,7 @@ type AgentSessionDebugEntry = {
   content: string;
 };
 type AgentSessionStarterDraft = {
-  scriptType: "灏忚杞墽鏈? | "涓€鍙ヨ瘽鍓ф湰";
+  scriptType: "小说转剧本" | "一句话剧本";
   scriptContent: string;
   targetAudience: string;
   expectedEpisodeCount: string;
@@ -260,20 +260,20 @@ function formatAgentInteractionPayloadForDisplay(rawInput: string): string | und
     return undefined;
   }
 
-  const stateLabel = getAgentInteractionStateLabel(parsed.stateId) ?? "褰撳墠鍐呭";
+  const stateLabel = getAgentInteractionStateLabel(parsed.stateId) ?? "当前内容";
   if (parsed.interactionAction === "confirm") {
-    return `宸茬‘璁ゃ€?{stateLabel}銆嶏紝缁х画涓嬩竴姝;
+    return `已提交确认：${stateLabel}，继续下一步`;
   }
   if (parsed.interactionAction === "revise") {
     if (parsed.feedback) {
-      return `淇敼銆?{stateLabel}銆峔n瑕佹眰锛?{parsed.feedback}`;
+      return `已提交修改：${stateLabel}\n要求：${parsed.feedback}`;
     }
-    return `淇敼銆?{stateLabel}銆峘;
+    return `已提交修改：${stateLabel}`;
   }
   if (parsed.interactionAction === "start") {
-    return "寮€濮嬫柊鐨勫杞氦浜?;
+    return "已开始新的多轮交互";
   }
-  return `宸叉彁浜や氦浜掞細${parsed.interactionAction}`;
+  return `已提交交互：${parsed.interactionAction}`;
 }
 
 function getAgentInteractionResolvedNote(rawInput: string): string | undefined {
@@ -581,7 +581,7 @@ const uiText = {
   agentSystemPromptTitle: "Agent system_prompt",
   agentSystemPromptPath: "\u914d\u7f6e\u8def\u5f84",
   agentSystemPromptPreview: "system_prompt \u9884\u89c8",
-  agentSystemPromptPlaceholder: "褰撳墠鏈厤缃?system_prompt",
+  agentSystemPromptPlaceholder: "当前未配置 system_prompt",
   agentSkillNotAllowed: "\u5f53\u524d Agent \u7684 allowed_tools \u672a\u5305\u542b\u8be5 Skill ID\uff0c\u53ef\u80fd\u65e0\u6cd5\u76f4\u63a5\u8c03\u7528",
   selectAgent: "\u9009\u62e9 Agent",
   agentModel: "\u6a21\u578b",
@@ -746,9 +746,9 @@ export function Dashboard() {
   const [agentSessionDebugVisible, setAgentSessionDebugVisible] = useState(false);
   const [agentSessionDebugEntries, setAgentSessionDebugEntries] = useState<AgentSessionDebugEntry[]>([]);
   const [agentSessionStarterDraft, setAgentSessionStarterDraft] = useState<AgentSessionStarterDraft>({
-    scriptType: "涓€鍙ヨ瘽鍓ф湰",
+    scriptType: "一句话剧本",
     scriptContent: "",
-    targetAudience: "濂抽",
+    targetAudience: "女频",
     expectedEpisodeCount: "3",
   });
   const [mainAgentGuidance, setMainAgentGuidance] = useState<InstanceMainAgentGuidance>();
@@ -826,11 +826,11 @@ export function Dashboard() {
   );
   const pendingAgentApprovalMessageId = latestInteractiveAgentMessage?.interaction ? latestInteractiveAgentMessage.id : undefined;
   const agentMessageComposerPlaceholder = agentComposerInteractionDraft?.interactionAction === "revise"
-    ? `璇疯ˉ鍏呬綘瀵广€?{getAgentInteractionStateLabel(agentComposerInteractionDraft.stateId) ?? "褰撳墠鍐呭"}銆嶇殑淇敼瑕佹眰`
+    ? `请补充你对“${getAgentInteractionStateLabel(agentComposerInteractionDraft.stateId) ?? "当前内容"}”的修改要求`
     : agentSessionInputLocked
       ? uiText.agentSessionConnectFirst
       : uiText.agentSessionFollowUpPlaceholder;
-  const agentComposerDraftStateLabel = getAgentInteractionStateLabel(agentComposerInteractionDraft?.stateId) ?? "褰撳墠鍐呭";
+  const agentComposerDraftStateLabel = getAgentInteractionStateLabel(agentComposerInteractionDraft?.stateId) ?? "当前内容";
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
@@ -1362,10 +1362,10 @@ export function Dashboard() {
 
     if (scriptTypeMatch && scriptContentMatch && targetAudienceMatch && episodeCountMatch) {
       return [
-        `璇峰府鎴戠敓鎴?{scriptTypeMatch[1]}`,
-        `鏁呬簨锛?{scriptContentMatch[1].trim()}`,
-        `鍙椾紬锛?{targetAudienceMatch[1]}`,
-        `闆嗘暟锛?{episodeCountMatch[1]}`,
+        `请帮我生成${scriptTypeMatch[1]}`,
+        `故事：${scriptContentMatch[1].trim()}`,
+        `受众：${targetAudienceMatch[1]}`,
+        `集数：${episodeCountMatch[1]}`,
       ].join("\n");
     }
 
@@ -2201,7 +2201,7 @@ export function Dashboard() {
                     <Button icon={<ArrowLeft size={14} />} className="back-button" onClick={() => openMenuView("instances")}>
                       {uiText.backToInstances}
                     </Button>
-                    <Card className="glass-card" title={selectedInstance ? `${uiText.instanceDetailTitle}锛?{selectedInstance.name}` : uiText.selectInstance}>
+                    <Card className="glass-card" title={selectedInstance ? `${uiText.instanceDetailTitle}：${selectedInstance.name}` : uiText.selectInstance}>
               {selectedInstance ? (
                 <Space direction="vertical" style={{ width: "100%" }} size="middle">
                   <Descriptions column={2} bordered size="small">
@@ -2439,8 +2439,7 @@ export function Dashboard() {
                                                   <Bot size={15} />
                                                   <span>{uiText.agentSessionRouteModeAuto}</span>
                                                 </div>
-                                                <div className="agent-session-mode-option-hint">{uiText.agentSessionRouteModeAutoHint}</div>
-                                              </div>
+                                               </div>
                                             ),
                                             value: "auto",
                                           },
@@ -2451,8 +2450,7 @@ export function Dashboard() {
                                                   <Server size={15} />
                                                   <span>{uiText.agentSessionRouteModeDirect}</span>
                                                 </div>
-                                                <div className="agent-session-mode-option-hint">{uiText.agentSessionRouteModeDirectHint}</div>
-                                              </div>
+                                               </div>
                                             ),
                                             value: "direct",
                                           },
@@ -2476,7 +2474,6 @@ export function Dashboard() {
                                             label: item.id,
                                           }))}
                                         />
-                                        <Text type="secondary">{uiText.agentSessionCurrentAgentHint}</Text>
                                         {selectedAgent ? (
                                           <Space size={[8, 8]} wrap>
                                             <Tag color="blue">{selectedAgent.id}</Tag>
@@ -2504,8 +2501,8 @@ export function Dashboard() {
                                             scriptType: value,
                                           }))}
                                           options={[
-                                            { value: "涓€鍙ヨ瘽鍓ф湰", label: "涓€鍙ヨ瘽鍓ф湰" },
-                                            { value: "灏忚杞墽鏈?, label: "灏忚杞墽鏈? },
+                                            { value: "一句话剧本", label: "一句话剧本" },
+                                            { value: "小说转剧本", label: "小说转剧本" },
                                           ]}
                                         />
                                       </div>
@@ -2568,7 +2565,7 @@ export function Dashboard() {
                                     ref={agentSessionOutputRef}
                                     className="agent-chat-thread"
                                     style={{
-                                      height: 440,
+                                      height: "clamp(520px, 60vh, 760px)",
                                       overflowY: "auto",
                                       background: "#fff",
                                     }}
@@ -2581,7 +2578,7 @@ export function Dashboard() {
                                         <div className="agent-chat-bubble">
                                           <div className="agent-chat-head">
                                             <div className="agent-chat-role">
-                                              {item.role === "user" ? "浣? : item.role === "system" ? "绯荤粺" : "Agent"}
+                                              {item.role === "user" ? "用户" : item.role === "system" ? "系统" : "Agent"}
                                             </div>
                                             {item.role === "assistant" && item.content.trim() ? (
                                               <Button
@@ -2624,7 +2621,7 @@ export function Dashboard() {
                                       <div className="agent-composer-mode">
                                         <div className="agent-composer-mode-copy">
                                           <div className="agent-composer-mode-title">
-                                            {uiText.agentSessionReviseModeTitle}锛歿agentComposerDraftStateLabel}
+                                            {uiText.agentSessionReviseModeTitle}：{agentComposerDraftStateLabel}
                                           </div>
                                           <div className="agent-composer-mode-hint">{uiText.agentSessionReviseModeHint}</div>
                                         </div>

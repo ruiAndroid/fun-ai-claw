@@ -2441,21 +2441,21 @@ export function Dashboard() {
                                           },
                                         ]}
                                       />
-                                      <div className="agent-session-mode-actions">
-                                        <Button
-                                          type="primary"
-                                          loading={agentSessionConnecting}
-                                          disabled={disableConnectAgentSession}
-                                          onClick={connectAgentSession}
-                                        >
-                                          {uiText.agentSessionConnect}
-                                        </Button>
-                                        <Button disabled={!agentSessionConnected} onClick={disconnectAgentSession}>
-                                          {uiText.agentSessionDisconnect}
-                                        </Button>
-                                      </div>
                                     </Space>
                                   </Card>
+                                  <div className="agent-session-mode-actions">
+                                    <Button
+                                      type="primary"
+                                      loading={agentSessionConnecting}
+                                      disabled={disableConnectAgentSession}
+                                      onClick={connectAgentSession}
+                                    >
+                                      {uiText.agentSessionConnect}
+                                    </Button>
+                                    <Button disabled={!agentSessionConnected} onClick={disconnectAgentSession}>
+                                      {uiText.agentSessionDisconnect}
+                                    </Button>
+                                  </div>
                                   {agentSessionRequiresDirectAgent ? (
                                     <Card size="small">
                                       <Space direction="vertical" style={{ width: "100%" }} size="small">

@@ -410,9 +410,11 @@ body {
 
 .agent-session-mode-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
 .agent-session-mode-option-hint {

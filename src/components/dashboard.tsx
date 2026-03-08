@@ -2405,21 +2405,6 @@ export function Dashboard() {
                                 className="sub-glass-card"
                                 size="small"
                                 title={uiText.agentChatTitle}
-                                extra={(
-                                  <Space>
-                                    <Button
-                                      type="primary"
-                                      loading={agentSessionConnecting}
-                                      disabled={disableConnectAgentSession}
-                                      onClick={connectAgentSession}
-                                    >
-                                      {uiText.agentSessionConnect}
-                                    </Button>
-                                    <Button disabled={!agentSessionConnected} onClick={disconnectAgentSession}>
-                                      {uiText.agentSessionDisconnect}
-                                    </Button>
-                                  </Space>
-                                )}
                               >
                                 <Space direction="vertical" style={{ width: "100%" }} size="small">
                                   <Card size="small" className="agent-session-mode-card">
@@ -2456,6 +2441,19 @@ export function Dashboard() {
                                           },
                                         ]}
                                       />
+                                      <div className="agent-session-mode-actions">
+                                        <Button
+                                          type="primary"
+                                          loading={agentSessionConnecting}
+                                          disabled={disableConnectAgentSession}
+                                          onClick={connectAgentSession}
+                                        >
+                                          {uiText.agentSessionConnect}
+                                        </Button>
+                                        <Button disabled={!agentSessionConnected} onClick={disconnectAgentSession}>
+                                          {uiText.agentSessionDisconnect}
+                                        </Button>
+                                      </div>
                                     </Space>
                                   </Card>
                                   {agentSessionRequiresDirectAgent ? (

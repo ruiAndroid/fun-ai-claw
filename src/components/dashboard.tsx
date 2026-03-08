@@ -99,11 +99,11 @@ type ParsedAgentMessageContent = {
 
 const AGENT_INTERACTION_BLOCK_PATTERN = /<fun_claw_interaction>\s*([\s\S]*?)\s*<\/fun_claw_interaction>/gi;
 const AGENT_INTERACTION_STATE_LABELS: Record<string, string> = {
-  step1_input_parse: "杈撳叆瑙ｆ瀽",
-  step2_story_synopsis: "鏁呬簨姊楁",
-  step3_character_profile: "瑙掕壊璁惧畾",
-  step4_episode_outline: "鍒嗛泦澶х翰",
-  step5_full_script: "鍏ㄩ泦鍓ф湰",
+  step1_input_parse: "输入解析",
+  step2_story_synopsis: "故事梗概",
+  step3_character_profile: "角色小传",
+  step4_episode_outline: "分集大纲",
+  step5_full_script: "完整剧本",
 };
 
 type ParsedAgentInteractionPayload = {

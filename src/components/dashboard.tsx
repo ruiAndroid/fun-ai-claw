@@ -42,6 +42,15 @@ type AgentInteraction = {
   title?: string;
   actions: AgentInteractionAction[];
 };
+type AgentChatTiming = {
+  provider?: string;
+  model?: string;
+  llmRequestCount?: number;
+  modelDurationMs?: number;
+  agentDurationMs?: number;
+  totalDurationMs?: number;
+  completedAt?: string;
+};
 type AgentChatMessage = {
   id: string;
   role: AgentChatRole;
@@ -50,6 +59,9 @@ type AgentChatMessage = {
   interaction?: AgentInteraction;
   interactionResolved?: boolean;
   interactionResolvedNote?: string;
+  createdAt?: string;
+  emittedAt?: string;
+  timing?: AgentChatTiming;
 };
 type AgentSessionStreamMessage = {
   version: string;
@@ -91,6 +103,22 @@ type AgentSessionCoreFields = {
   scriptContent: string;
   targetAudience: string;
   expectedEpisodeCount: string;
+};
+
+type AgentTurnTracker = {
+  userMessageId: string;
+  userSentAt: string;
+  startedAtMs: number;
+  assistantMessageId?: string;
+  assistantEmittedAt?: string;
+  provider?: string;
+  model?: string;
+  llmRequestCount: number;
+  modelDurationMs: number;
+  agentDurationMs?: number;
+  totalDurationMs?: number;
+  completedAt?: string;
+  committed?: boolean;
 };
 
 type AgentComposerInteractionDraft = {
@@ -461,6 +489,7 @@ function normalizeStructuredAgentChatMessage(message: AgentSessionStreamMessage)
       role: message.role,
       content: normalizedContent,
       pending: message.pending,
+      emittedAt: message.emittedAt,
     };
   }
 
@@ -475,6 +504,7 @@ function normalizeStructuredAgentChatMessage(message: AgentSessionStreamMessage)
     content: displayContent,
     pending: false,
     interaction: message.interaction ?? parsedContent.interaction,
+    emittedAt: message.emittedAt,
   };
 }
 
@@ -492,6 +522,42 @@ function formatAgentSessionDebugTimestamp(emittedAt?: string): string | undefine
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function formatAgentTimingDuration(ms?: number): string | undefined {
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) {
+    return undefined;
+  }
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+  if (ms < 60000) {
+    const seconds = ms / 1000;
+    return `${seconds >= 10 ? seconds.toFixed(0) : seconds.toFixed(1)}s`;
+  }
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${seconds}s`;
+}
+
+function getAgentTimingNow() {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+function formatAgentTimingTooltip(timing?: AgentChatTiming): string | undefined {
+  if (!timing) {
+    return undefined;
+  }
+  const details = [
+    timing.model ? `模型: ${timing.model}` : "",
+    timing.provider ? `提供方: ${timing.provider}` : "",
+    timing.llmRequestCount && timing.llmRequestCount > 1 ? `模型调用: ${timing.llmRequestCount}次` : "",
+  ].filter((item) => item.length > 0);
+  return details.length > 0 ? details.join(" | ") : undefined;
 }
 
 const uiText = {
@@ -770,6 +836,7 @@ export function Dashboard() {
   const agentQueuedMessageRef = useRef<string | null>(null);
   const agentSessionLineBufferRef = useRef("");
   const agentPendingAssistantMessageIdRef = useRef<string | null>(null);
+  const agentTurnQueueRef = useRef<AgentTurnTracker[]>([]);
   const agentChatMessageSeqRef = useRef(0);
   const agentSessionDebugEntrySeqRef = useRef(0);
   const [agentSessionOutput, setAgentSessionOutput] = useState("");
@@ -1100,6 +1167,7 @@ export function Dashboard() {
       agentQueuedMessageRef.current = null;
       agentSessionLineBufferRef.current = "";
       agentPendingAssistantMessageIdRef.current = null;
+      agentTurnQueueRef.current = [];
       agentSessionSocketRef.current?.close();
       agentSessionSocketRef.current = null;
       terminalSocketRef.current?.close();
@@ -1134,6 +1202,7 @@ export function Dashboard() {
       agentQueuedMessageRef.current = null;
       agentSessionLineBufferRef.current = "";
       agentPendingAssistantMessageIdRef.current = null;
+      agentTurnQueueRef.current = [];
       agentSessionDebugEntrySeqRef.current = 0;
       return;
     }
@@ -1150,6 +1219,7 @@ export function Dashboard() {
     agentQueuedMessageRef.current = null;
     agentSessionLineBufferRef.current = "";
     agentPendingAssistantMessageIdRef.current = null;
+    agentTurnQueueRef.current = [];
     agentSessionDebugEntrySeqRef.current = 0;
   }, [selectedInstanceId]);
 
@@ -1433,18 +1503,162 @@ export function Dashboard() {
     ]);
   }, [nextAgentSessionDebugEntryId]);
 
-  const appendAgentChatMessage = useCallback((role: AgentChatRole, content: string, pending = false) => {
-    const normalizedMessage = normalizeAgentChatMessage(role, content, pending);
-    if (!normalizedMessage) {
+  const pruneCommittedAgentTurns = useCallback(() => {
+    agentTurnQueueRef.current = agentTurnQueueRef.current.filter((item) => !item.committed);
+  }, []);
+
+  const buildAgentChatTiming = useCallback((turn: AgentTurnTracker): AgentChatTiming | undefined => {
+    const hasTiming = turn.llmRequestCount > 0
+      || turn.modelDurationMs > 0
+      || typeof turn.totalDurationMs === "number"
+      || typeof turn.agentDurationMs === "number";
+    if (!hasTiming) {
+      return undefined;
+    }
+    return {
+      provider: turn.provider,
+      model: turn.model,
+      llmRequestCount: turn.llmRequestCount > 0 ? turn.llmRequestCount : undefined,
+      modelDurationMs: turn.modelDurationMs > 0 ? turn.modelDurationMs : undefined,
+      agentDurationMs: typeof turn.agentDurationMs === "number" ? turn.agentDurationMs : undefined,
+      totalDurationMs: typeof turn.totalDurationMs === "number" ? turn.totalDurationMs : undefined,
+      completedAt: turn.completedAt,
+    };
+  }, []);
+
+  const applyTimingToAgentChatMessage = useCallback((messageId: string, turn: AgentTurnTracker) => {
+    const timing = buildAgentChatTiming(turn);
+    if (!timing) {
       return;
     }
+    setAgentChatMessages((current) => current.map((item) => (
+      item.id === messageId
+        ? {
+          ...item,
+          emittedAt: turn.assistantEmittedAt ?? item.emittedAt,
+          timing: {
+            ...item.timing,
+            ...timing,
+          },
+        }
+        : item
+    )));
+  }, [buildAgentChatTiming]);
+
+  const commitAgentTurnTiming = useCallback((turn: AgentTurnTracker) => {
+    if (!turn.assistantMessageId) {
+      return;
+    }
+    applyTimingToAgentChatMessage(turn.assistantMessageId, turn);
+    if (typeof turn.totalDurationMs === "number") {
+      turn.committed = true;
+      pruneCommittedAgentTurns();
+    }
+  }, [applyTimingToAgentChatMessage, pruneCommittedAgentTurns]);
+
+  const bindAssistantMessageToAgentTurn = useCallback((messageId: string, emittedAt?: string) => {
+    const existingTurn = agentTurnQueueRef.current.find((item) => item.assistantMessageId === messageId);
+    if (existingTurn) {
+      existingTurn.assistantEmittedAt = emittedAt ?? existingTurn.assistantEmittedAt;
+      commitAgentTurnTiming(existingTurn);
+      return;
+    }
+
+    const pendingTurn = agentTurnQueueRef.current.find((item) => !item.assistantMessageId);
+    if (!pendingTurn) {
+      return;
+    }
+    pendingTurn.assistantMessageId = messageId;
+    pendingTurn.assistantEmittedAt = emittedAt;
+    commitAgentTurnTiming(pendingTurn);
+  }, [commitAgentTurnTiming]);
+
+  const recordAgentTurnRequest = useCallback((provider?: string, model?: string) => {
+    const activeTurn = agentTurnQueueRef.current.find((item) => typeof item.totalDurationMs !== "number");
+    if (!activeTurn) {
+      return;
+    }
+    activeTurn.llmRequestCount += 1;
+    activeTurn.provider = provider ?? activeTurn.provider;
+    activeTurn.model = model ?? activeTurn.model;
+    if (activeTurn.assistantMessageId) {
+      applyTimingToAgentChatMessage(activeTurn.assistantMessageId, activeTurn);
+    }
+  }, [applyTimingToAgentChatMessage]);
+
+  const recordAgentTurnResponse = useCallback((provider?: string, model?: string, durationMs?: number) => {
+    const activeTurn = agentTurnQueueRef.current.find((item) => typeof item.totalDurationMs !== "number");
+    if (!activeTurn) {
+      return;
+    }
+    activeTurn.provider = provider ?? activeTurn.provider;
+    activeTurn.model = model ?? activeTurn.model;
+    if (typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0) {
+      activeTurn.modelDurationMs += durationMs;
+    }
+    if (activeTurn.assistantMessageId) {
+      applyTimingToAgentChatMessage(activeTurn.assistantMessageId, activeTurn);
+    }
+  }, [applyTimingToAgentChatMessage]);
+
+  const finalizeActiveAgentTurnTiming = useCallback((completedAt?: string) => {
+    const activeTurn = agentTurnQueueRef.current.find((item) => typeof item.totalDurationMs !== "number");
+    if (!activeTurn) {
+      return;
+    }
+    const totalDurationMs = Math.max(Math.round(getAgentTimingNow() - activeTurn.startedAtMs), 0);
+    activeTurn.totalDurationMs = totalDurationMs;
+    activeTurn.agentDurationMs = Math.max(totalDurationMs - activeTurn.modelDurationMs, 0);
+    activeTurn.completedAt = completedAt ?? new Date().toISOString();
+    commitAgentTurnTiming(activeTurn);
+  }, [commitAgentTurnTiming]);
+
+  const trackAgentTimingFromDebug = useCallback((content: string, emittedAt?: string) => {
+    const lines = content
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    lines.forEach((line) => {
+      const requestMatch = line.match(/\bllm\.request\b.*\bprovider=([^\s]+)\s+model=([^\s]+)/);
+      if (requestMatch) {
+        recordAgentTurnRequest(requestMatch[1], requestMatch[2]);
+        return;
+      }
+
+      const responseMatch = line.match(/\bllm\.response\b.*\bprovider=([^\s]+)\s+model=([^\s]+).*?\bduration_ms=(\d+)/);
+      if (responseMatch) {
+        recordAgentTurnResponse(responseMatch[1], responseMatch[2], Number(responseMatch[3]));
+        return;
+      }
+
+      if (line.includes("turn.complete")) {
+        finalizeActiveAgentTurnTiming(emittedAt);
+      }
+    });
+  }, [finalizeActiveAgentTurnTiming, recordAgentTurnRequest, recordAgentTurnResponse]);
+
+  const appendAgentChatMessage = useCallback((
+    role: AgentChatRole,
+    content: string,
+    pending = false,
+    metadata?: Partial<Pick<AgentChatMessage, "createdAt" | "emittedAt" | "timing">>,
+  ) => {
+    const normalizedMessage = normalizeAgentChatMessage(role, content, pending);
+    if (!normalizedMessage) {
+      return undefined;
+    }
+    const messageId = nextAgentChatMessageId();
     setAgentChatMessages((current) => [
       ...current,
       {
-        id: nextAgentChatMessageId(),
+        id: messageId,
         ...normalizedMessage,
+        ...metadata,
       },
     ]);
+    return messageId;
   }, [nextAgentChatMessageId]);
 
   const finalizePendingAssistantMessage = useCallback(() => {
@@ -1463,6 +1677,9 @@ export function Dashboard() {
       return [{
         ...item,
         ...normalizedMessage,
+        createdAt: item.createdAt,
+        emittedAt: item.emittedAt,
+        timing: item.timing,
       }];
     }));
     agentPendingAssistantMessageIdRef.current = null;
@@ -1479,15 +1696,29 @@ export function Dashboard() {
       if (existingIndex < 0) {
         return [...current, normalizedMessage];
       }
-      return current.map((item) => (item.id === normalizedMessage.id ? { ...item, ...normalizedMessage } : item));
+      return current.map((item) => (
+        item.id === normalizedMessage.id
+          ? {
+            ...item,
+            ...normalizedMessage,
+            createdAt: item.createdAt,
+            emittedAt: normalizedMessage.emittedAt ?? item.emittedAt,
+            timing: normalizedMessage.timing ?? item.timing,
+          }
+          : item
+      ));
     });
-  }, [finalizePendingAssistantMessage]);
+    if (normalizedMessage.role === "assistant") {
+      bindAssistantMessageToAgentTurn(normalizedMessage.id, normalizedMessage.emittedAt ?? message.emittedAt);
+    }
+  }, [bindAssistantMessageToAgentTurn, finalizePendingAssistantMessage]);
 
   const appendAssistantMessageChunk = useCallback((chunk: string) => {
     if (!chunk && !agentPendingAssistantMessageIdRef.current) {
       return;
     }
 
+    let createdMessageId: string | undefined;
     setAgentChatMessages((current) => {
       const pendingMessageId = agentPendingAssistantMessageIdRef.current;
       if (!pendingMessageId) {
@@ -1495,6 +1726,7 @@ export function Dashboard() {
           return current;
         }
         const newMessageId = nextAgentChatMessageId();
+        createdMessageId = newMessageId;
         agentPendingAssistantMessageIdRef.current = newMessageId;
         return [
           ...current,
@@ -1518,7 +1750,10 @@ export function Dashboard() {
         };
       });
     });
-  }, [nextAgentChatMessageId]);
+    if (createdMessageId) {
+      bindAssistantMessageToAgentTurn(createdMessageId);
+    }
+  }, [bindAssistantMessageToAgentTurn, nextAgentChatMessageId]);
 
   const isAgentSessionLogLine = useCallback((line: string) => {
     const normalizedLine = line.trim();
@@ -1655,6 +1890,7 @@ export function Dashboard() {
           content: frame.chunk,
         });
         appendAgentSessionOutput(frame.chunk);
+        trackAgentTimingFromDebug(frame.chunk, frame.emittedAt);
       }
       return;
     }
@@ -1671,7 +1907,7 @@ export function Dashboard() {
     }
 
     processAgentSessionChunk(data);
-  }, [appendAgentSessionDebugEntry, appendAgentSessionOutput, appendStructuredAgentSessionMessage, processAgentSessionChunk]);
+  }, [appendAgentSessionDebugEntry, appendAgentSessionOutput, appendStructuredAgentSessionMessage, processAgentSessionChunk, trackAgentTimingFromDebug]);
 
   const normalizeAgentSessionMessage = useCallback((rawInput: string) => {
     const normalizedLines = rawInput
@@ -1715,7 +1951,22 @@ export function Dashboard() {
       setAgentSessionCoreFields(parsedCoreFields);
     }
     finalizePendingAssistantMessage();
-    appendAgentChatMessage("user", options?.displayText ?? formatAgentMessageForDisplay(normalizedMessage));
+    const sentAt = new Date().toISOString();
+    const userMessageId = appendAgentChatMessage(
+      "user",
+      options?.displayText ?? formatAgentMessageForDisplay(normalizedMessage),
+      false,
+      { createdAt: sentAt }
+    );
+    if (userMessageId) {
+      agentTurnQueueRef.current.push({
+        userMessageId,
+        userSentAt: sentAt,
+        startedAtMs: getAgentTimingNow(),
+        llmRequestCount: 0,
+        modelDurationMs: 0,
+      });
+    }
     markAgentInteractionResolved(
       options?.resolveInteractionMessageId,
       options?.resolvedInteractionNote ?? getAgentInteractionResolvedNote(normalizedMessage)
@@ -1803,6 +2054,7 @@ export function Dashboard() {
     setAgentComposerInteractionDraft(undefined);
     setAgentMessageInput("");
     setAgentSessionCoreFields(undefined);
+    agentTurnQueueRef.current = [];
     finalizePendingAssistantMessage();
   }, [finalizePendingAssistantMessage]);
 
@@ -1828,6 +2080,7 @@ export function Dashboard() {
     setAgentSessionDebugEntries([]);
     agentSessionLineBufferRef.current = "";
     agentPendingAssistantMessageIdRef.current = null;
+    agentTurnQueueRef.current = [];
     agentSessionDebugEntrySeqRef.current = 0;
     setAgentSessionConnecting(true);
 
@@ -1862,6 +2115,7 @@ export function Dashboard() {
       }
       finalizePendingAssistantMessage();
       agentSessionSocketRef.current = null;
+      agentTurnQueueRef.current = [];
       setAgentSessionConnecting(false);
       setAgentSessionConnected(false);
       const suppressCloseMessage = agentSessionSuppressCloseMessageRef.current;
@@ -2645,49 +2899,89 @@ export function Dashboard() {
                                       background: "#fff",
                                     }}
                                   >
-                                    {agentChatMessages.length > 0 ? agentChatMessages.map((item) => (
-                                      <div
-                                        key={item.id}
-                                        className={`agent-chat-item ${item.role === "user" ? "is-user" : item.role === "system" ? "is-system" : "is-assistant"}`}
-                                      >
-                                        <div className="agent-chat-bubble">
-                                          <div className="agent-chat-head">
-                                            <div className="agent-chat-role">
-                                              {item.role === "user" ? "用户" : item.role === "system" ? "系统" : "Agent"}
+                                    {agentChatMessages.length > 0 ? agentChatMessages.map((item) => {
+                                      const modelDurationLabel = formatAgentTimingDuration(item.timing?.modelDurationMs);
+                                      const agentDurationLabel = formatAgentTimingDuration(item.timing?.agentDurationMs);
+                                      const totalDurationLabel = formatAgentTimingDuration(item.timing?.totalDurationMs);
+                                      const llmRequestCount = item.timing?.llmRequestCount ?? 0;
+                                      const showTiming = item.role === "assistant" && (
+                                        Boolean(modelDurationLabel)
+                                        || Boolean(agentDurationLabel)
+                                        || Boolean(totalDurationLabel)
+                                        || llmRequestCount > 1
+                                      );
+
+                                      return (
+                                        <div
+                                          key={item.id}
+                                          className={`agent-chat-item ${item.role === "user" ? "is-user" : item.role === "system" ? "is-system" : "is-assistant"}`}
+                                        >
+                                          <div className="agent-chat-bubble">
+                                            <div className="agent-chat-head">
+                                              <div className="agent-chat-role">
+                                                {item.role === "user" ? "\u7528\u6237" : item.role === "system" ? "\u7cfb\u7edf" : "Agent"}
+                                              </div>
+                                              {item.role === "assistant" && item.content.trim() ? (
+                                                <Button
+                                                  type="text"
+                                                  size="small"
+                                                  className="agent-chat-copy-button"
+                                                  onClick={() => void copyAgentChatContent(item.content)}
+                                                >
+                                                  {uiText.agentSessionCopyOutput}
+                                                </Button>
+                                              ) : null}
                                             </div>
-                                            {item.role === "assistant" && item.content.trim() ? (
-                                              <Button
-                                                type="text"
-                                                size="small"
-                                                className="agent-chat-copy-button"
-                                                onClick={() => void copyAgentChatContent(item.content)}
-                                              >
-                                                {uiText.agentSessionCopyOutput}
-                                              </Button>
+                                            <div className="agent-chat-content">{item.content}</div>
+                                            {item.pending ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
+                                            {showTiming ? (
+                                              <div className="agent-chat-timing" title={formatAgentTimingTooltip(item.timing)}>
+                                                {modelDurationLabel ? (
+                                                  <span className="agent-chat-timing-pill">
+                                                    <span className="agent-chat-timing-label">{"\u6a21\u578b"}</span>
+                                                    <strong>{modelDurationLabel}</strong>
+                                                  </span>
+                                                ) : null}
+                                                {agentDurationLabel ? (
+                                                  <span className="agent-chat-timing-pill">
+                                                    <span className="agent-chat-timing-label">Agent</span>
+                                                    <strong>{agentDurationLabel}</strong>
+                                                  </span>
+                                                ) : null}
+                                                {totalDurationLabel ? (
+                                                  <span className="agent-chat-timing-pill is-accent">
+                                                    <span className="agent-chat-timing-label">{"\u603b\u8ba1"}</span>
+                                                    <strong>{totalDurationLabel}</strong>
+                                                  </span>
+                                                ) : null}
+                                                {llmRequestCount > 1 ? (
+                                                  <span className="agent-chat-timing-pill is-muted">
+                                                    {llmRequestCount}{"\u6b21\u6a21\u578b\u8c03\u7528"}
+                                                  </span>
+                                                ) : null}
+                                              </div>
+                                            ) : null}
+                                            {item.id === pendingAgentApprovalMessageId && item.interaction?.actions.length ? (
+                                              <div className="agent-chat-actions">
+                                                {item.interaction.actions.map((action) => (
+                                                  <Button
+                                                    key={`${item.id}-${action.id}`}
+                                                    type={action.kind === "send" ? "primary" : "default"}
+                                                    onClick={() => runAgentInteractionAction(item.id, action)}
+                                                    disabled={!agentSessionConnected}
+                                                  >
+                                                    {action.label}
+                                                  </Button>
+                                                ))}
+                                              </div>
+                                            ) : null}
+                                            {item.role === "assistant" && item.interactionResolvedNote ? (
+                                              <div className="agent-chat-resolution-hint">{item.interactionResolvedNote}</div>
                                             ) : null}
                                           </div>
-                                          <div className="agent-chat-content">{item.content}</div>
-                                          {item.pending ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
-                                          {item.id === pendingAgentApprovalMessageId && item.interaction?.actions.length ? (
-                                            <div className="agent-chat-actions">
-                                              {item.interaction.actions.map((action) => (
-                                                <Button
-                                                  key={`${item.id}-${action.id}`}
-                                                  type={action.kind === "send" ? "primary" : "default"}
-                                                  onClick={() => runAgentInteractionAction(item.id, action)}
-                                                  disabled={!agentSessionConnected}
-                                                >
-                                                  {action.label}
-                                                </Button>
-                                              ))}
-                                            </div>
-                                          ) : null}
-                                          {item.role === "assistant" && item.interactionResolvedNote ? (
-                                            <div className="agent-chat-resolution-hint">{item.interactionResolvedNote}</div>
-                                          ) : null}
                                         </div>
-                                      </div>
-                                    )) : (
+                                      );
+                                    }) : (
                                       <Text type="secondary">{uiText.agentSessionConversationEmpty}</Text>
                                     )}
                                   </div>
@@ -3157,4 +3451,3 @@ export function Dashboard() {
     </>
   );
 }
-

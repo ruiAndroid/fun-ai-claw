@@ -526,6 +526,49 @@ body {
   opacity: 0.72;
 }
 
+.agent-chat-timing {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-chat-timing-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.58);
+  color: #475569;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.agent-chat-timing-pill strong {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.agent-chat-timing-pill.is-accent {
+  background: rgba(20, 184, 166, 0.14);
+  color: #0f766e;
+}
+
+.agent-chat-timing-pill.is-accent strong {
+  color: #0f766e;
+}
+
+.agent-chat-timing-pill.is-muted {
+  background: rgba(241, 245, 249, 0.9);
+  color: #64748b;
+}
+
+.agent-chat-timing-label {
+  opacity: 0.8;
+}
+
 .agent-chat-actions {
   margin-top: 12px;
   display: flex;

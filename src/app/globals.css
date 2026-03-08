@@ -408,13 +408,13 @@ body {
   color: #0f172a;
 }
 
-.agent-session-mode-actions {
+.agent-session-action-bar {
   display: flex;
+  width: 100%;
   justify-content: flex-start;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  padding-top: 2px;
+  padding: 2px 0 0 2px;
 }
 
 .agent-session-mode-option-hint {

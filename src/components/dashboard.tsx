@@ -2443,18 +2443,20 @@ export function Dashboard() {
                                       />
                                     </Space>
                                   </Card>
-                                  <div className="agent-session-mode-actions">
-                                    <Button
-                                      type="primary"
-                                      loading={agentSessionConnecting}
-                                      disabled={disableConnectAgentSession}
-                                      onClick={connectAgentSession}
-                                    >
-                                      {uiText.agentSessionConnect}
-                                    </Button>
-                                    <Button disabled={!agentSessionConnected} onClick={disconnectAgentSession}>
-                                      {uiText.agentSessionDisconnect}
-                                    </Button>
+                                  <div className="agent-session-action-bar">
+                                    <Space>
+                                      <Button
+                                        type="primary"
+                                        loading={agentSessionConnecting}
+                                        disabled={disableConnectAgentSession}
+                                        onClick={connectAgentSession}
+                                      >
+                                        {uiText.agentSessionConnect}
+                                      </Button>
+                                      <Button disabled={!agentSessionConnected} onClick={disconnectAgentSession}>
+                                        {uiText.agentSessionDisconnect}
+                                      </Button>
+                                    </Space>
                                   </div>
                                   {agentSessionRequiresDirectAgent ? (
                                     <Card size="small">

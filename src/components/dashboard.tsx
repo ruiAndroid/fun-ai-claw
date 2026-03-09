@@ -1779,13 +1779,21 @@ export function Dashboard() {
       return;
     }
     setAgentChatMessages((current) => {
-      const existingIndex = current.findIndex((item) => item.id === normalizedMessage.id);
+      const nextMessages = normalizedMessage.role === "assistant" && normalizedMessage.content.trim()
+        ? current.filter((item) => !(
+          item.role === "assistant"
+          && item.pending
+          && item.id !== normalizedMessage.id
+          && !item.content.trim()
+        ))
+        : current;
+      const existingIndex = nextMessages.findIndex((item) => item.id === normalizedMessage.id);
       if (existingIndex < 0) {
         const activeTurn = agentTurnQueueRef.current.find((item) => typeof item.totalDurationMs !== "number");
         const placeholderMessageId = activeTurn?.placeholderAssistantMessageId;
         if (placeholderMessageId && placeholderMessageId !== normalizedMessage.id) {
           let adoptedPlaceholder = false;
-          const adoptedMessages = current.map((item) => {
+          const adoptedMessages = nextMessages.map((item) => {
             if (item.id !== placeholderMessageId) {
               return item;
             }
@@ -1803,9 +1811,9 @@ export function Dashboard() {
             return adoptedMessages;
           }
         }
-        return [...current, normalizedMessage];
+        return [...nextMessages, normalizedMessage];
       }
-      return current.map((item) => (
+      return nextMessages.map((item) => (
         item.id === normalizedMessage.id
           ? {
             ...item,
@@ -3063,7 +3071,18 @@ export function Dashboard() {
                                       background: "#fff",
                                     }}
                                   >
-                                    {agentChatMessages.length > 0 ? agentChatMessages.map((item) => {
+                                    {agentChatMessages.length > 0 ? agentChatMessages.map((item, index) => {
+                                      const hasLaterAssistantContent = agentChatMessages.slice(index + 1).some((candidate) => (
+                                        candidate.role === "assistant" && candidate.content.trim().length > 0
+                                      ));
+                                      if (
+                                        item.role === "assistant"
+                                        && item.pending
+                                        && !item.content.trim()
+                                        && hasLaterAssistantContent
+                                      ) {
+                                        return null;
+                                      }
                                       const thinkingVisible = item.role === "assistant"
                                         && item.pending
                                         && !item.content.trim()

@@ -19,7 +19,7 @@ import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
 import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Server, Wrench } from "lucide-react";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -761,6 +761,7 @@ const uiText = {
   agentSessionPendingReply: "Agent \u6b63\u5728\u7ec4\u7ec7\u56de\u590d...",
   agentSessionConnectedHint: "\u5df2\u8fde\u63a5\u5230\u5f53\u524d\u5b9e\u4f8b\u4f1a\u8bdd",
   agentSessionIdleHint: "\u672a\u8fde\u63a5",
+  agentSessionComposerShortcutHint: "Enter 发送，Shift + Enter 换行",
   mainAgentGuidanceTitle: "\u4e3b Agent \u63d0\u793a\u8bcd",
   mainAgentGuidanceExpand: "\u5c55\u5f00",
   mainAgentGuidanceCollapse: "\u6536\u8d77",
@@ -854,6 +855,7 @@ export function Dashboard() {
   const [agentComposerInteractionDraft, setAgentComposerInteractionDraft] = useState<AgentComposerInteractionDraft>();
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
   const agentQueuedMessageRef = useRef<string | null>(null);
+  const agentMessageComposingRef = useRef(false);
   const agentSessionLineBufferRef = useRef("");
   const agentPendingAssistantMessageIdRef = useRef<string | null>(null);
   const agentTurnQueueRef = useRef<AgentTurnTracker[]>([]);
@@ -2316,6 +2318,28 @@ export function Dashboard() {
     sendNormalizedAgentMessage,
   ]);
 
+  const handleAgentMessageInputKeyDown = useCallback((event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+    if (event.nativeEvent.isComposing || agentMessageComposingRef.current) {
+      return;
+    }
+    event.preventDefault();
+    if (disableSendAgentMessage || agentSessionInputLocked) {
+      return;
+    }
+    sendAgentMessage();
+  }, [agentSessionInputLocked, disableSendAgentMessage, sendAgentMessage]);
+
+  const handleAgentMessageCompositionStart = useCallback(() => {
+    agentMessageComposingRef.current = true;
+  }, []);
+
+  const handleAgentMessageCompositionEnd = useCallback(() => {
+    agentMessageComposingRef.current = false;
+  }, []);
+
   const sendAgentStarterMessage = useCallback(() => {
     const starterMessage = buildAgentStarterMessage();
     if (!starterMessage) {
@@ -3179,23 +3203,29 @@ export function Dashboard() {
                                       rows={4}
                                       value={agentMessageInput}
                                       onChange={(event) => setAgentMessageInput(event.target.value)}
+                                      onKeyDown={handleAgentMessageInputKeyDown}
+                                      onCompositionStart={handleAgentMessageCompositionStart}
+                                      onCompositionEnd={handleAgentMessageCompositionEnd}
                                       placeholder={agentMessageComposerPlaceholder}
                                       />
                                     <div className="agent-sender-actions">
-                                      <Button
-                                        type="text"
-                                        disabled={agentSessionInputLocked}
-                                        onClick={() => setAgentSessionDebugVisible((current) => !current)}
-                                      >
-                                        {agentSessionDebugVisible ? uiText.agentSessionHideDebug : uiText.agentSessionShowDebug}
-                                      </Button>
-                                      <Button
-                                        type="primary"
-                                        disabled={disableSendAgentMessage}
-                                        onClick={sendAgentMessage}
-                                      >
-                                        {uiText.sendAgentMessage}
-                                      </Button>
+                                      <Text type="secondary">{uiText.agentSessionComposerShortcutHint}</Text>
+                                      <Space>
+                                        <Button
+                                          type="text"
+                                          disabled={agentSessionInputLocked}
+                                          onClick={() => setAgentSessionDebugVisible((current) => !current)}
+                                        >
+                                          {agentSessionDebugVisible ? uiText.agentSessionHideDebug : uiText.agentSessionShowDebug}
+                                        </Button>
+                                        <Button
+                                          type="primary"
+                                          disabled={disableSendAgentMessage}
+                                          onClick={sendAgentMessage}
+                                        >
+                                          {uiText.sendAgentMessage}
+                                        </Button>
+                                      </Space>
                                     </div>
                                   </div>
                                   {agentSessionDebugVisible ? (

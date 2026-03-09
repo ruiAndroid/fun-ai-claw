@@ -314,7 +314,10 @@ body {
 
 .agent-sender-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .agent-bubble-wrap {

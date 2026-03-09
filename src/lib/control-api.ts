@@ -4,6 +4,7 @@ import {
   ClawInstance,
   CreateInstanceRequest,
   ImagePreset,
+  InstanceConfig,
   InstanceMainAgentGuidance,
   InstanceActionType,
   ListResponse,
@@ -87,6 +88,26 @@ export async function listInstanceSkills(instanceId: string) {
 
 export async function getInstanceMainAgentGuidance(instanceId: string) {
   return requestJson<InstanceMainAgentGuidance>(`/v1/instances/${instanceId}/main-agent-guidance`);
+}
+
+export async function getInstanceConfig(instanceId: string) {
+  return requestJson<InstanceConfig>(`/v1/instances/${instanceId}/config`);
+}
+
+export async function upsertInstanceConfig(
+  instanceId: string,
+  request: { configToml: string; updatedBy?: string }
+) {
+  return requestJson<InstanceConfig>(`/v1/instances/${instanceId}/config`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteInstanceConfig(instanceId: string) {
+  return requestJson<InstanceConfig>(`/v1/instances/${instanceId}/config`, {
+    method: "DELETE",
+  });
 }
 
 export async function upsertInstanceMainAgentGuidance(

@@ -81,3 +81,15 @@ export interface InstanceMainAgentGuidance {
   overrideUpdatedAt?: string | null;
   overrideUpdatedBy?: string | null;
 }
+
+export interface InstanceConfig {
+  instanceId: string;
+  runtimeConfigPath: string;
+  source: "INSTANCE_OVERRIDE" | "DEFAULT_TEMPLATE" | string;
+  configToml: string;
+  overwriteOnStart: boolean;
+  overrideExists: boolean;
+  defaultTemplatePath?: string | null;
+  overrideUpdatedAt?: string | null;
+  overrideUpdatedBy?: string | null;
+}

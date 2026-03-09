@@ -846,7 +846,7 @@ export function Dashboard() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState<string>();
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
-  const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("auto");
+  const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("direct");
   const [skills, setSkills] = useState<SkillDescriptor[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsError, setSkillsError] = useState<string>();
@@ -2914,23 +2914,23 @@ export function Dashboard() {
                                             label: (
                                               <div className="agent-session-mode-option">
                                                 <div className="agent-session-mode-option-title">
-                                                  <Bot size={15} />
-                                                  <span>{uiText.agentSessionRouteModeAuto}</span>
-                                                </div>
-                                               </div>
-                                            ),
-                                            value: "auto",
-                                          },
-                                          {
-                                            label: (
-                                              <div className="agent-session-mode-option">
-                                                <div className="agent-session-mode-option-title">
                                                   <Server size={15} />
                                                   <span>{uiText.agentSessionRouteModeDirect}</span>
                                                 </div>
                                                </div>
                                             ),
                                             value: "direct",
+                                          },
+                                          {
+                                            label: (
+                                              <div className="agent-session-mode-option">
+                                                <div className="agent-session-mode-option-title">
+                                                  <Bot size={15} />
+                                                  <span>{uiText.agentSessionRouteModeAuto}</span>
+                                                </div>
+                                               </div>
+                                            ),
+                                            value: "auto",
                                           },
                                         ]}
                                       />

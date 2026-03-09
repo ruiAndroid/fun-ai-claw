@@ -81,12 +81,27 @@ type AgentSessionStreamMessage = {
   interaction?: AgentInteraction;
   emittedAt: string;
 };
+type AgentSessionDeltaChannel = "content" | "thinking";
+type AgentSessionDeltaOperation = "append" | "clear";
+type AgentSessionDelta = {
+  version: string;
+  messageId: string;
+  instanceId: string;
+  sessionId: string;
+  sequence: number;
+  role: AgentChatRole;
+  channel: AgentSessionDeltaChannel;
+  operation: AgentSessionDeltaOperation;
+  chunk?: string;
+  emittedAt: string;
+};
 type AgentSessionFrame = {
   version: string;
-  eventType: "message" | "debug";
+  eventType: "message" | "debug" | "delta";
   instanceId: string;
   sessionId: string;
   message?: AgentSessionStreamMessage;
+  delta?: AgentSessionDelta;
   chunk?: string;
   emittedAt: string;
 };
@@ -399,6 +414,43 @@ function sanitizeAgentSessionMessage(value: unknown): AgentSessionStreamMessage 
   };
 }
 
+function sanitizeAgentSessionDelta(value: unknown): AgentSessionDelta | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const version = typeof value.version === "string" && value.version.trim() ? value.version.trim() : "1.0";
+  const messageId = typeof value.messageId === "string" ? value.messageId.trim() : "";
+  const instanceId = typeof value.instanceId === "string" ? value.instanceId.trim() : "";
+  const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
+  const sequence = typeof value.sequence === "number" && Number.isInteger(value.sequence) && value.sequence > 0
+    ? value.sequence
+    : undefined;
+  const role = sanitizeAgentChatRole(value.role);
+  const channel = value.channel === "content" || value.channel === "thinking"
+    ? value.channel
+    : undefined;
+  const operation = value.operation === "append" || value.operation === "clear"
+    ? value.operation
+    : undefined;
+  const chunk = typeof value.chunk === "string" ? value.chunk : undefined;
+  const emittedAt = typeof value.emittedAt === "string" ? value.emittedAt.trim() : "";
+  if (!messageId || !instanceId || !sessionId || !sequence || !role || !channel || !operation || !emittedAt) {
+    return undefined;
+  }
+  return {
+    version,
+    messageId,
+    instanceId,
+    sessionId,
+    sequence,
+    role,
+    channel,
+    operation,
+    chunk,
+    emittedAt,
+  };
+}
+
 function parseAgentSessionFrame(content: string): AgentSessionFrame | undefined {
   const normalizedContent = content.trim();
   if (!normalizedContent.startsWith("{")) {
@@ -410,7 +462,7 @@ function parseAgentSessionFrame(content: string): AgentSessionFrame | undefined 
       return undefined;
     }
     const version = typeof parsed.version === "string" && parsed.version.trim() ? parsed.version.trim() : "1.0";
-    const eventType = parsed.eventType === "message" || parsed.eventType === "debug"
+    const eventType = parsed.eventType === "message" || parsed.eventType === "debug" || parsed.eventType === "delta"
       ? parsed.eventType
       : undefined;
     const instanceId = typeof parsed.instanceId === "string" ? parsed.instanceId.trim() : "";
@@ -434,6 +486,15 @@ function parseAgentSessionFrame(content: string): AgentSessionFrame | undefined 
         return undefined;
       }
       frame.message = message;
+      return frame;
+    }
+
+    if (eventType === "delta") {
+      const delta = sanitizeAgentSessionDelta(parsed.delta);
+      if (!delta) {
+        return undefined;
+      }
+      frame.delta = delta;
       return frame;
     }
 
@@ -856,6 +917,8 @@ export function Dashboard() {
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
   const agentQueuedMessageRef = useRef<string | null>(null);
   const agentMessageComposingRef = useRef(false);
+  const queuedAgentSessionDeltasRef = useRef<AgentSessionDelta[]>([]);
+  const queuedAgentSessionDeltasFlushRef = useRef<number | null>(null);
   const queuedStructuredAgentMessagesRef = useRef<Map<string, AgentSessionStreamMessage>>(new Map());
   const queuedStructuredAgentMessagesFlushRef = useRef<number | null>(null);
   const agentSessionLineBufferRef = useRef("");
@@ -1190,6 +1253,14 @@ export function Dashboard() {
     setMainAgentGuidanceCollapsed(true);
   }, [selectedInstanceId]);
 
+  const clearQueuedAgentSessionDeltas = useCallback(() => {
+    if (queuedAgentSessionDeltasFlushRef.current !== null && typeof window !== "undefined") {
+      window.cancelAnimationFrame(queuedAgentSessionDeltasFlushRef.current);
+    }
+    queuedAgentSessionDeltasFlushRef.current = null;
+    queuedAgentSessionDeltasRef.current = [];
+  }, []);
+
   const clearQueuedStructuredAgentSessionMessages = useCallback(() => {
     if (queuedStructuredAgentMessagesFlushRef.current !== null && typeof window !== "undefined") {
       window.cancelAnimationFrame(queuedStructuredAgentMessagesFlushRef.current);
@@ -1201,6 +1272,7 @@ export function Dashboard() {
   useEffect(() => {
     return () => {
       agentSessionSuppressCloseMessageRef.current = true;
+      clearQueuedAgentSessionDeltas();
       clearQueuedStructuredAgentSessionMessages();
       agentQueuedMessageRef.current = null;
       agentSessionLineBufferRef.current = "";
@@ -1211,7 +1283,7 @@ export function Dashboard() {
       terminalSocketRef.current?.close();
       terminalSocketRef.current = null;
     };
-  }, [clearQueuedStructuredAgentSessionMessages]);
+  }, [clearQueuedAgentSessionDeltas, clearQueuedStructuredAgentSessionMessages]);
 
   useEffect(() => {
     const outputElement = agentSessionOutputRef.current;
@@ -1237,6 +1309,7 @@ export function Dashboard() {
       setAgentMessageInput("");
       setAgentSessionDebugVisible(false);
       setAgentSessionDebugEntries([]);
+      clearQueuedAgentSessionDeltas();
       clearQueuedStructuredAgentSessionMessages();
       agentQueuedMessageRef.current = null;
       agentSessionLineBufferRef.current = "";
@@ -1255,13 +1328,14 @@ export function Dashboard() {
     setAgentMessageInput("");
     setAgentSessionDebugVisible(false);
     setAgentSessionDebugEntries([]);
+    clearQueuedAgentSessionDeltas();
     clearQueuedStructuredAgentSessionMessages();
     agentQueuedMessageRef.current = null;
     agentSessionLineBufferRef.current = "";
     agentPendingAssistantMessageIdRef.current = null;
     agentTurnQueueRef.current = [];
     agentSessionDebugEntrySeqRef.current = 0;
-  }, [clearQueuedStructuredAgentSessionMessages, selectedInstanceId]);
+  }, [clearQueuedAgentSessionDeltas, clearQueuedStructuredAgentSessionMessages, selectedInstanceId]);
 
   const openCreateModal = () => {
     setCreateModalOpen(true);
@@ -1882,7 +1956,127 @@ export function Dashboard() {
     });
   }, [appendStructuredAgentSessionMessage]);
 
+  const flushQueuedAgentSessionDeltas = useCallback(() => {
+    queuedAgentSessionDeltasFlushRef.current = null;
+    const queuedDeltas = [...queuedAgentSessionDeltasRef.current]
+      .sort((left, right) => left.sequence - right.sequence);
+    queuedAgentSessionDeltasRef.current = [];
+    if (queuedDeltas.length === 0) {
+      return;
+    }
+
+    setAgentChatMessages((current) => {
+      let next = current;
+      for (const delta of queuedDeltas) {
+        let targetIndex = next.findIndex((item) => item.id === delta.messageId);
+        if (targetIndex < 0 && delta.role === "assistant") {
+          const placeholderMessageId = agentTurnQueueRef.current.find(
+            (item) => !item.assistantMessageId && Boolean(item.placeholderAssistantMessageId),
+          )?.placeholderAssistantMessageId;
+          if (placeholderMessageId) {
+            targetIndex = next.findIndex((item) => item.id === placeholderMessageId);
+            if (targetIndex >= 0) {
+              next = next.map((item, index) => (
+                index === targetIndex
+                  ? {
+                    ...item,
+                    id: delta.messageId,
+                    emittedAt: delta.emittedAt ?? item.emittedAt,
+                  }
+                  : item
+              ));
+            }
+          }
+        }
+
+        if (targetIndex < 0) {
+          next = [
+            ...next,
+            {
+              id: delta.messageId,
+              role: delta.role,
+              content: "",
+              thinkingContent: "",
+              pending: true,
+              emittedAt: delta.emittedAt,
+            },
+          ];
+          targetIndex = next.length - 1;
+        }
+
+        const currentItem = next[targetIndex];
+        let nextItem = currentItem;
+
+        if (delta.operation === "clear") {
+          nextItem = delta.channel === "thinking"
+            ? {
+              ...currentItem,
+              thinkingContent: "",
+              pending: true,
+              emittedAt: delta.emittedAt ?? currentItem.emittedAt,
+            }
+            : {
+              ...currentItem,
+              content: "",
+              pending: true,
+              emittedAt: delta.emittedAt ?? currentItem.emittedAt,
+            };
+        } else {
+          const chunk = delta.chunk ?? "";
+          if (!chunk) {
+            continue;
+          }
+          nextItem = delta.channel === "thinking"
+            ? {
+              ...currentItem,
+              thinkingContent: `${currentItem.thinkingContent ?? ""}${chunk}`,
+              pending: true,
+              emittedAt: delta.emittedAt ?? currentItem.emittedAt,
+            }
+            : {
+              ...currentItem,
+              content: `${currentItem.content}${chunk}`,
+              thinkingContent: "",
+              pending: true,
+              emittedAt: delta.emittedAt ?? currentItem.emittedAt,
+            };
+        }
+
+        if (nextItem !== currentItem) {
+          next = next.map((item, index) => (index === targetIndex ? nextItem : item));
+        }
+      }
+      return next;
+    });
+
+    queuedDeltas.forEach((delta) => {
+      bindAssistantMessageToAgentTurn(
+        delta.messageId,
+        delta.emittedAt,
+        delta.operation === "append" && delta.channel === "content" && Boolean(delta.chunk),
+        delta.operation === "append" && delta.channel === "thinking" && Boolean(delta.chunk),
+      );
+    });
+  }, [bindAssistantMessageToAgentTurn]);
+
+  const queueAgentSessionDelta = useCallback((delta: AgentSessionDelta) => {
+    queuedAgentSessionDeltasRef.current.push(delta);
+    if (queuedAgentSessionDeltasFlushRef.current !== null) {
+      return;
+    }
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      queuedAgentSessionDeltasFlushRef.current = window.requestAnimationFrame(() => {
+        flushQueuedAgentSessionDeltas();
+      });
+      return;
+    }
+    flushQueuedAgentSessionDeltas();
+  }, [flushQueuedAgentSessionDeltas]);
+
   const queueStructuredAgentSessionMessage = useCallback((message: AgentSessionStreamMessage) => {
+    if (message.role === "assistant" && !message.pending && queuedAgentSessionDeltasRef.current.length > 0) {
+      flushQueuedAgentSessionDeltas();
+    }
     queuedStructuredAgentMessagesRef.current.set(message.messageId, message);
     if (queuedStructuredAgentMessagesFlushRef.current !== null) {
       return;
@@ -1894,7 +2088,7 @@ export function Dashboard() {
       return;
     }
     flushQueuedStructuredAgentSessionMessages();
-  }, [flushQueuedStructuredAgentSessionMessages]);
+  }, [flushQueuedAgentSessionDeltas, flushQueuedStructuredAgentSessionMessages]);
 
   const appendAssistantMessageChunk = useCallback((chunk: string) => {
     if (!chunk && !agentPendingAssistantMessageIdRef.current) {
@@ -2093,6 +2287,11 @@ export function Dashboard() {
       return;
     }
 
+    if (frame.eventType === "delta" && frame.delta) {
+      queueAgentSessionDelta(frame.delta);
+      return;
+    }
+
     if (frame.eventType === "message" && frame.message) {
       if (!(frame.message.role === "assistant" && frame.message.pending)) {
         appendAgentSessionDebugEntry({
@@ -2107,7 +2306,7 @@ export function Dashboard() {
     }
 
     processAgentSessionChunk(data);
-  }, [appendAgentSessionDebugEntry, appendAgentSessionOutput, processAgentSessionChunk, queueStructuredAgentSessionMessage, trackAgentTimingFromDebug]);
+  }, [appendAgentSessionDebugEntry, appendAgentSessionOutput, processAgentSessionChunk, queueAgentSessionDelta, queueStructuredAgentSessionMessage, trackAgentTimingFromDebug]);
 
   const normalizeAgentSessionMessage = useCallback((rawInput: string) => {
     const normalizedLines = rawInput

@@ -782,6 +782,8 @@ const uiText = {
   agentSessionDisconnected: "Agent Session \u5df2\u65ad\u5f00",
   agentSessionConnectFirst: "\u8bf7\u5148\u542f\u52a8\u4f1a\u8bdd\uff0c\u518d\u8fdb\u884c\u586b\u5199\u3001\u53d1\u9001\u6216\u4ea4\u4e92\u64cd\u4f5c",
   agentSessionNotRunning: "\u8bf7\u5148\u542f\u52a8\u5b9e\u4f8b\uff0c\u518d\u6253\u5f00 Agent Session",
+  agentSessionControlIdleHint: "\u542f\u52a8\u540e\u5373\u53ef\u53d1\u8d77\u521b\u4f5c\u9700\u6c42\uff0c\u540e\u7eed\u786e\u8ba4\u548c\u4fee\u6539\u90fd\u5728\u540c\u4e00\u6761\u4f1a\u8bdd\u5185\u7ee7\u7eed\u3002",
+  agentSessionControlActiveHint: "\u4f1a\u8bdd\u5df2\u5c31\u7eea\uff0c\u5f53\u524d\u8fde\u63a5\u5185\u53ef\u7ee7\u7eed\u786e\u8ba4\u6b65\u9aa4\u3001\u4fee\u6539\u5185\u5bb9\u6216\u8ffd\u95ee\u3002",
   agentSessionModeHint: "\u5f53\u524d\u4e3a\u957f\u4f1a\u8bdd\u6a21\u5f0f\uff0c\u7528\u6237\u7684\u201c\u786e\u8ba4\u7b2cN\u6b65 / \u91cd\u751f\u6210\u201d\u5fc5\u987b\u5728\u540c\u4e00\u6761\u8fde\u63a5\u5185\u7ee7\u7eed\u53d1\u9001\u3002\u591a\u884c\u8f93\u5165\u4f1a\u88ab\u5408\u5e76\u4e3a\u5355\u6761\u6d88\u606f\uff0c\u907f\u514d\u88ab REPL \u62c6\u6210\u591a\u4e2a\u56de\u5408\u3002",
   agentSessionMainAgentHint: "\u4f1a\u8bdd\u6a21\u5f0f\u51b3\u5b9a\u7531 claw \u81ea\u52a8\u8def\u7531\uff0c\u8fd8\u662f\u76f4\u63a5\u8fdb\u5165\u4f60\u6307\u5b9a\u7684 Agent\u3002\u4e00\u65e6\u5173\u95ed\u8fde\u63a5\uff0c\u4e0a\u4e0b\u6587\u4f1a\u7acb\u5373\u6e05\u7a7a\u3002",
   agentSessionRouteMode: "\u4f1a\u8bdd\u6a21\u5f0f",
@@ -3246,19 +3248,35 @@ export function Dashboard() {
                                     </Space>
                                   </Card>
                                   <div className="agent-session-action-bar">
-                                    <Space>
+                                    <div className="agent-session-action-cluster">
                                       <Button
                                         type="primary"
+                                        size="large"
+                                        className="agent-session-control-button is-connect"
                                         loading={agentSessionConnecting}
                                         disabled={disableConnectAgentSession}
                                         onClick={connectAgentSession}
                                       >
                                         {uiText.agentSessionConnect}
                                       </Button>
-                                      <Button disabled={!agentSessionConnected} onClick={disconnectAgentSession}>
+                                      <Button
+                                        size="large"
+                                        danger={agentSessionConnected}
+                                        className="agent-session-control-button is-disconnect"
+                                        disabled={!agentSessionConnected}
+                                        onClick={disconnectAgentSession}
+                                      >
                                         {uiText.agentSessionDisconnect}
                                       </Button>
-                                    </Space>
+                                    </div>
+                                    <div className="agent-session-action-status">
+                                      <Tag color={agentSessionConnected ? "cyan" : "default"}>
+                                        {agentSessionConnected ? uiText.agentSessionConnectedHint : uiText.agentSessionIdleHint}
+                                      </Tag>
+                                      <Text type="secondary">
+                                        {agentSessionConnected ? uiText.agentSessionControlActiveHint : uiText.agentSessionControlIdleHint}
+                                      </Text>
+                                    </div>
                                   </div>
                                   {agentSessionRequiresDirectAgent ? (
                                     <Card size="small">
@@ -3363,9 +3381,6 @@ export function Dashboard() {
                                     <>
                                   <div className="agent-session-section-head">
                                     <Text strong>{uiText.agentSessionActiveSession}</Text>
-                                    <Tag color={agentSessionConnected ? "cyan" : "default"}>
-                                      {agentSessionConnected ? uiText.agentSessionConnectedHint : uiText.agentSessionIdleHint}
-                                    </Tag>
                                   </div>
                                   <div
                                     ref={agentSessionOutputRef}

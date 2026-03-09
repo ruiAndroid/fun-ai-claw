@@ -166,6 +166,7 @@ const AGENT_INTERACTION_STATE_LABELS: Record<string, string> = {
   step4_episode_outline: "分集大纲",
   step5_full_script: "完整剧本",
 };
+const ACTIVE_IMAGE_PRESET_KEYWORD = "zeroclaw-shell";
 
 type ParsedAgentInteractionPayload = {
   interactionAction?: string;
@@ -175,6 +176,13 @@ type ParsedAgentInteractionPayload = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isImagePresetAvailable(preset: ImagePreset): boolean {
+  const keyword = ACTIVE_IMAGE_PRESET_KEYWORD;
+  return [preset.id, preset.name, preset.image]
+    .filter((value): value is string => typeof value === "string")
+    .some((value) => value.toLowerCase().includes(keyword));
 }
 
 function sanitizeAgentInteractionAction(value: unknown): AgentInteractionAction | undefined {
@@ -734,6 +742,8 @@ const uiText = {
   desiredStateRunning: "\u8fd0\u884c",
   desiredStateStopped: "\u505c\u6b62",
   noPresetImage: "\u5f53\u524d\u6ca1\u6709\u53ef\u9009\u9884\u7f6e\u955c\u50cf\uff0c\u8bf7\u5148\u5728API\u914d\u7f6e app.images.presets",
+  imagePresetUpgrading: "\u955c\u50cf\u5347\u7ea7\u4e2d\uff0c\u6682\u4e0d\u53ef\u7528",
+  imagePresetShellOnlyHint: "\u5f53\u524d\u4ec5\u5f00\u653e zeroclaw-shell \u6700\u65b0\u955c\u50cf\uff0c\u5176\u4ed6\u5185\u7f6e\u955c\u50cf\u6b63\u5728\u5347\u7ea7\u4e2d\u3002",
   requiredName: "\u8bf7\u8f93\u5165\u5b9e\u4f8b\u540d",
   nameAlreadyExists: "\u5b9e\u4f8b\u540d\u5df2\u5b58\u5728\uff0c\u8bf7\u66f4\u6362",
   requiredImage: "\u8bf7\u9009\u62e9\u955c\u50cf",
@@ -1086,8 +1096,13 @@ export function Dashboard() {
       const response = await listImages();
       setImages(response.items);
       if (response.items.length > 0) {
-        const defaultImage = response.items.find((item) => item.recommended)?.image ?? response.items[0].image;
+        const availableImages = response.items.filter(isImagePresetAvailable);
+        const defaultImage = availableImages.find((item) => item.recommended)?.image
+          ?? availableImages[0]?.image
+          ?? undefined;
         createForm.setFieldValue("image", defaultImage);
+      } else {
+        createForm.setFieldValue("image", undefined);
       }
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.loadImagesFailed);
@@ -3806,16 +3821,36 @@ export function Dashboard() {
           <Form.Item
             name="image"
             label={uiText.image}
-            rules={[{ required: true, message: uiText.requiredImage }]}
+            rules={[
+              { required: true, message: uiText.requiredImage },
+              {
+                validator: (_, value) => {
+                  if (!value) {
+                    return Promise.resolve();
+                  }
+                  const selectedPreset = images.find((item) => item.image === value);
+                  if (selectedPreset && !isImagePresetAvailable(selectedPreset)) {
+                    return Promise.reject(new Error(uiText.imagePresetUpgrading));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
           >
             <Select
               loading={loadingImages}
               options={images.map((item) => ({
                 value: item.image,
-                label: item.recommended ? `${item.name} (recommended) - ${item.image}` : `${item.name} - ${item.image}`,
+                label: isImagePresetAvailable(item)
+                  ? (item.recommended ? `${item.name} (recommended) - ${item.image}` : `${item.name} - ${item.image}`)
+                  : `${item.name} - ${item.image} · ${uiText.imagePresetUpgrading}`,
+                disabled: !isImagePresetAvailable(item),
               }))}
             />
           </Form.Item>
+          {images.some((item) => !isImagePresetAvailable(item)) ? (
+            <Alert type="warning" showIcon message={uiText.imagePresetShellOnlyHint} style={{ marginBottom: 16 }} />
+          ) : null}
           {images.length === 0 && !loadingImages ? (
             <Alert type="warning" showIcon message={uiText.noPresetImage} />
           ) : null}

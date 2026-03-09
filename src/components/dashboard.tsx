@@ -941,6 +941,7 @@ export function Dashboard() {
     targetAudience: "女频",
     expectedEpisodeCount: "3",
   });
+  const [agentSessionHasStarted, setAgentSessionHasStarted] = useState(false);
   const [agentSessionCoreFields, setAgentSessionCoreFields] = useState<AgentSessionCoreFields>();
   const [mainAgentGuidance, setMainAgentGuidance] = useState<InstanceMainAgentGuidance>();
   const [mainAgentGuidanceLoading, setMainAgentGuidanceLoading] = useState(false);
@@ -1012,7 +1013,7 @@ export function Dashboard() {
     () => agentSessionDebugEntries.length > 0 || agentSessionOutput.trim().length > 0,
     [agentSessionDebugEntries, agentSessionOutput]
   );
-  const hasAgentSessionConversationStarted = agentChatMessages.length > 0;
+  const hasAgentSessionConversationStarted = agentSessionHasStarted;
   const latestInteractiveAgentMessage = useMemo(
     () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && !item.interactionResolved && (item.interaction?.actions.length ?? 0) > 0),
     [agentChatMessages]
@@ -1309,6 +1310,7 @@ export function Dashboard() {
     if (!socket) {
       setAgentSessionOutput("");
       setAgentChatMessages([]);
+      setAgentSessionHasStarted(false);
       setAgentMessageInput("");
       setAgentSessionDebugVisible(false);
       setAgentSessionDebugEntries([]);
@@ -1328,6 +1330,7 @@ export function Dashboard() {
     setAgentSessionConnecting(false);
     setAgentSessionOutput("");
     setAgentChatMessages([]);
+    setAgentSessionHasStarted(false);
     setAgentMessageInput("");
     setAgentSessionDebugVisible(false);
     setAgentSessionDebugEntries([]);
@@ -2484,6 +2487,7 @@ export function Dashboard() {
     setAgentSessionConnected(false);
     setAgentComposerInteractionDraft(undefined);
     setAgentMessageInput("");
+    setAgentSessionHasStarted(false);
     setAgentSessionCoreFields(undefined);
     agentTurnQueueRef.current = [];
     finalizePendingAssistantMessage();
@@ -2505,6 +2509,7 @@ export function Dashboard() {
     disconnectAgentSession();
     setAgentSessionOutput("");
     setAgentChatMessages([]);
+    setAgentSessionHasStarted(false);
     setAgentComposerInteractionDraft(undefined);
     setAgentMessageInput("");
     setAgentSessionDebugVisible(false);
@@ -2654,7 +2659,10 @@ export function Dashboard() {
       messageApi.warning(agents.length === 0 ? uiText.agentSessionNoAgentsAvailable : uiText.agentSessionSelectAgentRequired);
       return;
     }
-    sendNormalizedAgentMessage(normalizeAgentSessionMessage(starterMessage));
+    const sent = sendNormalizedAgentMessage(normalizeAgentSessionMessage(starterMessage));
+    if (sent) {
+      setAgentSessionHasStarted(true);
+    }
   }, [
     agentSessionConnected,
     agentSessionTargetAgentId,
@@ -2663,6 +2671,7 @@ export function Dashboard() {
     buildAgentStarterMessage,
     messageApi,
     normalizeAgentSessionMessage,
+    setAgentSessionHasStarted,
     sendNormalizedAgentMessage,
   ]);
 

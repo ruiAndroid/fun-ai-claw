@@ -917,6 +917,7 @@ export function Dashboard() {
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
   const agentQueuedMessageRef = useRef<string | null>(null);
   const agentMessageComposingRef = useRef(false);
+  const agentAssistantMessageAliasRef = useRef<Map<string, string>>(new Map());
   const queuedAgentSessionDeltasRef = useRef<AgentSessionDelta[]>([]);
   const queuedAgentSessionDeltasFlushRef = useRef<number | null>(null);
   const queuedStructuredAgentMessagesRef = useRef<Map<string, AgentSessionStreamMessage>>(new Map());
@@ -1259,6 +1260,7 @@ export function Dashboard() {
     }
     queuedAgentSessionDeltasFlushRef.current = null;
     queuedAgentSessionDeltasRef.current = [];
+    agentAssistantMessageAliasRef.current.clear();
   }, []);
 
   const clearQueuedStructuredAgentSessionMessages = useCallback(() => {
@@ -1708,6 +1710,10 @@ export function Dashboard() {
     const placeholderTurn = agentTurnQueueRef.current.find((item) => !item.assistantMessageId && Boolean(item.placeholderAssistantMessageId));
     if (placeholderTurn) {
       let changed = false;
+      const placeholderMessageId = placeholderTurn.placeholderAssistantMessageId;
+      if (placeholderMessageId && placeholderMessageId !== messageId) {
+        agentAssistantMessageAliasRef.current.set(messageId, placeholderMessageId);
+      }
       placeholderTurn.assistantMessageId = messageId;
       placeholderTurn.placeholderAssistantMessageId = undefined;
       changed = true;
@@ -1889,6 +1895,9 @@ export function Dashboard() {
     if (!normalizedMessage) {
       return;
     }
+    if (normalizedMessage.role === "assistant" && !message.pending) {
+      agentAssistantMessageAliasRef.current.delete(normalizedMessage.id);
+    }
     setAgentChatMessages((current) => {
       const nextMessages = normalizedMessage.role === "assistant" && normalizedMessage.content.trim()
         ? current.filter((item) => !(
@@ -1970,12 +1979,11 @@ export function Dashboard() {
       for (const delta of queuedDeltas) {
         let targetIndex = next.findIndex((item) => item.id === delta.messageId);
         if (targetIndex < 0 && delta.role === "assistant") {
-          const placeholderMessageId = agentTurnQueueRef.current.find(
-            (item) => !item.assistantMessageId && Boolean(item.placeholderAssistantMessageId),
-          )?.placeholderAssistantMessageId;
-          if (placeholderMessageId) {
-            targetIndex = next.findIndex((item) => item.id === placeholderMessageId);
+          const aliasedMessageId = agentAssistantMessageAliasRef.current.get(delta.messageId);
+          if (aliasedMessageId) {
+            targetIndex = next.findIndex((item) => item.id === aliasedMessageId);
             if (targetIndex >= 0) {
+              agentPendingAssistantMessageIdRef.current = delta.messageId;
               next = next.map((item, index) => (
                 index === targetIndex
                   ? {
@@ -1985,6 +1993,27 @@ export function Dashboard() {
                   }
                   : item
               ));
+            }
+          }
+        }
+        if (targetIndex < 0 && delta.role === "assistant") {
+          const placeholderMessageId = agentTurnQueueRef.current.find(
+            (item) => !item.assistantMessageId && Boolean(item.placeholderAssistantMessageId),
+          )?.placeholderAssistantMessageId;
+          if (placeholderMessageId) {
+            targetIndex = next.findIndex((item) => item.id === placeholderMessageId);
+            if (targetIndex >= 0) {
+              agentPendingAssistantMessageIdRef.current = delta.messageId;
+              next = next.map((item, index) => (
+                index === targetIndex
+                  ? {
+                    ...item,
+                    id: delta.messageId,
+                    emittedAt: delta.emittedAt ?? item.emittedAt,
+                  }
+                  : item
+              ));
+              agentAssistantMessageAliasRef.current.set(delta.messageId, placeholderMessageId);
             }
           }
         }
@@ -3337,11 +3366,17 @@ export function Dashboard() {
                                       const hasLaterAssistantContent = agentChatMessages.slice(index + 1).some((candidate) => (
                                         candidate.role === "assistant" && candidate.content.trim().length > 0
                                       ));
+                                      const hasLaterAssistantThinking = agentChatMessages.slice(index + 1).some((candidate) => (
+                                        candidate.role === "assistant"
+                                        && candidate.pending
+                                        && !candidate.content.trim()
+                                        && Boolean(candidate.thinkingContent?.trim())
+                                      ));
                                       if (
                                         item.role === "assistant"
                                         && item.pending
                                         && !item.content.trim()
-                                        && hasLaterAssistantContent
+                                        && (!item.thinkingContent?.trim() ? (hasLaterAssistantThinking || hasLaterAssistantContent) : hasLaterAssistantContent)
                                       ) {
                                         return null;
                                       }

@@ -856,6 +856,8 @@ export function Dashboard() {
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
   const agentQueuedMessageRef = useRef<string | null>(null);
   const agentMessageComposingRef = useRef(false);
+  const queuedStructuredAgentMessagesRef = useRef<Map<string, AgentSessionStreamMessage>>(new Map());
+  const queuedStructuredAgentMessagesFlushRef = useRef<number | null>(null);
   const agentSessionLineBufferRef = useRef("");
   const agentPendingAssistantMessageIdRef = useRef<string | null>(null);
   const agentTurnQueueRef = useRef<AgentTurnTracker[]>([]);
@@ -1188,9 +1190,18 @@ export function Dashboard() {
     setMainAgentGuidanceCollapsed(true);
   }, [selectedInstanceId]);
 
+  const clearQueuedStructuredAgentSessionMessages = useCallback(() => {
+    if (queuedStructuredAgentMessagesFlushRef.current !== null && typeof window !== "undefined") {
+      window.cancelAnimationFrame(queuedStructuredAgentMessagesFlushRef.current);
+    }
+    queuedStructuredAgentMessagesFlushRef.current = null;
+    queuedStructuredAgentMessagesRef.current.clear();
+  }, []);
+
   useEffect(() => {
     return () => {
       agentSessionSuppressCloseMessageRef.current = true;
+      clearQueuedStructuredAgentSessionMessages();
       agentQueuedMessageRef.current = null;
       agentSessionLineBufferRef.current = "";
       agentPendingAssistantMessageIdRef.current = null;
@@ -1200,7 +1211,7 @@ export function Dashboard() {
       terminalSocketRef.current?.close();
       terminalSocketRef.current = null;
     };
-  }, []);
+  }, [clearQueuedStructuredAgentSessionMessages]);
 
   useEffect(() => {
     const outputElement = agentSessionOutputRef.current;
@@ -1226,6 +1237,7 @@ export function Dashboard() {
       setAgentMessageInput("");
       setAgentSessionDebugVisible(false);
       setAgentSessionDebugEntries([]);
+      clearQueuedStructuredAgentSessionMessages();
       agentQueuedMessageRef.current = null;
       agentSessionLineBufferRef.current = "";
       agentPendingAssistantMessageIdRef.current = null;
@@ -1243,12 +1255,13 @@ export function Dashboard() {
     setAgentMessageInput("");
     setAgentSessionDebugVisible(false);
     setAgentSessionDebugEntries([]);
+    clearQueuedStructuredAgentSessionMessages();
     agentQueuedMessageRef.current = null;
     agentSessionLineBufferRef.current = "";
     agentPendingAssistantMessageIdRef.current = null;
     agentTurnQueueRef.current = [];
     agentSessionDebugEntrySeqRef.current = 0;
-  }, [selectedInstanceId]);
+  }, [clearQueuedStructuredAgentSessionMessages, selectedInstanceId]);
 
   const openCreateModal = () => {
     setCreateModalOpen(true);
@@ -1597,33 +1610,49 @@ export function Dashboard() {
   ) => {
     const existingTurn = agentTurnQueueRef.current.find((item) => item.assistantMessageId === messageId);
     if (existingTurn) {
-      existingTurn.assistantEmittedAt = emittedAt ?? existingTurn.assistantEmittedAt;
+      let changed = false;
+      if (!existingTurn.assistantEmittedAt && emittedAt) {
+        existingTurn.assistantEmittedAt = emittedAt;
+        changed = true;
+      }
       if (hasThinkingContent && typeof existingTurn.firstThinkingDurationMs !== "number") {
         existingTurn.firstThinkingAt = emittedAt ?? new Date().toISOString();
         existingTurn.firstThinkingDurationMs = Math.max(Math.round(getAgentTimingNow() - existingTurn.startedAtMs), 0);
+        changed = true;
       }
       if (hasVisibleContent && typeof existingTurn.firstVisibleDurationMs !== "number") {
         existingTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
         existingTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - existingTurn.startedAtMs), 0);
+        changed = true;
       }
-      commitAgentTurnTiming(existingTurn);
+      if (changed) {
+        commitAgentTurnTiming(existingTurn);
+      }
       return;
     }
 
     const placeholderTurn = agentTurnQueueRef.current.find((item) => !item.assistantMessageId && Boolean(item.placeholderAssistantMessageId));
     if (placeholderTurn) {
+      let changed = false;
       placeholderTurn.assistantMessageId = messageId;
       placeholderTurn.placeholderAssistantMessageId = undefined;
-      placeholderTurn.assistantEmittedAt = emittedAt ?? placeholderTurn.assistantEmittedAt;
+      changed = true;
+      if (emittedAt) {
+        placeholderTurn.assistantEmittedAt = emittedAt;
+      }
       if (hasThinkingContent && typeof placeholderTurn.firstThinkingDurationMs !== "number") {
         placeholderTurn.firstThinkingAt = emittedAt ?? new Date().toISOString();
         placeholderTurn.firstThinkingDurationMs = Math.max(Math.round(getAgentTimingNow() - placeholderTurn.startedAtMs), 0);
+        changed = true;
       }
       if (hasVisibleContent && typeof placeholderTurn.firstVisibleDurationMs !== "number") {
         placeholderTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
         placeholderTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - placeholderTurn.startedAtMs), 0);
+        changed = true;
       }
-      commitAgentTurnTiming(placeholderTurn);
+      if (changed) {
+        commitAgentTurnTiming(placeholderTurn);
+      }
       return;
     }
 
@@ -1631,17 +1660,25 @@ export function Dashboard() {
     if (!pendingTurn) {
       return;
     }
+    let changed = false;
     pendingTurn.assistantMessageId = messageId;
-    pendingTurn.assistantEmittedAt = emittedAt;
+    changed = true;
+    if (emittedAt) {
+      pendingTurn.assistantEmittedAt = emittedAt;
+    }
     if (hasThinkingContent && typeof pendingTurn.firstThinkingDurationMs !== "number") {
       pendingTurn.firstThinkingAt = emittedAt ?? new Date().toISOString();
       pendingTurn.firstThinkingDurationMs = Math.max(Math.round(getAgentTimingNow() - pendingTurn.startedAtMs), 0);
+      changed = true;
     }
     if (hasVisibleContent && typeof pendingTurn.firstVisibleDurationMs !== "number") {
       pendingTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
       pendingTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - pendingTurn.startedAtMs), 0);
+      changed = true;
     }
-    commitAgentTurnTiming(pendingTurn);
+    if (changed) {
+      commitAgentTurnTiming(pendingTurn);
+    }
   }, [commitAgentTurnTiming]);
 
   const recordAgentTurnRequest = useCallback((provider?: string, model?: string) => {
@@ -1834,6 +1871,30 @@ export function Dashboard() {
       );
     }
   }, [bindAssistantMessageToAgentTurn, finalizePendingAssistantMessage]);
+
+  const flushQueuedStructuredAgentSessionMessages = useCallback(() => {
+    queuedStructuredAgentMessagesFlushRef.current = null;
+    const queuedMessages = Array.from(queuedStructuredAgentMessagesRef.current.values())
+      .sort((left, right) => left.sequence - right.sequence);
+    queuedStructuredAgentMessagesRef.current.clear();
+    queuedMessages.forEach((message) => {
+      appendStructuredAgentSessionMessage(message);
+    });
+  }, [appendStructuredAgentSessionMessage]);
+
+  const queueStructuredAgentSessionMessage = useCallback((message: AgentSessionStreamMessage) => {
+    queuedStructuredAgentMessagesRef.current.set(message.messageId, message);
+    if (queuedStructuredAgentMessagesFlushRef.current !== null) {
+      return;
+    }
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      queuedStructuredAgentMessagesFlushRef.current = window.requestAnimationFrame(() => {
+        flushQueuedStructuredAgentSessionMessages();
+      });
+      return;
+    }
+    flushQueuedStructuredAgentSessionMessages();
+  }, [flushQueuedStructuredAgentSessionMessages]);
 
   const appendAssistantMessageChunk = useCallback((chunk: string) => {
     if (!chunk && !agentPendingAssistantMessageIdRef.current) {
@@ -2033,18 +2094,20 @@ export function Dashboard() {
     }
 
     if (frame.eventType === "message" && frame.message) {
-      appendAgentSessionDebugEntry({
-        eventType: "message",
-        role: frame.message.role,
-        emittedAt: frame.message.emittedAt,
-        content: frame.message.content,
-      });
-      appendStructuredAgentSessionMessage(frame.message);
+      if (!(frame.message.role === "assistant" && frame.message.pending)) {
+        appendAgentSessionDebugEntry({
+          eventType: "message",
+          role: frame.message.role,
+          emittedAt: frame.message.emittedAt,
+          content: frame.message.content,
+        });
+      }
+      queueStructuredAgentSessionMessage(frame.message);
       return;
     }
 
     processAgentSessionChunk(data);
-  }, [appendAgentSessionDebugEntry, appendAgentSessionOutput, appendStructuredAgentSessionMessage, processAgentSessionChunk, trackAgentTimingFromDebug]);
+  }, [appendAgentSessionDebugEntry, appendAgentSessionOutput, processAgentSessionChunk, queueStructuredAgentSessionMessage, trackAgentTimingFromDebug]);
 
   const normalizeAgentSessionMessage = useCallback((rawInput: string) => {
     const normalizedLines = rawInput

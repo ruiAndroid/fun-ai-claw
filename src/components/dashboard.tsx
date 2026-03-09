@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   createInstance,
@@ -46,10 +46,12 @@ type AgentChatTiming = {
   provider?: string;
   model?: string;
   llmRequestCount?: number;
+  firstThinkingDurationMs?: number;
   firstVisibleDurationMs?: number;
   modelDurationMs?: number;
   agentDurationMs?: number;
   totalDurationMs?: number;
+  firstThinkingAt?: string;
   firstVisibleAt?: string;
   completedAt?: string;
 };
@@ -116,10 +118,12 @@ type AgentTurnTracker = {
   placeholderAssistantMessageId?: string;
   assistantMessageId?: string;
   assistantEmittedAt?: string;
+  firstThinkingAt?: string;
   firstVisibleAt?: string;
   provider?: string;
   model?: string;
   llmRequestCount: number;
+  firstThinkingDurationMs?: number;
   firstVisibleDurationMs?: number;
   modelDurationMs: number;
   agentDurationMs?: number;
@@ -567,7 +571,8 @@ function formatAgentTimingTooltip(timing?: AgentChatTiming): string | undefined 
   const details = [
     timing.model ? `模型: ${timing.model}` : "",
     timing.provider ? `提供方: ${timing.provider}` : "",
-    timing.firstVisibleDurationMs ? `首个可见字: ${formatAgentTimingDuration(timing.firstVisibleDurationMs)}` : "",
+    typeof timing.firstThinkingDurationMs === "number" ? `思考首字: ${formatAgentTimingDuration(timing.firstThinkingDurationMs)}` : "",
+    typeof timing.firstVisibleDurationMs === "number" ? `首个可见字: ${formatAgentTimingDuration(timing.firstVisibleDurationMs)}` : "",
     timing.llmRequestCount && timing.llmRequestCount > 1 ? `模型调用: ${timing.llmRequestCount}次` : "",
   ].filter((item) => item.length > 0);
   return details.length > 0 ? details.join(" | ") : undefined;
@@ -1522,6 +1527,7 @@ export function Dashboard() {
 
   const buildAgentChatTiming = useCallback((turn: AgentTurnTracker): AgentChatTiming | undefined => {
     const hasTiming = turn.llmRequestCount > 0
+      || typeof turn.firstThinkingDurationMs === "number"
       || typeof turn.firstVisibleDurationMs === "number"
       || turn.modelDurationMs > 0
       || typeof turn.totalDurationMs === "number"
@@ -1533,10 +1539,12 @@ export function Dashboard() {
       provider: turn.provider,
       model: turn.model,
       llmRequestCount: turn.llmRequestCount > 0 ? turn.llmRequestCount : undefined,
+      firstThinkingDurationMs: typeof turn.firstThinkingDurationMs === "number" ? turn.firstThinkingDurationMs : undefined,
       firstVisibleDurationMs: typeof turn.firstVisibleDurationMs === "number" ? turn.firstVisibleDurationMs : undefined,
       modelDurationMs: turn.modelDurationMs > 0 ? turn.modelDurationMs : undefined,
       agentDurationMs: typeof turn.agentDurationMs === "number" ? turn.agentDurationMs : undefined,
       totalDurationMs: typeof turn.totalDurationMs === "number" ? turn.totalDurationMs : undefined,
+      firstThinkingAt: turn.firstThinkingAt,
       firstVisibleAt: turn.firstVisibleAt,
       completedAt: turn.completedAt,
     };
@@ -1572,10 +1580,19 @@ export function Dashboard() {
     }
   }, [applyTimingToAgentChatMessage, pruneCommittedAgentTurns]);
 
-  const bindAssistantMessageToAgentTurn = useCallback((messageId: string, emittedAt?: string, hasVisibleContent = false) => {
+  const bindAssistantMessageToAgentTurn = useCallback((
+    messageId: string,
+    emittedAt?: string,
+    hasVisibleContent = false,
+    hasThinkingContent = false,
+  ) => {
     const existingTurn = agentTurnQueueRef.current.find((item) => item.assistantMessageId === messageId);
     if (existingTurn) {
       existingTurn.assistantEmittedAt = emittedAt ?? existingTurn.assistantEmittedAt;
+      if (hasThinkingContent && typeof existingTurn.firstThinkingDurationMs !== "number") {
+        existingTurn.firstThinkingAt = emittedAt ?? new Date().toISOString();
+        existingTurn.firstThinkingDurationMs = Math.max(Math.round(getAgentTimingNow() - existingTurn.startedAtMs), 0);
+      }
       if (hasVisibleContent && typeof existingTurn.firstVisibleDurationMs !== "number") {
         existingTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
         existingTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - existingTurn.startedAtMs), 0);
@@ -1589,6 +1606,10 @@ export function Dashboard() {
       placeholderTurn.assistantMessageId = messageId;
       placeholderTurn.placeholderAssistantMessageId = undefined;
       placeholderTurn.assistantEmittedAt = emittedAt ?? placeholderTurn.assistantEmittedAt;
+      if (hasThinkingContent && typeof placeholderTurn.firstThinkingDurationMs !== "number") {
+        placeholderTurn.firstThinkingAt = emittedAt ?? new Date().toISOString();
+        placeholderTurn.firstThinkingDurationMs = Math.max(Math.round(getAgentTimingNow() - placeholderTurn.startedAtMs), 0);
+      }
       if (hasVisibleContent && typeof placeholderTurn.firstVisibleDurationMs !== "number") {
         placeholderTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
         placeholderTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - placeholderTurn.startedAtMs), 0);
@@ -1603,6 +1624,10 @@ export function Dashboard() {
     }
     pendingTurn.assistantMessageId = messageId;
     pendingTurn.assistantEmittedAt = emittedAt;
+    if (hasThinkingContent && typeof pendingTurn.firstThinkingDurationMs !== "number") {
+      pendingTurn.firstThinkingAt = emittedAt ?? new Date().toISOString();
+      pendingTurn.firstThinkingDurationMs = Math.max(Math.round(getAgentTimingNow() - pendingTurn.startedAtMs), 0);
+    }
     if (hasVisibleContent && typeof pendingTurn.firstVisibleDurationMs !== "number") {
       pendingTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
       pendingTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - pendingTurn.startedAtMs), 0);
@@ -1788,6 +1813,7 @@ export function Dashboard() {
         normalizedMessage.id,
         normalizedMessage.emittedAt ?? message.emittedAt,
         normalizedMessage.content.trim().length > 0,
+        Boolean(normalizedMessage.thinkingContent?.trim()),
       );
     }
   }, [bindAssistantMessageToAgentTurn, finalizePendingAssistantMessage]);
@@ -3003,13 +3029,15 @@ export function Dashboard() {
                                       const thinkingStateVisible = item.role === "assistant"
                                         && item.pending
                                         && !item.content.trim();
+                                      const firstThinkingDurationLabel = formatAgentTimingDuration(item.timing?.firstThinkingDurationMs);
                                       const firstVisibleDurationLabel = formatAgentTimingDuration(item.timing?.firstVisibleDurationMs);
                                       const modelDurationLabel = formatAgentTimingDuration(item.timing?.modelDurationMs);
                                       const agentDurationLabel = formatAgentTimingDuration(item.timing?.agentDurationMs);
                                       const totalDurationLabel = formatAgentTimingDuration(item.timing?.totalDurationMs);
                                       const llmRequestCount = item.timing?.llmRequestCount ?? 0;
                                       const showTiming = item.role === "assistant" && (
-                                        Boolean(firstVisibleDurationLabel)
+                                        Boolean(firstThinkingDurationLabel)
+                                        || Boolean(firstVisibleDurationLabel)
                                         || Boolean(modelDurationLabel)
                                         || Boolean(agentDurationLabel)
                                         || Boolean(totalDurationLabel)
@@ -3053,9 +3081,15 @@ export function Dashboard() {
                                             {item.pending && !thinkingStateVisible ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
                                             {showTiming ? (
                                               <div className="agent-chat-timing" title={formatAgentTimingTooltip(item.timing)}>
+                                                {firstThinkingDurationLabel ? (
+                                                  <span className="agent-chat-timing-pill">
+                                                    <span className="agent-chat-timing-label">{"\u601d\u8003\u9996\u5b57"}</span>
+                                                    <strong>{firstThinkingDurationLabel}</strong>
+                                                  </span>
+                                                ) : null}
                                                 {firstVisibleDurationLabel ? (
                                                   <span className="agent-chat-timing-pill">
-                                                    <span className="agent-chat-timing-label">{"\u9996\u5b57"}</span>
+                                                    <span className="agent-chat-timing-label">{"\u6b63\u6587\u9996\u5b57"}</span>
                                                     <strong>{firstVisibleDurationLabel}</strong>
                                                   </span>
                                                 ) : null}
@@ -3574,3 +3608,4 @@ export function Dashboard() {
     </>
   );
 }
+

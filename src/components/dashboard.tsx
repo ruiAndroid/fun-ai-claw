@@ -46,15 +46,18 @@ type AgentChatTiming = {
   provider?: string;
   model?: string;
   llmRequestCount?: number;
+  firstVisibleDurationMs?: number;
   modelDurationMs?: number;
   agentDurationMs?: number;
   totalDurationMs?: number;
+  firstVisibleAt?: string;
   completedAt?: string;
 };
 type AgentChatMessage = {
   id: string;
   role: AgentChatRole;
   content: string;
+  thinkingContent?: string;
   pending?: boolean;
   interaction?: AgentInteraction;
   interactionResolved?: boolean;
@@ -71,6 +74,7 @@ type AgentSessionStreamMessage = {
   sequence: number;
   role: AgentChatRole;
   content: string;
+  thinkingContent?: string;
   pending: boolean;
   interaction?: AgentInteraction;
   emittedAt: string;
@@ -109,11 +113,14 @@ type AgentTurnTracker = {
   userMessageId: string;
   userSentAt: string;
   startedAtMs: number;
+  placeholderAssistantMessageId?: string;
   assistantMessageId?: string;
   assistantEmittedAt?: string;
+  firstVisibleAt?: string;
   provider?: string;
   model?: string;
   llmRequestCount: number;
+  firstVisibleDurationMs?: number;
   modelDurationMs: number;
   agentDurationMs?: number;
   totalDurationMs?: number;
@@ -366,6 +373,7 @@ function sanitizeAgentSessionMessage(value: unknown): AgentSessionStreamMessage 
     : undefined;
   const role = sanitizeAgentChatRole(value.role);
   const content = typeof value.content === "string" ? value.content : "";
+  const thinkingContent = typeof value.thinkingContent === "string" ? value.thinkingContent : undefined;
   const pending = typeof value.pending === "boolean" ? value.pending : false;
   const interaction = sanitizeAgentInteraction(value.interaction);
   const emittedAt = typeof value.emittedAt === "string" ? value.emittedAt.trim() : "";
@@ -380,6 +388,7 @@ function sanitizeAgentSessionMessage(value: unknown): AgentSessionStreamMessage 
     sequence,
     role,
     content,
+    thinkingContent,
     pending,
     interaction,
     emittedAt,
@@ -480,14 +489,16 @@ function normalizeAgentChatMessage(role: AgentChatRole, content: string, pending
 
 function normalizeStructuredAgentChatMessage(message: AgentSessionStreamMessage): AgentChatMessage | undefined {
   const normalizedContent = message.content.trim();
+  const normalizedThinkingContent = message.thinkingContent?.trim();
   if (message.role !== "assistant" || message.pending) {
-    if (!normalizedContent) {
+    if (!normalizedContent && !normalizedThinkingContent) {
       return undefined;
     }
     return {
       id: message.messageId,
       role: message.role,
       content: normalizedContent,
+      thinkingContent: normalizedThinkingContent,
       pending: message.pending,
       emittedAt: message.emittedAt,
     };
@@ -495,13 +506,14 @@ function normalizeStructuredAgentChatMessage(message: AgentSessionStreamMessage)
 
   const parsedContent = parseAgentMessageContent(message.content);
   const displayContent = parsedContent.displayContent.trim() || message.interaction?.title || normalizedContent;
-  if (!displayContent) {
+  if (!displayContent && !normalizedThinkingContent) {
     return undefined;
   }
   return {
     id: message.messageId,
     role: "assistant",
     content: displayContent,
+    thinkingContent: normalizedThinkingContent,
     pending: false,
     interaction: message.interaction ?? parsedContent.interaction,
     emittedAt: message.emittedAt,
@@ -555,6 +567,7 @@ function formatAgentTimingTooltip(timing?: AgentChatTiming): string | undefined 
   const details = [
     timing.model ? `模型: ${timing.model}` : "",
     timing.provider ? `提供方: ${timing.provider}` : "",
+    timing.firstVisibleDurationMs ? `首个可见字: ${formatAgentTimingDuration(timing.firstVisibleDurationMs)}` : "",
     timing.llmRequestCount && timing.llmRequestCount > 1 ? `模型调用: ${timing.llmRequestCount}次` : "",
   ].filter((item) => item.length > 0);
   return details.length > 0 ? details.join(" | ") : undefined;
@@ -1509,6 +1522,7 @@ export function Dashboard() {
 
   const buildAgentChatTiming = useCallback((turn: AgentTurnTracker): AgentChatTiming | undefined => {
     const hasTiming = turn.llmRequestCount > 0
+      || typeof turn.firstVisibleDurationMs === "number"
       || turn.modelDurationMs > 0
       || typeof turn.totalDurationMs === "number"
       || typeof turn.agentDurationMs === "number";
@@ -1519,9 +1533,11 @@ export function Dashboard() {
       provider: turn.provider,
       model: turn.model,
       llmRequestCount: turn.llmRequestCount > 0 ? turn.llmRequestCount : undefined,
+      firstVisibleDurationMs: typeof turn.firstVisibleDurationMs === "number" ? turn.firstVisibleDurationMs : undefined,
       modelDurationMs: turn.modelDurationMs > 0 ? turn.modelDurationMs : undefined,
       agentDurationMs: typeof turn.agentDurationMs === "number" ? turn.agentDurationMs : undefined,
       totalDurationMs: typeof turn.totalDurationMs === "number" ? turn.totalDurationMs : undefined,
+      firstVisibleAt: turn.firstVisibleAt,
       completedAt: turn.completedAt,
     };
   }, []);
@@ -1556,20 +1572,41 @@ export function Dashboard() {
     }
   }, [applyTimingToAgentChatMessage, pruneCommittedAgentTurns]);
 
-  const bindAssistantMessageToAgentTurn = useCallback((messageId: string, emittedAt?: string) => {
+  const bindAssistantMessageToAgentTurn = useCallback((messageId: string, emittedAt?: string, hasVisibleContent = false) => {
     const existingTurn = agentTurnQueueRef.current.find((item) => item.assistantMessageId === messageId);
     if (existingTurn) {
       existingTurn.assistantEmittedAt = emittedAt ?? existingTurn.assistantEmittedAt;
+      if (hasVisibleContent && typeof existingTurn.firstVisibleDurationMs !== "number") {
+        existingTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
+        existingTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - existingTurn.startedAtMs), 0);
+      }
       commitAgentTurnTiming(existingTurn);
       return;
     }
 
-    const pendingTurn = agentTurnQueueRef.current.find((item) => !item.assistantMessageId);
+    const placeholderTurn = agentTurnQueueRef.current.find((item) => !item.assistantMessageId && Boolean(item.placeholderAssistantMessageId));
+    if (placeholderTurn) {
+      placeholderTurn.assistantMessageId = messageId;
+      placeholderTurn.placeholderAssistantMessageId = undefined;
+      placeholderTurn.assistantEmittedAt = emittedAt ?? placeholderTurn.assistantEmittedAt;
+      if (hasVisibleContent && typeof placeholderTurn.firstVisibleDurationMs !== "number") {
+        placeholderTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
+        placeholderTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - placeholderTurn.startedAtMs), 0);
+      }
+      commitAgentTurnTiming(placeholderTurn);
+      return;
+    }
+
+    const pendingTurn = agentTurnQueueRef.current.find((item) => !item.assistantMessageId && !item.placeholderAssistantMessageId);
     if (!pendingTurn) {
       return;
     }
     pendingTurn.assistantMessageId = messageId;
     pendingTurn.assistantEmittedAt = emittedAt;
+    if (hasVisibleContent && typeof pendingTurn.firstVisibleDurationMs !== "number") {
+      pendingTurn.firstVisibleAt = emittedAt ?? new Date().toISOString();
+      pendingTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - pendingTurn.startedAtMs), 0);
+    }
     commitAgentTurnTiming(pendingTurn);
   }, [commitAgentTurnTiming]);
 
@@ -1661,6 +1698,22 @@ export function Dashboard() {
     return messageId;
   }, [nextAgentChatMessageId]);
 
+  const appendPendingAssistantPlaceholder = useCallback((createdAt?: string) => {
+    const messageId = nextAgentChatMessageId();
+    setAgentChatMessages((current) => [
+      ...current,
+      {
+        id: messageId,
+        role: "assistant",
+        content: "",
+        thinkingContent: "",
+        pending: true,
+        createdAt,
+      },
+    ]);
+    return messageId;
+  }, [nextAgentChatMessageId]);
+
   const finalizePendingAssistantMessage = useCallback(() => {
     const pendingMessageId = agentPendingAssistantMessageIdRef.current;
     if (!pendingMessageId) {
@@ -1694,6 +1747,28 @@ export function Dashboard() {
     setAgentChatMessages((current) => {
       const existingIndex = current.findIndex((item) => item.id === normalizedMessage.id);
       if (existingIndex < 0) {
+        const activeTurn = agentTurnQueueRef.current.find((item) => typeof item.totalDurationMs !== "number");
+        const placeholderMessageId = activeTurn?.placeholderAssistantMessageId;
+        if (placeholderMessageId && placeholderMessageId !== normalizedMessage.id) {
+          let adoptedPlaceholder = false;
+          const adoptedMessages = current.map((item) => {
+            if (item.id !== placeholderMessageId) {
+              return item;
+            }
+            adoptedPlaceholder = true;
+            return {
+              ...item,
+              ...normalizedMessage,
+              id: normalizedMessage.id,
+              createdAt: item.createdAt,
+              emittedAt: normalizedMessage.emittedAt ?? item.emittedAt,
+              timing: normalizedMessage.timing ?? item.timing,
+            };
+          });
+          if (adoptedPlaceholder) {
+            return adoptedMessages;
+          }
+        }
         return [...current, normalizedMessage];
       }
       return current.map((item) => (
@@ -1709,7 +1784,11 @@ export function Dashboard() {
       ));
     });
     if (normalizedMessage.role === "assistant") {
-      bindAssistantMessageToAgentTurn(normalizedMessage.id, normalizedMessage.emittedAt ?? message.emittedAt);
+      bindAssistantMessageToAgentTurn(
+        normalizedMessage.id,
+        normalizedMessage.emittedAt ?? message.emittedAt,
+        normalizedMessage.content.trim().length > 0,
+      );
     }
   }, [bindAssistantMessageToAgentTurn, finalizePendingAssistantMessage]);
 
@@ -1724,6 +1803,21 @@ export function Dashboard() {
       if (!pendingMessageId) {
         if (!chunk.trim()) {
           return current;
+        }
+        const placeholderMessageId = agentTurnQueueRef.current.find(
+          (item) => !item.assistantMessageId && Boolean(item.placeholderAssistantMessageId),
+        )?.placeholderAssistantMessageId;
+        if (placeholderMessageId && current.some((item) => item.id === placeholderMessageId)) {
+          agentPendingAssistantMessageIdRef.current = placeholderMessageId;
+          return current.map((item) => (
+            item.id === placeholderMessageId
+              ? {
+                ...item,
+                content: `${item.content}${chunk}`,
+                pending: true,
+              }
+              : item
+          ));
         }
         const newMessageId = nextAgentChatMessageId();
         createdMessageId = newMessageId;
@@ -1751,7 +1845,7 @@ export function Dashboard() {
       });
     });
     if (createdMessageId) {
-      bindAssistantMessageToAgentTurn(createdMessageId);
+      bindAssistantMessageToAgentTurn(createdMessageId, undefined, true);
     }
   }, [bindAssistantMessageToAgentTurn, nextAgentChatMessageId]);
 
@@ -1958,11 +2052,13 @@ export function Dashboard() {
       false,
       { createdAt: sentAt }
     );
+    const placeholderAssistantMessageId = appendPendingAssistantPlaceholder(sentAt);
     if (userMessageId) {
       agentTurnQueueRef.current.push({
         userMessageId,
         userSentAt: sentAt,
         startedAtMs: getAgentTimingNow(),
+        placeholderAssistantMessageId,
         llmRequestCount: 0,
         modelDurationMs: 0,
       });
@@ -1973,7 +2069,7 @@ export function Dashboard() {
     );
     socket.send(`${normalizedMessage}\n`);
     return true;
-  }, [appendAgentChatMessage, finalizePendingAssistantMessage, formatAgentMessageForDisplay, markAgentInteractionResolved]);
+  }, [appendAgentChatMessage, appendPendingAssistantPlaceholder, finalizePendingAssistantMessage, formatAgentMessageForDisplay, markAgentInteractionResolved]);
 
   const buildAgentStarterMessage = useCallback(() => {
     const scriptContent = agentSessionStarterDraft.scriptContent.trim();
@@ -2900,12 +2996,21 @@ export function Dashboard() {
                                     }}
                                   >
                                     {agentChatMessages.length > 0 ? agentChatMessages.map((item) => {
+                                      const thinkingVisible = item.role === "assistant"
+                                        && item.pending
+                                        && !item.content.trim()
+                                        && Boolean(item.thinkingContent?.trim());
+                                      const thinkingStateVisible = item.role === "assistant"
+                                        && item.pending
+                                        && !item.content.trim();
+                                      const firstVisibleDurationLabel = formatAgentTimingDuration(item.timing?.firstVisibleDurationMs);
                                       const modelDurationLabel = formatAgentTimingDuration(item.timing?.modelDurationMs);
                                       const agentDurationLabel = formatAgentTimingDuration(item.timing?.agentDurationMs);
                                       const totalDurationLabel = formatAgentTimingDuration(item.timing?.totalDurationMs);
                                       const llmRequestCount = item.timing?.llmRequestCount ?? 0;
                                       const showTiming = item.role === "assistant" && (
-                                        Boolean(modelDurationLabel)
+                                        Boolean(firstVisibleDurationLabel)
+                                        || Boolean(modelDurationLabel)
                                         || Boolean(agentDurationLabel)
                                         || Boolean(totalDurationLabel)
                                         || llmRequestCount > 1
@@ -2932,10 +3037,28 @@ export function Dashboard() {
                                                 </Button>
                                               ) : null}
                                             </div>
-                                            <div className="agent-chat-content">{item.content}</div>
-                                            {item.pending ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
+                                            {thinkingStateVisible ? (
+                                              <div className="agent-chat-thinking">
+                                                <div className="agent-chat-thinking-head">
+                                                  {"\u601d\u8003\u4e2d"}
+                                                </div>
+                                                <div className="agent-chat-thinking-content">
+                                                  {thinkingVisible ? item.thinkingContent : "\u6b63\u5728\u6574\u7406\u601d\u8def..."}
+                                                </div>
+                                              </div>
+                                            ) : null}
+                                            {item.content.trim() ? (
+                                              <div className="agent-chat-content">{item.content}</div>
+                                            ) : null}
+                                            {item.pending && !thinkingStateVisible ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
                                             {showTiming ? (
                                               <div className="agent-chat-timing" title={formatAgentTimingTooltip(item.timing)}>
+                                                {firstVisibleDurationLabel ? (
+                                                  <span className="agent-chat-timing-pill">
+                                                    <span className="agent-chat-timing-label">{"\u9996\u5b57"}</span>
+                                                    <strong>{firstVisibleDurationLabel}</strong>
+                                                  </span>
+                                                ) : null}
                                                 {modelDurationLabel ? (
                                                   <span className="agent-chat-timing-pill">
                                                     <span className="agent-chat-timing-label">{"\u6a21\u578b"}</span>

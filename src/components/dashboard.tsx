@@ -1012,6 +1012,7 @@ export function Dashboard() {
     () => agentSessionDebugEntries.length > 0 || agentSessionOutput.trim().length > 0,
     [agentSessionDebugEntries, agentSessionOutput]
   );
+  const hasAgentSessionConversationStarted = agentChatMessages.length > 0;
   const latestInteractiveAgentMessage = useMemo(
     () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && !item.interactionResolved && (item.interaction?.actions.length ?? 0) > 0),
     [agentChatMessages]
@@ -3335,18 +3336,22 @@ export function Dashboard() {
                                           />
                                         </div>
                                       </div>
-                                      <div className="agent-sender-actions">
-                                        <Button
-                                          type="primary"
-                                          loading={agentSessionConnecting}
-                                          disabled={disableSendAgentStarter}
-                                          onClick={sendAgentStarterMessage}
-                                        >
-                                          {uiText.agentSessionSendStarter}
-                                        </Button>
-                                      </div>
+                                      {!hasAgentSessionConversationStarted ? (
+                                        <div className="agent-sender-actions">
+                                          <Button
+                                            type="primary"
+                                            loading={agentSessionConnecting}
+                                            disabled={disableSendAgentStarter}
+                                            onClick={sendAgentStarterMessage}
+                                          >
+                                            {uiText.agentSessionSendStarter}
+                                          </Button>
+                                        </div>
+                                      ) : null}
                                     </Space>
                                   </Card>
+                                  {hasAgentSessionConversationStarted ? (
+                                    <>
                                   <div className="agent-session-section-head">
                                     <Text strong>{uiText.agentSessionActiveSession}</Text>
                                     <Tag color={agentSessionConnected ? "cyan" : "default"}>
@@ -3578,6 +3583,8 @@ export function Dashboard() {
                                           <Text type="secondary">{uiText.agentSessionOutputPlaceholder}</Text>
                                         )}
                                       </div>
+                                    </>
+                                  ) : null}
                                     </>
                                   ) : null}
                                 </Space>

@@ -13,6 +13,7 @@ import {
   submitInstanceAction,
   upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
+import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCardHeader, CardTitle as ShadCardTitle } from "@/components/ui/card";
 import { appConfig } from "@/config/app-config";
@@ -25,7 +26,7 @@ const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail";
-type InstanceDetailTabKey = "claw" | "agents" | "skills";
+type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills";
 type AgentSessionMode = "auto" | "direct";
 type AgentChatRole = "user" | "assistant" | "system";
 type AgentInteractionActionKind = "send" | "prefill";
@@ -755,6 +756,7 @@ const uiText = {
   loadSkillsFailed: "\u52a0\u8f7d Skill \u5217\u8868\u5931\u8d25",
   noSkills: "\u8be5\u5b9e\u4f8b\u6682\u65e0\u53ef\u7528 Skill",
   tabClaw: "claw\u8be6\u60c5",
+  tabConfig: "Config",
   tabAgent: "Agent",
   tabSkill: "Skill",
   agentSkillPanelTitle: "Agent / Skill",
@@ -3630,6 +3632,11 @@ export function Dashboard() {
                               </Card>
                             </Space>
                           ),
+                        },
+                        {
+                          key: "config",
+                          label: uiText.tabConfig,
+                          children: <InstanceConfigPanel instance={selectedInstance} />,
                         },
                         {
                           key: "agents",

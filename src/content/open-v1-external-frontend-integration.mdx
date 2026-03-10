@@ -1,140 +1,77 @@
----
+﻿---
 title: Open API 外部前端接入
-description: 面向第三方前端系统的 /open/v1 接口接入说明。
+description: 面向第三方开发者的 /open/v1 接口文档
 ---
 
 # Open API 外部前端接入
 
-本文档面向需要接入 `fun-ai-claw-api` 的外部前端系统。
+本文档面向第三方系统开发者，只描述 `/open/v1/**` 的对外契约，不包含控制台内部实现细节。
 
-## 目标与边界
+## 基础信息
 
-当前系统存在两套接入层：
+- REST Base: `/open/v1`
+- WebSocket: `/open/v1/agent-session/ws`
+- 会话模式：先创建会话，再通过 WebSocket 收发消息
 
-- 控制台内部使用：`/v1/**`
-- 外部系统使用：`/open/v1/**`
-
-本次新增的外部接入层不会影响现有控制台逻辑，因此：
-
-- 现有控制台前端继续走 `/v1/**`
-- 第三方前端统一走 `/open/v1/**`
-- 不建议外部系统直接依赖控制台私有接口
-
-## 接入流程
-
-推荐接入顺序如下：
-
-1. 后台为外部系统分配一个 `open_client_app`
-2. 外部系统调用 `POST /open/v1/sessions` 创建或恢复会话
-3. 接口返回：
-   - `sessionId`
-   - `websocketPath`
-   - `websocketToken`
-4. 外部前端使用 `sessionId + websocketToken` 建立 WebSocket 连接
-5. 建连后通过 WebSocket 发送用户消息
-6. 前端接收流式事件：`delta`、`message`、`debug`
-7. 如需回放历史，调用 `GET /open/v1/sessions/{sessionId}/messages`
-8. 会话结束时，调用 `POST /open/v1/sessions/{sessionId}/close`
-
-## 鉴权方式
+## 鉴权
 
 ### REST 鉴权
 
-`/open/v1/**` 默认使用以下请求头：
+所有 REST 接口都需要以下请求头：
 
-- `X-Open-App-Id`
-- `X-Open-App-Secret`
-
-默认配置位于 API 服务的 `application.yml`：
-
-```yaml
-app:
-  open:
-    auth:
-      app-id-header: X-Open-App-Id
-      app-secret-header: X-Open-App-Secret
+```http
+X-Open-App-Id: your-app-id
+X-Open-App-Secret: your-app-secret
+Content-Type: application/json
 ```
 
 ### WebSocket 鉴权
 
-浏览器环境下不适合依赖自定义鉴权头，因此 WebSocket 改为使用会话令牌：
+WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 
 - `sessionId`
 - `wsToken`
 
-其中 `wsToken` 由 `POST /open/v1/sessions` 返回。
+连接格式：
 
-## 数据准备
-
-### 新增表
-
-外部接入层新增了以下表：
-
-- `open_client_app`
-- `open_session`
-- `open_session_message`
-
-建表语句已同步到 API 项目的 `schema.sql`。
-
-### 初始化一个外部应用
-
-你需要先在数据库中插入一条 `open_client_app` 记录。
-
-建议 `app_secret_hash` 使用：
-
-- `sha256:<hex>`
-
-当前实现也兼容直接明文匹配，但线上不建议这么做。
-
-示例：
-
-```sql
-insert into open_client_app (
-    app_id,
-    name,
-    app_secret_hash,
-    enabled,
-    default_instance_id,
-    default_agent_id,
-    created_at,
-    updated_at
-) values (
-    'partner-web',
-    'Partner Web',
-    'sha256:PUT_SHA256_HEX_HERE',
-    true,
-    '00000000-0000-0000-0000-000000000000',
-    'mgc-novel-to-script',
-    now(),
-    now()
-);
+```text
+/open/v1/agent-session/ws?sessionId=<uuid>&wsToken=<token>
 ```
+
+## 接入流程
+
+1. 获取平台分配的 `appId` 和 `appSecret`
+2. 调用 `POST /open/v1/sessions` 创建或恢复会话
+3. 使用返回的 `sessionId` 和 `wsToken` 建立 WebSocket 连接
+4. 通过 WebSocket 发送用户消息并接收流式事件
+5. 如需回放历史，调用 `GET /open/v1/sessions/{sessionId}/messages`
+6. 会话结束时，调用 `POST /open/v1/sessions/{sessionId}/close`
 
 ## REST 接口
 
 ### 1. 创建或恢复会话
 
-接口：
+- 方法：`POST /open/v1/sessions`
+- 用途：创建新会话，或按 `externalSessionKey` 恢复已有活动会话
 
-- `POST /open/v1/sessions`
+请求体字段：
 
-请求头：
+- `instanceId`: 可选；如果应用已配置默认实例，可以不传
+- `agentId`: 可选；如果应用已配置默认 Agent，可以不传
+- `externalUserId`: 可选；调用方自己的用户标识
+- `externalSessionKey`: 推荐；同一 `appId + externalSessionKey` 会复用活动会话，并重新签发新的 `wsToken`
+- `title`: 可选；会话标题
+- `metadata`: 可选；透传业务扩展字段
 
-```http
-X-Open-App-Id: partner-web
-X-Open-App-Secret: your-secret
-Content-Type: application/json
-```
-
-请求体示例：
+请求示例：
 
 ```json
 {
   "instanceId": "00000000-0000-0000-0000-000000000000",
   "agentId": "mgc-novel-to-script",
   "externalUserId": "user-1001",
-  "externalSessionKey": "order-20260310-001",
-  "title": "小说转剧本对话",
+  "externalSessionKey": "biz-session-001",
+  "title": "小说转剧本",
   "metadata": {
     "channel": "h5",
     "traceId": "trace-001"
@@ -142,14 +79,7 @@ Content-Type: application/json
 }
 ```
 
-字段说明：
-
-- `instanceId`：可选，未传时回退到 `open_client_app.default_instance_id`
-- `agentId`：可选，未传时回退到 `open_client_app.default_agent_id`
-- `externalSessionKey`：建议传，相同 `appId + externalSessionKey` 会复用已有会话，并重新签发新的 `wsToken`
-- `metadata`：原样保存为 JSON 文本
-
-成功响应示例：
+响应示例：
 
 ```json
 {
@@ -158,8 +88,8 @@ Content-Type: application/json
   "instanceId": "00000000-0000-0000-0000-000000000000",
   "agentId": "mgc-novel-to-script",
   "externalUserId": "user-1001",
-  "externalSessionKey": "order-20260310-001",
-  "title": "小说转剧本对话",
+  "externalSessionKey": "biz-session-001",
+  "title": "小说转剧本",
   "status": "ACTIVE",
   "metadata": {
     "channel": "h5",
@@ -174,24 +104,29 @@ Content-Type: application/json
 }
 ```
 
+说明：
+
+- 如果没有传 `instanceId`，且应用也未配置默认实例，请求会失败
+- `websocketToken` 只在创建或恢复会话时返回
+- 后续 `GET /sessions/{sessionId}` 不会再次返回 `websocketToken`
+
 ### 2. 查询会话
 
-接口：
+- 方法：`GET /open/v1/sessions/{sessionId}`
+- 用途：查询会话状态与基本信息
 
-- `GET /open/v1/sessions/{sessionId}`
-
-用途：
-
-- 查询当前会话元信息
-- 页面刷新后恢复会话信息
+响应字段与创建会话基本一致，但 `websocketToken` 一般为空。
 
 ### 3. 查询历史消息
 
-接口：
+- 方法：`GET /open/v1/sessions/{sessionId}/messages?limit=100`
+- 用途：获取当前会话的历史消息
 
-- `GET /open/v1/sessions/{sessionId}/messages?limit=100`
+查询参数：
 
-成功响应结构：
+- `limit`: 可选；默认 `100`，范围 `1-500`
+
+响应示例：
 
 ```json
 {
@@ -199,17 +134,20 @@ Content-Type: application/json
     {
       "id": "22222222-2222-2222-2222-222222222222",
       "sessionId": "11111111-1111-1111-1111-111111111111",
-      "eventType": "user_input",
-      "role": "user",
-      "content": "请帮我生成一句话剧本",
+      "eventType": "message",
+      "role": "assistant",
+      "content": "# 输入解析\n...",
       "thinkingContent": null,
-      "interaction": null,
-      "providerMessageId": null,
-      "providerSequence": null,
+      "interaction": {
+        "version": "1.0",
+        "type": "approval_request"
+      },
+      "providerMessageId": "msg-001",
+      "providerSequence": 1,
       "pending": false,
-      "emittedAt": "2026-03-10T03:01:00Z",
-      "createdAt": "2026-03-10T03:01:00Z",
-      "rawPayload": "请帮我生成一句话剧本"
+      "emittedAt": "2026-03-10T03:05:00Z",
+      "createdAt": "2026-03-10T03:05:00Z",
+      "rawPayload": "{...}"
     }
   ]
 }
@@ -217,39 +155,32 @@ Content-Type: application/json
 
 说明：
 
-- `limit` 最大 `500`
-- 当前会保存：
-  - 用户发送给 WebSocket 的原始输入
-  - agent 返回的最终 `message` 帧
-- 当前不会落库：
-  - `delta`
-  - `debug`
+- 当前默认只落库用户输入和最终 `message` 事件
+- `delta` 和 `debug` 主要用于实时展示，不保证落库
 
 ### 4. 关闭会话
 
-接口：
+- 方法：`POST /open/v1/sessions/{sessionId}/close`
+- 用途：主动结束会话
 
-- `POST /open/v1/sessions/{sessionId}/close`
-
-关闭后该 session 状态会变为 `CLOSED`。
+响应仍返回会话对象，`status` 会变为 `CLOSED`。
 
 ## WebSocket 接口
 
-### 建连地址
+### 1. 建立连接
 
-接口：
-
-- `WS /open/v1/agent-session/ws?sessionId=<uuid>&wsToken=<token>`
+```text
+WS /open/v1/agent-session/ws?sessionId=<uuid>&wsToken=<token>
+```
 
 说明：
 
-- 这是外部前端专用的 WebSocket 入口
-- API 会校验 `sessionId + wsToken`
-- 校验通过后，再转发到 plane 内部的 `agent-session`
+- `sessionId` 和 `wsToken` 必须来自 `POST /open/v1/sessions`
+- `wsToken` 过期或无效时，连接会被拒绝
 
-### 发送消息
+### 2. 发送消息
 
-WebSocket 建连后，前端直接发送纯文本即可。
+连接建立后，客户端直接发送纯文本消息即可。
 
 示例：
 
@@ -260,26 +191,96 @@ target_audience=女频
 expected_episode_count=5
 ```
 
-如果是交互确认，也沿用当前 `agent-session` 的文本协议：
+如果服务端返回的最终消息里带有交互按钮：
+
+- `kind = send`: 直接把 `payload` 作为下一条 WebSocket 消息发送
+- `kind = prefill`: 将 `payload` 预填到输入框，等待用户补充后再发送
+
+示例：
 
 ```text
 interaction_action=confirm
 stateId=step1_input_parse
 ```
 
-### 接收事件
+### 3. 接收事件
 
-当前 WebSocket 会透传现有 `agent-session` 的事件帧，主要包括：
+当前会透传三类事件：
 
-- `message`
-- `delta`
-- `debug`
+- `message`: 最终消息对象
+- `delta`: 流式增量
+- `debug`: 调试输出
 
-`delta` 用于流式正文和 thinking 渲染，`message` 用于最终消息和交互块。
+`message` 示例：
 
-## 前端接入示例
+```json
+{
+  "version": "1.0",
+  "eventType": "message",
+  "instanceId": "00000000-0000-0000-0000-000000000000",
+  "sessionId": "upstream-session-id",
+  "message": {
+    "version": "1.0",
+    "messageId": "msg-001",
+    "instanceId": "00000000-0000-0000-0000-000000000000",
+    "sessionId": "upstream-session-id",
+    "sequence": 12,
+    "role": "assistant",
+    "content": "# 输入解析\n...",
+    "thinkingContent": null,
+    "pending": false,
+    "interaction": {
+      "version": "1.0",
+      "type": "approval_request",
+      "stateId": "step1_input_parse",
+      "title": "请确认当前内容",
+      "actions": [
+        {
+          "id": "confirm",
+          "label": "确认并继续",
+          "kind": "send",
+          "payload": "interaction_action=confirm\nstateId=step1_input_parse"
+        }
+      ]
+    },
+    "emittedAt": "2026-03-10T03:05:00Z"
+  },
+  "emittedAt": "2026-03-10T03:05:00Z"
+}
+```
 
-### 创建会话
+`delta` 示例：
+
+```json
+{
+  "version": "1.0",
+  "eventType": "delta",
+  "instanceId": "00000000-0000-0000-0000-000000000000",
+  "sessionId": "upstream-session-id",
+  "delta": {
+    "version": "1.0",
+    "messageId": "msg-001",
+    "instanceId": "00000000-0000-0000-0000-000000000000",
+    "sessionId": "upstream-session-id",
+    "sequence": 10,
+    "role": "assistant",
+    "channel": "content",
+    "operation": "append",
+    "chunk": "# 输入解析",
+    "emittedAt": "2026-03-10T03:04:58Z"
+  },
+  "emittedAt": "2026-03-10T03:04:58Z"
+}
+```
+
+说明：
+
+- `channel = content`: 正文增量
+- `channel = thinking`: 思考流增量
+- `operation = append`: 追加内容
+- `operation = clear`: 清空当前通道缓存
+
+## 最小接入示例
 
 ```ts
 const sessionResp = await fetch('/open/v1/sessions', {
@@ -299,11 +300,6 @@ const sessionResp = await fetch('/open/v1/sessions', {
 });
 
 const session = await sessionResp.json();
-```
-
-### 建立 WebSocket
-
-```ts
 const wsBase = location.origin.replace(/^http/i, 'ws');
 const socket = new WebSocket(`${wsBase}${session.websocketPath}`);
 
@@ -330,27 +326,15 @@ socket.onmessage = (event) => {
 };
 ```
 
-## 当前实现限制
+## 错误与限制
 
-当前 `/open/v1` 已可用于外部前端接入，但仍有以下限制：
+- `400`: 参数缺失或格式错误
+- `401`: `appId/appSecret` 不合法，或 `wsToken` 无效/过期
+- `404`: 会话不存在，或不属于当前应用
+- `409`: `externalSessionKey` 已绑定到其他目标，或会话已关闭
 
-1. 暂未提供纯 REST 的“发送消息”接口，当前消息收发必须走 WebSocket
-2. 历史消息当前只落：
-   - 用户输入
-   - 最终 `message` 帧
-3. `delta` 与 `debug` 当前只做实时透传，不落库
-4. 暂未提供外部应用管理接口，`open_client_app` 需要后台或 DBA 手动维护
-5. 暂未加签名、限流、IP 白名单等更强安全控制
+当前限制：
 
-## 如何访问本文档
-
-如果你访问的是前端控制台站点，例如：
-
-- `http://8.152.159.249/fun-claw/`
-
-那么文档页通常可以通过以下地址访问：
-
-- `http://8.152.159.249/fun-claw/docs/open-v1-external-frontend-integration`
-
-如果你的站点部署根路径不是 `/fun-claw/`，则把域名后的前缀替换成你实际的前端站点前缀即可。
-
+- 暂未提供纯 REST 的消息发送接口，消息收发必须走 WebSocket
+- 历史消息接口不保证包含全部 `delta` 和 `debug` 事件
+- 第三方系统只应依赖 `/open/v1/**`，不要耦合控制台内部 `/v1/**` 接口

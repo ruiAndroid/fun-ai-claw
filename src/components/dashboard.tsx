@@ -15,17 +15,15 @@ import {
 } from "@/lib/control-api";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
-import { Badge } from "@/components/ui/badge";
-import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCardHeader, CardTitle as ShadCardTitle } from "@/components/ui/card";
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity } from "lucide-react";
-import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Zap, Shield, Copy } from "lucide-react";
+import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion } from "framer-motion";
 
 const { Header, Content } = Layout;
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail" | "open-platform";
 type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills";
@@ -3088,108 +3086,183 @@ export function Dashboard() {
                     <Button icon={<ArrowLeft size={14} />} className="back-button" onClick={() => openMenuView("instances")}>
                       {uiText.backToInstances}
                     </Button>
-                    <Card className="glass-card" title={selectedInstance ? `${uiText.instanceDetailTitle}：${selectedInstance.name}` : uiText.selectInstance}>
-              {selectedInstance ? (
-                <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                  <Descriptions column={2} bordered size="small">
-                    <Descriptions.Item label={uiText.instanceId}>
-                      <Text
-                        code
-                        copyable={{
-                          text: selectedInstance.id,
-                          onCopy: () => messageApi.success(uiText.instanceIdCopied),
-                        }}
-                      >
-                        {selectedInstance.id}
-                      </Text>
-                    </Descriptions.Item>
-                    <Descriptions.Item label={uiText.hostId}>{selectedInstance.hostId}</Descriptions.Item>
-                    <Descriptions.Item label={uiText.image}>{selectedInstance.image}</Descriptions.Item>
-                    <Descriptions.Item label={uiText.gatewayHostPort}>
-                      {selectedInstance.gatewayHostPort ?? uiText.gatewayUrlUnavailable}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={uiText.gatewayUrl} span={2}>
-                      {selectedGatewayUrl ?? uiText.gatewayUrlUnavailable}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={uiText.currentStatus}>
-                      <Tag color={statusColor(selectedInstance.status)}>{selectedInstance.status}</Tag>
-                    </Descriptions.Item>
-                    <Descriptions.Item label={uiText.desiredState}>{selectedInstance.desiredState}</Descriptions.Item>
-                    <Descriptions.Item label={uiText.createdAt}>{selectedInstance.createdAt}</Descriptions.Item>
-                    <Descriptions.Item label={uiText.updatedAt}>{selectedInstance.updatedAt}</Descriptions.Item>
-                  </Descriptions>
-                  <Space>
-                    <Button
-                      type="primary"
-                      loading={submittingAction}
-                      disabled={disableStart}
-                      onClick={() => void handleAction("START")}
+                    {selectedInstance ? (
+                      <>
+                    <motion.div
+                      className="instance-detail-hero"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      {uiText.start}
-                    </Button>
-                    <Button
-                      loading={submittingAction}
-                      disabled={disableStop}
-                      onClick={() => handleSensitiveAction("STOP")}
+                      <div className="instance-hero-header">
+                        <div className="instance-hero-title-group">
+                          <h2 className="instance-hero-name">{selectedInstance.name}</h2>
+                          <div className="instance-hero-id">
+                            <Copy size={11} style={{ opacity: 0.5 }} />
+                            <Text
+                              copyable={{
+                                text: selectedInstance.id,
+                                onCopy: () => messageApi.success(uiText.instanceIdCopied),
+                              }}
+                              style={{ fontSize: 12, fontFamily: "inherit", color: "inherit" }}
+                            >
+                              {selectedInstance.id}
+                            </Text>
+                          </div>
+                        </div>
+                        <div className="instance-hero-status">
+                          <div className={`instance-status-badge is-${selectedInstance.status === "RUNNING" ? "running" : selectedInstance.status === "ERROR" ? "error" : selectedInstance.status === "CREATING" ? "creating" : "stopped"}`}>
+                            <span className="instance-status-dot" />
+                            {selectedInstance.status}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="instance-info-grid">
+                        <div className="instance-info-cell">
+                          <span className="instance-info-label">{uiText.hostId}</span>
+                          <span className="instance-info-value">{selectedInstance.hostId}</span>
+                        </div>
+                        <div className="instance-info-cell">
+                          <span className="instance-info-label">{uiText.image}</span>
+                          <span className="instance-info-value"><code>{selectedInstance.image}</code></span>
+                        </div>
+                        <div className="instance-info-cell">
+                          <span className="instance-info-label">{uiText.gatewayHostPort}</span>
+                          <span className="instance-info-value">{selectedInstance.gatewayHostPort ?? uiText.gatewayUrlUnavailable}</span>
+                        </div>
+                        <div className="instance-info-cell">
+                          <span className="instance-info-label">{uiText.desiredState}</span>
+                          <span className="instance-info-value">{selectedInstance.desiredState}</span>
+                        </div>
+                        <div className="instance-info-cell is-wide">
+                          <span className="instance-info-label">{uiText.gatewayUrl}</span>
+                          <span className="instance-info-value">{selectedGatewayUrl ?? uiText.gatewayUrlUnavailable}</span>
+                        </div>
+                        <div className="instance-info-cell">
+                          <span className="instance-info-label">{uiText.createdAt}</span>
+                          <span className="instance-info-value">{selectedInstance.createdAt}</span>
+                        </div>
+                        <div className="instance-info-cell">
+                          <span className="instance-info-label">{uiText.updatedAt}</span>
+                          <span className="instance-info-value">{selectedInstance.updatedAt}</span>
+                        </div>
+                      </div>
+
+                      <div className="instance-action-bar">
+                        <div className="instance-action-group">
+                          <Button
+                            className="instance-action-chip is-primary"
+                            loading={submittingAction}
+                            disabled={disableStart}
+                            onClick={() => void handleAction("START")}
+                            icon={<Play size={14} />}
+                          >
+                            {uiText.start}
+                          </Button>
+                          <Button
+                            className="instance-action-chip is-ghost"
+                            loading={submittingAction}
+                            disabled={disableStop}
+                            onClick={() => handleSensitiveAction("STOP")}
+                            icon={<Square size={14} />}
+                          >
+                            {uiText.stop}
+                          </Button>
+                          <Button
+                            className="instance-action-chip is-ghost"
+                            loading={submittingAction}
+                            disabled={disableRestartInstance}
+                            onClick={() => handleSensitiveAction("RESTART")}
+                            icon={<RotateCcw size={14} />}
+                          >
+                            {uiText.restartInstance}
+                          </Button>
+                        </div>
+                        <div className="instance-action-group">
+                          <Button
+                            className="instance-action-chip is-danger"
+                            loading={submittingAction}
+                            disabled={disableRollback}
+                            onClick={() => handleSensitiveAction("ROLLBACK")}
+                            icon={<Undo2 size={14} />}
+                          >
+                            {uiText.rollback}
+                          </Button>
+                          <Button
+                            className="instance-action-chip is-danger"
+                            loading={deletingInstance}
+                            disabled={disableDelete}
+                            onClick={openDeleteModal}
+                            icon={<Trash2 size={14} />}
+                          >
+                            {uiText.delete}
+                          </Button>
+                        </div>
+                        <div className="instance-action-divider" />
+                        <Button
+                          className="instance-action-chip is-accent"
+                          disabled={disableRemoteConnect}
+                          onClick={openRemoteModal}
+                          icon={<Terminal size={14} />}
+                        >
+                          {uiText.remoteConnect}
+                        </Button>
+                        <Button
+                          className="instance-action-chip is-ghost"
+                          loading={pairingCodeLoading}
+                          disabled={!selectedInstance}
+                          onClick={openPairingCodeModal}
+                          icon={<Link2 size={14} />}
+                        >
+                          {uiText.fetchPairingCode}
+                        </Button>
+                        <Button
+                          className="instance-action-chip is-primary"
+                          onClick={openVisualUi}
+                          disabled={!selectedGatewayUrl}
+                          icon={<MonitorPlay size={14} />}
+                        >
+                          {uiText.openVisualUi}
+                        </Button>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.45, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
                     >
-                      {uiText.stop}
-                    </Button>
-                    <Button
-                      loading={submittingAction}
-                      disabled={disableRestartInstance}
-                      onClick={() => handleSensitiveAction("RESTART")}
-                    >
-                      {uiText.restartInstance}
-                    </Button>
-                    <Button
-                      danger
-                      loading={submittingAction}
-                      disabled={disableRollback}
-                      onClick={() => handleSensitiveAction("ROLLBACK")}
-                    >
-                      {uiText.rollback}
-                    </Button>
-                    <Button danger loading={deletingInstance} disabled={disableDelete} onClick={openDeleteModal}>
-                      {uiText.delete}
-                    </Button>
-                    <Button type="primary" disabled={disableRemoteConnect} onClick={openRemoteModal}>
-                      {uiText.remoteConnect}
-                    </Button>
-                    <Button loading={pairingCodeLoading} disabled={!selectedInstance} onClick={openPairingCodeModal}>
-                      {uiText.fetchPairingCode}
-                    </Button>
-                    <Button type="primary" onClick={openVisualUi} disabled={!selectedGatewayUrl}>
-                      {uiText.openVisualUi}
-                    </Button>
-                  </Space>
-                  <Card
-                    className="sub-glass-card"
-                    size="small"
-                  >
-                    <Tabs
-                      activeKey={instanceDetailTab}
-                      onChange={(key) => setInstanceDetailTab(key as InstanceDetailTabKey)}
-                      items={[
+                  <Tabs
+                    className="instance-detail-tabs"
+                    activeKey={instanceDetailTab}
+                    onChange={(key) => setInstanceDetailTab(key as InstanceDetailTabKey)}
+                    items={[
                         {
                           key: "claw",
                           label: uiText.tabClaw,
                           children: (
                             <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                              <Card
-                                className="sub-glass-card"
-                                size="small"
-                                title={uiText.mainAgentGuidanceTitle}
-                                extra={(
+                              <div className="main-prompt-section">
+                                <div className="main-prompt-header">
+                                  <div className="main-prompt-header-title">
+                                    <span className="main-prompt-header-icon"><FileText size={16} /></span>
+                                    {uiText.mainAgentGuidanceTitle}
+                                  </div>
                                   <Space>
                                     <Button
+                                      size="small"
                                       loading={mainAgentGuidanceLoading}
                                       onClick={() => void loadMainAgentGuidance(selectedInstance.id)}
+                                      icon={<RefreshCw size={12} />}
                                     >
                                       {uiText.mainAgentGuidanceRefresh}
                                     </Button>
                                     <Button
+                                      size="small"
                                       disabled={mainAgentGuidanceEditing}
                                       onClick={() => setMainAgentGuidanceCollapsed((current) => !current)}
+                                      icon={mainAgentGuidanceCollapsed ? <Eye size={12} /> : <ChevronLeft size={12} />}
                                     >
                                       {mainAgentGuidanceCollapsed ? uiText.mainAgentGuidanceExpand : uiText.mainAgentGuidanceCollapse}
                                     </Button>
@@ -3197,6 +3270,7 @@ export function Dashboard() {
                                       <>
                                         <Button
                                           type="primary"
+                                          size="small"
                                           loading={mainAgentGuidanceSaving}
                                           disabled={mainAgentGuidanceLoading || mainAgentGuidanceDeleting || !mainAgentGuidanceDirty}
                                           onClick={async () => {
@@ -3209,6 +3283,7 @@ export function Dashboard() {
                                           {uiText.mainAgentGuidanceSave}
                                         </Button>
                                         <Button
+                                          size="small"
                                           disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
                                           onClick={cancelMainAgentGuidanceEdit}
                                         >
@@ -3219,6 +3294,7 @@ export function Dashboard() {
                                     {!mainAgentGuidanceCollapsed && !mainAgentGuidanceEditing ? (
                                       <>
                                         <Button
+                                          size="small"
                                           disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
                                           onClick={() => setMainAgentGuidanceEditing(true)}
                                         >
@@ -3226,6 +3302,7 @@ export function Dashboard() {
                                         </Button>
                                         <Button
                                           danger
+                                          size="small"
                                           loading={mainAgentGuidanceDeleting}
                                           disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || !mainAgentGuidance?.overrideExists}
                                           onClick={() => void removeMainAgentGuidanceOverride()}
@@ -3235,37 +3312,47 @@ export function Dashboard() {
                                       </>
                                     ) : null}
                                   </Space>
-                                )}
-                              >
+                                </div>
                                 {mainAgentGuidanceCollapsed ? (
-                                  <Text type="secondary">默认收起，展开后可查看或编辑当前主 Agent 提示词。</Text>
+                                  <div className="main-prompt-collapsed">
+                                    <FileText size={16} style={{ opacity: 0.4 }} />
+                                    默认收起，展开后可查看或编辑当前主 Agent 提示词。
+                                  </div>
                                 ) : (
-                                  <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                                    {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} /> : null}
-                                    <Descriptions column={1} size="small" bordered>
-                                      <Descriptions.Item label={uiText.mainAgentGuidanceSource}>
-                                        {mainAgentGuidance?.source ?? "-"}
-                                      </Descriptions.Item>
-                                      <Descriptions.Item label={uiText.mainAgentGuidanceWorkspacePath}>
-                                        <Text code copyable={mainAgentGuidance?.workspacePath ? { text: mainAgentGuidance.workspacePath } : false}>
-                                          {mainAgentGuidance?.workspacePath ?? "-"}
-                                        </Text>
-                                      </Descriptions.Item>
-                                      <Descriptions.Item label={uiText.mainAgentGuidanceGlobalPath}>
-                                        {mainAgentGuidance?.globalDefaultPath ? (
-                                          <Text code copyable={{ text: mainAgentGuidance.globalDefaultPath }}>
-                                            {mainAgentGuidance.globalDefaultPath}
+                                  <div className="main-prompt-body">
+                                    {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} style={{ marginBottom: 16 }} /> : null}
+                                    <div className="main-prompt-meta-grid">
+                                      <div className="main-prompt-meta-item">
+                                        <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceSource}</span>
+                                        <span className="main-prompt-meta-value">{mainAgentGuidance?.source ?? "-"}</span>
+                                      </div>
+                                      <div className="main-prompt-meta-item">
+                                        <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceOverwriteOnStart}</span>
+                                        <span className="main-prompt-meta-value">
+                                          {typeof mainAgentGuidance?.overwriteOnStart === "boolean" ? String(mainAgentGuidance.overwriteOnStart) : "-"}
+                                        </span>
+                                      </div>
+                                      <div className="main-prompt-meta-item">
+                                        <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceWorkspacePath}</span>
+                                        <span className="main-prompt-meta-value">
+                                          <Text code copyable={mainAgentGuidance?.workspacePath ? { text: mainAgentGuidance.workspacePath } : false} style={{ fontSize: 12 }}>
+                                            {mainAgentGuidance?.workspacePath ?? "-"}
                                           </Text>
-                                        ) : "-"}
-                                      </Descriptions.Item>
-                                      <Descriptions.Item label={uiText.mainAgentGuidanceOverwriteOnStart}>
-                                        {typeof mainAgentGuidance?.overwriteOnStart === "boolean"
-                                          ? String(mainAgentGuidance.overwriteOnStart)
-                                          : "-"}
-                                      </Descriptions.Item>
-                                    </Descriptions>
+                                        </span>
+                                      </div>
+                                      <div className="main-prompt-meta-item">
+                                        <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceGlobalPath}</span>
+                                        <span className="main-prompt-meta-value">
+                                          {mainAgentGuidance?.globalDefaultPath ? (
+                                            <Text code copyable={{ text: mainAgentGuidance.globalDefaultPath }} style={{ fontSize: 12 }}>
+                                              {mainAgentGuidance.globalDefaultPath}
+                                            </Text>
+                                          ) : "-"}
+                                        </span>
+                                      </div>
+                                    </div>
                                     {mainAgentGuidanceEditing ? (
-                                      <>
+                                      <Space direction="vertical" style={{ width: "100%" }} size="middle">
                                         <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
                                           <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
                                           <Switch
@@ -3281,24 +3368,22 @@ export function Dashboard() {
                                           placeholder={uiText.mainAgentGuidanceOverridePromptPlaceholder}
                                           disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
                                         />
-                                      </>
+                                      </Space>
                                     ) : (
                                       <>
-                                        <Text strong>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
+                                        <Text strong style={{ display: "block", marginBottom: 8 }}>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
                                         {mainAgentGuidance?.effectivePrompt ? (
-                                          <Paragraph style={{ marginBottom: 0 }}>
-                                            <Text code style={{ whiteSpace: "pre-wrap" }}>
-                                              {mainAgentGuidance.effectivePrompt}
-                                            </Text>
-                                          </Paragraph>
+                                          <div className="main-prompt-preview">
+                                            <pre>{mainAgentGuidance.effectivePrompt}</pre>
+                                          </div>
                                         ) : (
                                           <Text type="secondary">{uiText.mainAgentGuidanceNoEffectivePrompt}</Text>
                                         )}
                                       </>
                                     )}
-                                  </Space>
+                                  </div>
                                 )}
-                              </Card>
+                              </div>
                               <Card
                                 className="sub-glass-card"
                                 size="small"
@@ -3740,12 +3825,18 @@ export function Dashboard() {
                           label: uiText.tabAgent,
                           children: (
                             <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                              <Button loading={agentsLoading} onClick={() => void loadAgents(selectedInstance.id)}>
-                                {uiText.refreshAgents}
-                              </Button>
+                              <div className="tab-section-header">
+                                <div className="tab-section-title">
+                                  <span className="tab-section-icon is-agent"><Bot size={16} /></span>
+                                  {uiText.tabAgent}
+                                </div>
+                                <Button size="small" loading={agentsLoading} onClick={() => void loadAgents(selectedInstance.id)} icon={<RefreshCw size={12} />}>
+                                  {uiText.refreshAgents}
+                                </Button>
+                              </div>
                               {agentsError ? <Alert type="error" showIcon message={agentsError} /> : null}
                               {(!agentsLoading && agents.length === 0) ? (
-                                <Text type="secondary">{uiText.noAgents}</Text>
+                                <div className="empty-panel">{uiText.noAgents}</div>
                               ) : null}
                               <Select
                                 showSearch
@@ -3757,43 +3848,71 @@ export function Dashboard() {
                                   value: item.id,
                                   label: item.id,
                                 }))}
+                                style={{ width: "100%" }}
                               />
                               {selectedAgent ? (
-                                <Descriptions column={1} size="small" bordered>
-                                  <Descriptions.Item label={uiText.selectAgent}>{selectedAgent.id}</Descriptions.Item>
-                                  <Descriptions.Item label={uiText.agentProvider}>{selectedAgent.provider ?? "-"}</Descriptions.Item>
-                                  <Descriptions.Item label={uiText.agentModel}>{selectedAgent.model ?? "-"}</Descriptions.Item>
-                                  <Descriptions.Item label={uiText.agenticMode}>
-                                    {typeof selectedAgent.agentic === "boolean" ? String(selectedAgent.agentic) : "-"}
-                                  </Descriptions.Item>
-                                  <Descriptions.Item label={uiText.agentAllowedTools}>
-                                    {selectedAgentAllowedTools.length > 0 ? selectedAgentAllowedTools.join(", ") : "-"}
-                                  </Descriptions.Item>
-                                </Descriptions>
+                                <motion.div
+                                  className="agent-detail-card"
+                                  initial={{ opacity: 0, y: 12 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                                >
+                                  <div className="agent-detail-header">
+                                    <div className="agent-detail-icon"><Bot size={22} /></div>
+                                    <div className="agent-detail-meta">
+                                      <div className="agent-detail-name">{selectedAgent.id}</div>
+                                      <div className="agent-detail-tags">
+                                        {selectedAgent.provider ? <span className="agent-detail-tag is-provider">{selectedAgent.provider}</span> : null}
+                                        {selectedAgent.model ? <span className="agent-detail-tag is-model">{selectedAgent.model}</span> : null}
+                                        {typeof selectedAgent.agentic === "boolean" ? (
+                                          <span className="agent-detail-tag is-agentic">{selectedAgent.agentic ? "Agentic" : "Non-agentic"}</span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="agent-detail-props">
+                                    <div className="agent-detail-prop">
+                                      <span className="agent-detail-prop-label">Provider</span>
+                                      <span className="agent-detail-prop-value">{selectedAgent.provider ?? "-"}</span>
+                                    </div>
+                                    <div className="agent-detail-prop">
+                                      <span className="agent-detail-prop-label">Model</span>
+                                      <span className="agent-detail-prop-value">{selectedAgent.model ?? "-"}</span>
+                                    </div>
+                                    <div className="agent-detail-prop">
+                                      <span className="agent-detail-prop-label">Agentic Mode</span>
+                                      <span className="agent-detail-prop-value">{typeof selectedAgent.agentic === "boolean" ? String(selectedAgent.agentic) : "-"}</span>
+                                    </div>
+                                    <div className="agent-detail-prop">
+                                      <span className="agent-detail-prop-label">Allowed Tools</span>
+                                      <span className="agent-detail-prop-value">{selectedAgentAllowedTools.length > 0 ? selectedAgentAllowedTools.join(", ") : "-"}</span>
+                                    </div>
+                                  </div>
+                                </motion.div>
                               ) : null}
                               {selectedAgent ? (
-                                <Card
-                                  className="sub-glass-card"
-                                  size="small"
-                                  title={uiText.agentSystemPromptTitle}
+                                <motion.div
+                                  initial={{ opacity: 0, y: 12 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.35, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
                                 >
-                                  <Space direction="vertical" style={{ width: "100%" }} size="small">
-                                    <Descriptions column={1} size="small" bordered>
-                                      <Descriptions.Item label={uiText.agentSystemPromptPath}>
-                                        {selectedAgent.configPath ? (
-                                          <Text code copyable={{ text: selectedAgent.configPath }}>{selectedAgent.configPath}</Text>
-                                        ) : "-"}
-                                      </Descriptions.Item>
-                                    </Descriptions>
-                                    <Text strong>{uiText.agentSystemPromptPreview}</Text>
-                                    <Input.TextArea
-                                      rows={8}
-                                      value={selectedAgent.systemPrompt ?? ""}
-                                      placeholder={uiText.agentSystemPromptPlaceholder}
-                                      readOnly
-                                    />
-                                  </Space>
-                                </Card>
+                                  <div className="agent-prompt-card">
+                                    <div className="agent-prompt-header">
+                                      <span className="agent-prompt-header-title">{uiText.agentSystemPromptTitle}</span>
+                                      {selectedAgent.configPath ? (
+                                        <Text code copyable={{ text: selectedAgent.configPath }} style={{ fontSize: 11 }}>{selectedAgent.configPath}</Text>
+                                      ) : null}
+                                    </div>
+                                    <div className="agent-prompt-body">
+                                      <Input.TextArea
+                                        rows={10}
+                                        value={selectedAgent.systemPrompt ?? ""}
+                                        placeholder={uiText.agentSystemPromptPlaceholder}
+                                        readOnly
+                                      />
+                                    </div>
+                                  </div>
+                                </motion.div>
                               ) : null}
                             </Space>
                           ),
@@ -3803,18 +3922,24 @@ export function Dashboard() {
                           label: uiText.tabSkill,
                           children: (
                             <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                              <Button loading={skillsLoading} onClick={() => void loadSkills(selectedInstance.id)}>
-                                {uiText.refreshSkills}
-                              </Button>
+                              <div className="tab-section-header">
+                                <div className="tab-section-title">
+                                  <span className="tab-section-icon is-skill"><Wrench size={16} /></span>
+                                  {uiText.tabSkill}
+                                </div>
+                                <Button size="small" loading={skillsLoading} onClick={() => void loadSkills(selectedInstance.id)} icon={<RefreshCw size={12} />}>
+                                  {uiText.refreshSkills}
+                                </Button>
+                              </div>
                               {skillsError ? <Alert type="error" showIcon message={skillsError} /> : null}
                               <Alert type="info" showIcon message={uiText.skillScopeHint} />
                               {(!skillsLoading && skills.length === 0) ? (
-                                <Text type="secondary">{uiText.noSkills}</Text>
+                                <div className="empty-panel">{uiText.noSkills}</div>
                               ) : null}
                               {skills.length > 0 ? (
                                 <>
                                   <Text type="secondary">{uiText.skillListHint}</Text>
-                                  <div className="skill-card-grid">
+                                  <div className="skill-card-grid-v2">
                                     {skills.map((item) => {
                                       const selected = selectedSkillId === item.id;
                                       const allowed = selectedAgentAllowedTools.length === 0 || selectedAgentAllowedTools.includes(item.id);
@@ -3822,16 +3947,14 @@ export function Dashboard() {
                                         <button
                                           key={item.id}
                                           type="button"
-                                          className={`skill-card ${selected ? "is-selected" : ""}`}
+                                          className={`skill-card-v2 ${selected ? "is-selected" : ""}`}
                                           onClick={() => setSelectedSkillId(item.id)}
                                         >
-                                          <div className="skill-card-head">
-                                            <strong className="skill-card-title">{item.id}</strong>
-                                            <Tag color={allowed ? "green" : "orange"}>
-                                              {allowed ? uiText.skillAllowed : uiText.skillNotAllowed}
-                                            </Tag>
+                                          <div className={`skill-card-v2-icon ${allowed ? "is-allowed" : "is-blocked"}`}>
+                                            {allowed ? <Zap size={18} /> : <Shield size={18} />}
                                           </div>
-                                          <p className="skill-card-path">{item.path}</p>
+                                          <strong className="skill-card-v2-title">{item.id}</strong>
+                                          <p className="skill-card-v2-path">{item.path}</p>
                                         </button>
                                       );
                                     })}
@@ -3839,21 +3962,26 @@ export function Dashboard() {
                                 </>
                               ) : null}
                               {selectedSkill ? (
-                                <Space direction="vertical" style={{ width: "100%" }} size="small">
-                                  <Descriptions column={1} size="small" bordered>
-                                    <Descriptions.Item label={uiText.selectSkill}>{selectedSkill.id}</Descriptions.Item>
-                                    <Descriptions.Item label={uiText.skillPath}>
-                                      <Text code copyable={{ text: selectedSkill.path }}>{selectedSkill.path}</Text>
-                                    </Descriptions.Item>
-                                  </Descriptions>
-                                  {selectedSkillNotAllowed ? <Alert type="warning" showIcon message={uiText.agentSkillNotAllowed} /> : null}
-                                  <Text strong>{uiText.skillPrompt}</Text>
-                                  <Input.TextArea
-                                    rows={10}
-                                    readOnly
-                                    value={selectedSkill.prompt}
-                                  />
-                                </Space>
+                                <motion.div
+                                  initial={{ opacity: 0, y: 12 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                                >
+                                  <div className="agent-prompt-card">
+                                    <div className="agent-prompt-header">
+                                      <span className="agent-prompt-header-title">{selectedSkill.id}</span>
+                                      <Text code copyable={{ text: selectedSkill.path }} style={{ fontSize: 11 }}>{selectedSkill.path}</Text>
+                                    </div>
+                                    <div className="agent-prompt-body">
+                                      {selectedSkillNotAllowed ? <Alert type="warning" showIcon message={uiText.agentSkillNotAllowed} style={{ marginBottom: 12 }} /> : null}
+                                      <Input.TextArea
+                                        rows={10}
+                                        readOnly
+                                        value={selectedSkill.prompt}
+                                      />
+                                    </div>
+                                  </div>
+                                </motion.div>
                               ) : (
                                 <Text type="secondary">{uiText.noSkillPrompt}</Text>
                               )}
@@ -3862,12 +3990,11 @@ export function Dashboard() {
                         },
                       ]}
                     />
-                  </Card>
-                </Space>
-              ) : (
-                <Text type="secondary">{uiText.selectInstanceFirst}</Text>
-              )}
-                    </Card>
+                    </motion.div>
+                      </>
+                    ) : (
+                      <div className="empty-panel">{uiText.selectInstanceFirst}</div>
+                    )}
                   </Space>
                 ) : null}
                 {activeView === "agents" ? (

@@ -93,3 +93,30 @@ export interface InstanceConfig {
   overrideUpdatedAt?: string | null;
   overrideUpdatedBy?: string | null;
 }
+
+export interface OpenClientApp {
+  appId: string;
+  name: string;
+  enabled: boolean;
+  defaultInstanceId?: string | null;
+  defaultAgentId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OpenClientAppCreateRequest {
+  name: string;
+  defaultInstanceId?: string | null;
+  defaultAgentId?: string | null;
+}
+
+export interface OpenClientAppUpdateRequest {
+  name?: string | null;
+  defaultInstanceId?: string | null;
+  defaultAgentId?: string | null;
+  enabled?: boolean | null;
+}
+
+export interface OpenClientAppCreateResponse extends OpenClientApp {
+  plainSecret: string;
+}

@@ -8,6 +8,10 @@ import {
   InstanceMainAgentGuidance,
   InstanceActionType,
   ListResponse,
+  OpenClientApp,
+  OpenClientAppCreateRequest,
+  OpenClientAppCreateResponse,
+  OpenClientAppUpdateRequest,
   PairingCodeResponse,
   SkillDescriptor,
 } from "@/types/contracts";
@@ -122,6 +126,30 @@ export async function upsertInstanceMainAgentGuidance(
 
 export async function deleteInstanceMainAgentGuidance(instanceId: string) {
   return requestJson<InstanceMainAgentGuidance>(`/v1/instances/${instanceId}/main-agent-guidance`, {
+    method: "DELETE",
+  });
+}
+
+export async function listOpenApps() {
+  return requestJson<ListResponse<OpenClientApp>>("/v1/open-apps");
+}
+
+export async function createOpenApp(request: OpenClientAppCreateRequest) {
+  return requestJson<OpenClientAppCreateResponse>("/v1/open-apps", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function updateOpenApp(appId: string, request: OpenClientAppUpdateRequest) {
+  return requestJson<OpenClientApp>(`/v1/open-apps/${appId}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteOpenApp(appId: string) {
+  return requestVoid(`/v1/open-apps/${appId}`, {
     method: "DELETE",
   });
 }

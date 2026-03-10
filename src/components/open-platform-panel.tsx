@@ -8,6 +8,11 @@ import { useCallback, useEffect, useState } from "react";
 
 const { Text, Paragraph } = Typography;
 
+function maskText(text: string, showStart: number, showEnd: number): string {
+  if (text.length <= showStart + showEnd) return text;
+  return text.slice(0, showStart) + "••••••" + text.slice(-showEnd);
+}
+
 interface SecretDisplayProps {
   appId: string;
   plainSecret: string;
@@ -15,6 +20,7 @@ interface SecretDisplayProps {
 }
 
 function SecretDisplayModal({ appId, plainSecret, onClose }: SecretDisplayProps) {
+  const [appIdVisible, setAppIdVisible] = useState(false);
   const [secretVisible, setSecretVisible] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -55,8 +61,14 @@ function SecretDisplayModal({ appId, plainSecret, onClose }: SecretDisplayProps)
         <Text type="secondary" style={{ fontSize: 12 }}>App ID</Text>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
           <code style={{ flex: 1, padding: "8px 12px", background: "#f5f5f5", borderRadius: 6, fontSize: 13 }}>
-            {appId}
+            {appIdVisible ? appId : maskText(appId, 6, 4)}
           </code>
+          <Button
+            type="text"
+            size="small"
+            icon={appIdVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+            onClick={() => setAppIdVisible(!appIdVisible)}
+          />
           <Button
             type="text"
             size="small"
@@ -70,7 +82,7 @@ function SecretDisplayModal({ appId, plainSecret, onClose }: SecretDisplayProps)
         <Text type="secondary" style={{ fontSize: 12 }}>App Secret</Text>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
           <code style={{ flex: 1, padding: "8px 12px", background: "#f5f5f5", borderRadius: 6, fontSize: 13, wordBreak: "break-all" }}>
-            {secretVisible ? plainSecret : "••••••••••••••••••••••••••••••••"}
+            {secretVisible ? plainSecret : maskText(plainSecret, 8, 4)}
           </code>
           <Button
             type="text"

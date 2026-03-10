@@ -1,29 +1,29 @@
 ---
-title: Claw Instance and Agent Model
-description: Recommended model for mapping many agents inside each claw instance.
+title: Claw 实例与 Agent 模型
+description: Claw 实例内多 Agent 映射的推荐模型说明。
 ---
 
-# Claw Instance and Agent Model
+# Claw 实例与 Agent 模型
 
-## Domain model
+## 领域模型
 
-- `Host`: physical or virtual machine running Docker
-- `ClawInstance`: isolated runtime unit managed by control plane
-- `Agent`: logical worker inside one claw instance
-- `Task`: executable work unit assigned to an agent
+- `Host`：运行 Docker 的物理或虚拟机
+- `ClawInstance`：由执行面管理的隔离运行单元
+- `Agent`：Claw 实例内部的逻辑工作者
+- `Task`：分配给 Agent 的可执行工作单元
 
-## Mapping strategy
+## 映射策略
 
-- One `ClawInstance` can host many agents
-- Agents should expose stable metadata:
+- 一个 `ClawInstance` 可以承载多个 Agent
+- Agent 应当暴露稳定的元数据：
   - `agentId`
   - `agentType`
   - `version`
   - `capabilities`
-- Keep instance-level lifecycle (`START`, `STOP`, `RESTART`, `ROLLBACK`) in control API
-- Keep agent-level behavior docs and runbooks in this docs site
+- 实例级生命周期操作（`START`、`STOP`、`RESTART`、`ROLLBACK`）保留在控制 API
+- Agent 级行为文档与运维手册放在本文档站
 
-## Why this split works
+## 为什么这样拆分
 
-- Dashboard: real-time operations and actions
-- Docs: durable knowledge, standards, and troubleshooting context
+- **控制台**：实时操作与动作执行
+- **文档站**：持久化知识、标准规范与故障排查上下文

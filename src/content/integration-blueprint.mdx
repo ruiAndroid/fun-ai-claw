@@ -1,33 +1,33 @@
 ---
-title: Nextra Integration Blueprint
-description: Practical steps for combining docs and runtime control.
+title: Nextra 集成蓝图
+description: 文档站与运行时控制台结合的实施步骤。
 ---
 
-# Nextra Integration Blueprint
+# Nextra 集成蓝图
 
-## Step 1: Keep `/` as dashboard and `/docs` as knowledge portal
+## 第一步：首页为控制台，`/docs` 为知识门户
 
-- `/` keeps Ant Design-based control UI
-- `/docs` hosts architecture, runbooks, and API docs
+- `/` 保持基于 Ant Design 的控制台 UI（现已迁移至 `/console`）
+- `/docs` 承载架构文档、运维手册与 API 文档
 
-## Step 2: Add docs generation pipeline
+## 第二步：添加文档生成管线
 
-- Input: `fun-ai-claw-contracts/openapi` and `schemas`
-- Output: generated MDX under `src/content/reference`
-- Trigger: CI on contracts version change
+- 输入：`fun-ai-claw-contracts/openapi` 与 `schemas`
+- 输出：生成的 MDX 文件，放入 `src/content/reference`
+- 触发条件：契约版本变更时由 CI 自动触发
 
-## Step 3: Add per-instance docs entry points
+## 第三步：添加单实例文档入口
 
-Recommended URL shape:
+推荐的 URL 结构：
 
 - `/docs/instances/{instanceId}`
 - `/docs/instances/{instanceId}/agents/{agentId}`
 
-Use these pages for curated operational guidance, not live metrics.
+这些页面用于存放经整理的运维指南，而非实时指标。
 
-## Step 4: Keep source of truth boundaries clear
+## 第四步：保持真实数据源边界清晰
 
-- Runtime truth: `fun-ai-claw-api` + `fun-ai-claw-plane`
-- Documentation truth: `src/content` (or generated MDX committed by CI)
+- **运行时数据源**：`fun-ai-claw-api` + `fun-ai-claw-plane`
+- **文档数据源**：`src/content`（或由 CI 提交的生成 MDX）
 
-This keeps runtime APIs fast and docs navigation clean as agent count grows.
+这样可以在 Agent 数量增长时，保持运行时 API 的高效和文档导航的清晰。

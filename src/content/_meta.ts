@@ -1,7 +1,8 @@
 const meta = {
-  index: "Overview",
-  "instance-agent-model": "Instance Agent Model",
-  "integration-blueprint": "Integration Blueprint",
+  index: "概览",
+  "instance-agent-model": "实例与 Agent 模型",
+  "integration-blueprint": "集成蓝图",
+  "open-v1-external-frontend-integration": "Open API 外部前端接入",
 };
 
 export default meta;

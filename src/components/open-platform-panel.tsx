@@ -8,6 +8,28 @@ import { useCallback, useEffect, useState } from "react";
 
 const { Text, Paragraph } = Typography;
 
+function copyText(text: string): boolean {
+  if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(text);
+    return true;
+  }
+  // fallback for HTTP (non-secure context)
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    return true;
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(ta);
+  }
+}
+
 function maskText(text: string, showStart: number, showEnd: number): string {
   if (text.length <= showStart + showEnd) return text;
   return text.slice(0, showStart) + "••••••" + text.slice(-showEnd);
@@ -24,11 +46,10 @@ function SecretDisplayModal({ appId, plainSecret, onClose }: SecretDisplayProps)
   const [secretVisible, setSecretVisible] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
 
-  const copyToClipboard = useCallback(async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
+  const copyToClipboard = useCallback((text: string, label: string) => {
+    if (copyText(text)) {
       messageApi.success(`${label} 已复制到剪贴板`);
-    } catch {
+    } else {
       messageApi.error("复制失败，请手动复制");
     }
   }, [messageApi]);
@@ -255,7 +276,7 @@ export function OpenPlatformPanel() {
             type="text"
             size="small"
             icon={<Copy size={12} />}
-            onClick={() => { void navigator.clipboard.writeText(appId); messageApi.success("App ID 已复制"); }}
+            onClick={() => { copyText(appId); messageApi.success("App ID 已复制"); }}
             style={{ color: "#999" }}
           />
         </Space>
@@ -279,7 +300,7 @@ export function OpenPlatformPanel() {
             type="text"
             size="small"
             icon={<Copy size={12} />}
-            onClick={() => { void navigator.clipboard.writeText(secret); messageApi.success("Secret 已复制"); }}
+            onClick={() => { copyText(secret); messageApi.success("Secret 已复制"); }}
             style={{ color: "#999" }}
           />
         </Space>

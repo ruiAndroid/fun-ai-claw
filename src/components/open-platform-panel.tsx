@@ -246,8 +246,19 @@ export function OpenPlatformPanel() {
       title: "App ID",
       dataIndex: "appId",
       key: "appId",
-      width: 180,
-      render: (appId: string) => <code style={{ fontSize: 12 }}>{appId}</code>,
+      width: 220,
+      render: (appId: string) => (
+        <Space size={4}>
+          <code style={{ fontSize: 12 }}>{appId}</code>
+          <Button
+            type="text"
+            size="small"
+            icon={<Copy size={12} />}
+            onClick={() => { void navigator.clipboard.writeText(appId); messageApi.success("App ID 已复制"); }}
+            style={{ color: "#999" }}
+          />
+        </Space>
+      ),
     },
     {
       title: "名称",

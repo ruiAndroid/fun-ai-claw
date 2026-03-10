@@ -70,7 +70,6 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 
 - `instanceId`: 可选；如果应用已配置默认实例，可以不传
 - `agentId`: 可选；如果应用已配置默认 Agent，可以不传
-- `externalUserId`: 可选；调用方自己的用户标识
 - `externalSessionKey`: 推荐；同一 `appId + externalSessionKey` 会复用活动会话，并重新签发新的 `wsToken`
 
 请求示例：
@@ -79,7 +78,6 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 {
   "instanceId": "00000000-0000-0000-0000-000000000000",
   "agentId": "mgc-novel-to-script",
-  "externalUserId": "user-1001",
   "externalSessionKey": "biz-session-001"
 }
 ```
@@ -92,7 +90,6 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
   "appId": "partner-web",
   "instanceId": "00000000-0000-0000-0000-000000000000",
   "agentId": "mgc-novel-to-script",
-  "externalUserId": "user-1001",
   "externalSessionKey": "biz-session-001",
   "status": "ACTIVE",
   "websocketPath": "/open/v1/agent-session/ws?sessionId=11111111-1111-1111-1111-111111111111&wsToken=...",
@@ -293,7 +290,6 @@ const sessionResp = await fetch('/open/v1/sessions', {
   body: JSON.stringify({
     instanceId: '00000000-0000-0000-0000-000000000000',
     agentId: 'mgc-novel-to-script',
-    externalUserId: 'user-1001',
     externalSessionKey: 'biz-session-001',
   }),
 });

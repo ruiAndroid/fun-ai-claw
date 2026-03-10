@@ -14,10 +14,10 @@ export default function ConsoleLayout({
         token: {
           colorPrimary: "#0f766e",
           colorInfo: "#0f766e",
-          colorSuccess: "#0f766e",
+          colorSuccess: "#059669",
           colorWarning: "#d97706",
           colorError: "#dc2626",
-          colorBgLayout: "#f4faf8",
+          colorBgLayout: "#fafffe",
           colorBgContainer: "#ffffff",
           colorText: "#0f172a",
           colorTextSecondary: "#475569",
@@ -32,13 +32,18 @@ export default function ConsoleLayout({
           },
           Card: {
             bodyPadding: 20,
+            headerHeight: 56,
           },
           Button: {
-            controlHeight: 38,
+            controlHeight: 40,
             borderRadius: 12,
           },
           Table: {
-            headerBg: "#eff7f5",
+            headerBg: "#ecfdf5",
+            borderRadius: 16,
+          },
+          Modal: {
+            borderRadiusLG: 28,
           },
         },
       }}

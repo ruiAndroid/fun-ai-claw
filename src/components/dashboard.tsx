@@ -19,9 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card as ShadCard, CardContent as ShadCardContent, CardHeader as ShadCardHeader, CardTitle as ShadCardTitle } from "@/components/ui/card";
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench } from "lucide-react";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity } from "lucide-react";
 import { Alert, Button, Card, Descriptions, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { motion } from "framer-motion";
 
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -29,6 +30,14 @@ type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail" | "open-platform";
 type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills";
 type AgentSessionMode = "auto" | "direct";
+
+const MD3_EASE = [0.22, 1, 0.36, 1] as const;
+const staggerContainer = { animate: { transition: { staggerChildren: 0.08 } } };
+const staggerItem = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: MD3_EASE } },
+};
+
 type AgentChatRole = "user" | "assistant" | "system";
 type AgentInteractionActionKind = "send" | "prefill";
 type AgentInteractionAction = {
@@ -2924,7 +2933,7 @@ export function Dashboard() {
                   onClick={() => setSidebarCollapsed((value) => !value)}
                   icon={sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                 />
-                {!sidebarCollapsed ? <span className="sidebar-title">Console</span> : null}
+                {!sidebarCollapsed ? <span className="sidebar-title"><span className="text-md-primary font-extrabold">fun</span>Claw</span> : null}
               </div>
               <nav className="sidebar-nav">
                 <button
@@ -2933,7 +2942,7 @@ export function Dashboard() {
                   onClick={() => openMenuView("instances")}
                   title={uiText.menuInstances}
                 >
-                  <Server size={16} />
+                  <span className="sidebar-icon-wrap"><Server size={16} /></span>
                   {!sidebarCollapsed ? <span>{uiText.menuInstances}</span> : null}
                 </button>
                 <button
@@ -2942,7 +2951,7 @@ export function Dashboard() {
                   onClick={() => openMenuView("agents")}
                   title={uiText.menuAgents}
                 >
-                  <Bot size={16} />
+                  <span className="sidebar-icon-wrap"><Bot size={16} /></span>
                   {!sidebarCollapsed ? <span>{uiText.menuAgents}</span> : null}
                 </button>
                 <button
@@ -2951,7 +2960,7 @@ export function Dashboard() {
                   onClick={() => openMenuView("skills")}
                   title={uiText.menuSkills}
                 >
-                  <Wrench size={16} />
+                  <span className="sidebar-icon-wrap"><Wrench size={16} /></span>
                   {!sidebarCollapsed ? <span>{uiText.menuSkills}</span> : null}
                 </button>
                 <button
@@ -2960,7 +2969,7 @@ export function Dashboard() {
                   onClick={() => openMenuView("open-platform")}
                   title={uiText.menuOpenPlatform}
                 >
-                  <Globe size={16} />
+                  <span className="sidebar-icon-wrap"><Globe size={16} /></span>
                   {!sidebarCollapsed ? <span>{uiText.menuOpenPlatform}</span> : null}
                 </button>
               </nav>
@@ -2969,58 +2978,48 @@ export function Dashboard() {
               <Layout className="ai-layout" style={{ minHeight: "100vh" }}>
             <Header className="console-header">
               <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <p className="console-kicker">AI Runtime Control</p>
-                  <Title level={3} style={{ margin: 0 }}>
+                  <h2 className="m-0 text-2xl font-extrabold tracking-tight text-slate-900">
                     {uiText.pageTitle}
-                  </Title>
+                  </h2>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="default">shadcn/ui</Badge>
-                  <Badge variant="neutral">Tailwind CSS</Badge>
-                  <Badge variant="warning">Next.js 15</Badge>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold tracking-wide text-emerald-800 border border-emerald-200/60">
+                    <Activity size={14} />
+                    <span>System Online</span>
+                  </span>
                 </div>
               </div>
-              <p className="console-subtitle">UI layer refreshed with modern AI-console visual style.</p>
+              <p className="console-subtitle">funClaw 智能 Claw 实例管理平台</p>
             </Header>
             <Content className="console-content">
               <Space direction="vertical" style={{ width: "100%" }} size="large">
                 {activeView === "instances" ? (
                   <>
-                    <div className="kpi-grid">
-                      <ShadCard>
-                        <ShadCardHeader>
-                          <ShadCardTitle>{uiText.totalInstances}</ShadCardTitle>
-                        </ShadCardHeader>
-                        <ShadCardContent className="text-3xl font-semibold text-slate-900">
-                          {dashboardStats.total}
-                        </ShadCardContent>
-                      </ShadCard>
-                      <ShadCard>
-                        <ShadCardHeader>
-                          <ShadCardTitle>{uiText.runningInstances}</ShadCardTitle>
-                        </ShadCardHeader>
-                        <ShadCardContent className="text-3xl font-semibold text-emerald-700">
-                          {dashboardStats.running}
-                        </ShadCardContent>
-                      </ShadCard>
-                      <ShadCard>
-                        <ShadCardHeader>
-                          <ShadCardTitle>{uiText.stoppedInstances}</ShadCardTitle>
-                        </ShadCardHeader>
-                        <ShadCardContent className="text-3xl font-semibold text-slate-600">
-                          {dashboardStats.stopped}
-                        </ShadCardContent>
-                      </ShadCard>
-                      <ShadCard>
-                        <ShadCardHeader>
-                          <ShadCardTitle>{uiText.errorInstances}</ShadCardTitle>
-                        </ShadCardHeader>
-                        <ShadCardContent className="text-3xl font-semibold text-red-600">
-                          {dashboardStats.errorCount}
-                        </ShadCardContent>
-                      </ShadCard>
-                    </div>
+                    <motion.div
+                      className="kpi-grid"
+                      initial="initial"
+                      animate="animate"
+                      variants={staggerContainer}
+                    >
+                      {[
+                        { key: "total", icon: Layers, label: uiText.totalInstances, value: dashboardStats.total, color: "text-slate-900" },
+                        { key: "running", icon: Activity, label: uiText.runningInstances, value: dashboardStats.running, color: "text-emerald-700" },
+                        { key: "stopped", icon: Pause, label: uiText.stoppedInstances, value: dashboardStats.stopped, color: "text-slate-600" },
+                        { key: "error", icon: AlertTriangle, label: uiText.errorInstances, value: dashboardStats.errorCount, color: "text-red-600" },
+                      ].map((kpi) => (
+                        <motion.div key={kpi.key} className={`kpi-card is-${kpi.key}`} variants={staggerItem}>
+                          <div className="p-5">
+                            <div className="kpi-icon-wrap">
+                              <kpi.icon size={20} />
+                            </div>
+                            <p className="kpi-label">{kpi.label}</p>
+                            <p className={`kpi-value ${kpi.color}`}>{kpi.value}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </motion.div>
                     <Card
                       className="glass-card"
                       title={uiText.listTitle}
@@ -3040,16 +3039,17 @@ export function Dashboard() {
                       ) : instances.length === 0 ? (
                         <div className="empty-panel">{uiText.noInstances}</div>
                       ) : (
-                        <div className="instance-card-grid">
+                        <motion.div className="instance-card-grid" initial="initial" animate="animate" variants={staggerContainer}>
                           {instances.map((instance) => {
                             const isSelected = selectedInstanceId === instance.id;
                             const gatewayUrl = resolveUiControllerUrl(instance) ?? uiText.gatewayUrlUnavailable;
                             return (
-                              <button
+                              <motion.button
                                 key={instance.id}
                                 type="button"
                                 className={`instance-card ${isSelected ? "is-selected" : ""}`}
                                 onClick={() => openInstanceDetail(instance.id)}
+                                variants={staggerItem}
                               >
                                 <div className="instance-card-head">
                                   <strong>{instance.name}</strong>
@@ -3074,10 +3074,10 @@ export function Dashboard() {
                                   </span>
                                   <span>{instance.updatedAt}</span>
                                 </div>
-                              </button>
+                              </motion.button>
                             );
                           })}
-                        </div>
+                        </motion.div>
                       )}
                     </Card>
                   </>

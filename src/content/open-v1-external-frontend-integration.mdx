@@ -13,6 +13,18 @@ description: 面向第三方开发者的 /open/v1 接口文档
 - WebSocket: `/open/v1/agent-session/ws`
 - 会话模式：先创建会话，再通过 WebSocket 收发消息
 
+## 会话模式说明
+
+`/open/v1` 同时支持以下两种模式：
+
+- 指定 Agent 模式：创建会话时传入 `agentId`，或外部应用已配置 `default_agent_id`
+- 自动路由模式：创建会话时不传 `agentId`，且外部应用也未配置 `default_agent_id`
+
+建议：
+
+- 已明确目标 Agent 时，优先使用指定 Agent 模式
+- 需要由系统自行判断入口 Agent 时，使用自动路由模式
+
 ## 鉴权
 
 ### REST 鉴权

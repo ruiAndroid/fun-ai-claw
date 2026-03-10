@@ -168,7 +168,7 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 说明：
 
 - 当前默认只落库用户输入和最终 `message` 事件
-- `delta` 和 `debug` 主要用于实时展示，不保证落库
+- 历史消息接口不保证包含实时 `delta` 增量
 
 ### 4. 关闭会话
 
@@ -217,11 +217,10 @@ stateId=step1_input_parse
 
 ### 3. 接收事件
 
-当前会透传三类事件：
+当前会透传两类事件：
 
 - `message`: 最终消息对象
 - `delta`: 流式增量
-- `debug`: 调试输出
 
 `message` 示例：
 
@@ -332,9 +331,6 @@ socket.onmessage = (event) => {
   if (frame.eventType === 'message') {
     return;
   }
-  if (frame.eventType === 'debug') {
-    return;
-  }
 };
 ```
 
@@ -348,5 +344,6 @@ socket.onmessage = (event) => {
 当前限制：
 
 - 暂未提供纯 REST 的消息发送接口，消息收发必须走 WebSocket
-- 历史消息接口不保证包含全部 `delta` 和 `debug` 事件
+- 外部接口不会返回 `eventType=debug` 调试事件
+- 历史消息接口不保证包含全部实时 `delta` 增量
 - 第三方系统只应依赖 `/open/v1/**`，不要耦合控制台内部 `/v1/**` 接口

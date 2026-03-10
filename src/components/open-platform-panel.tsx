@@ -9,10 +9,12 @@ import { useCallback, useEffect, useState } from "react";
 const { Text, Paragraph } = Typography;
 
 function copyText(text: string): boolean {
-  if (navigator.clipboard?.writeText) {
-    void navigator.clipboard.writeText(text);
-    return true;
-  }
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      void navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* ignore */ }
   // fallback for HTTP (non-secure context)
   const ta = document.createElement("textarea");
   ta.value = text;

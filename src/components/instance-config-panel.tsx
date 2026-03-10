@@ -34,9 +34,9 @@ type ConfigDraft = {
   defaultProvider: string;
   defaultModel: string;
   defaultTemperature: number;
+  routeApiKey: string;
   routeProvider: string;
   routeModel: string;
-  routeTemperature: number;
   skillsPromptInjectionMode: string;
   skillsOpenEnabled: boolean;
   skillsDir: string;
@@ -44,6 +44,7 @@ type ConfigDraft = {
   rules: QueryRuleDraft[];
   agentProvider: string;
   agentModel: string;
+  agentTemperature: number;
   agentMaxIterations: number;
   agentMaxDepth: number;
   agentSystemPrompt: string;
@@ -92,9 +93,9 @@ const createDefaultDraft = (): ConfigDraft => ({
   defaultProvider: DEFAULT_PROVIDER,
   defaultModel: DEFAULT_MODEL,
   defaultTemperature: 0.7,
+  routeApiKey: "",
   routeProvider: DEFAULT_PROVIDER,
   routeModel: DEFAULT_MODEL,
-  routeTemperature: 0.3,
   skillsPromptInjectionMode: "compact",
   skillsOpenEnabled: true,
   skillsDir: DEFAULT_SKILLS_DIR,
@@ -102,6 +103,7 @@ const createDefaultDraft = (): ConfigDraft => ({
   rules: [createDefaultRule()],
   agentProvider: DEFAULT_PROVIDER,
   agentModel: DEFAULT_MODEL,
+  agentTemperature: 0.3,
   agentMaxIterations: 30,
   agentMaxDepth: 1,
   agentSystemPrompt: "",
@@ -175,14 +177,15 @@ const parseDraftFromConfig = (configToml: string): ConfigDraft => {
   const skillsSection = findSectionBody(normalized, /^\[skills\]$/);
   const classificationSection = findSectionBody(normalized, /^\[query_classification\]$/);
   const agentSection = findSectionBody(normalized, /^\[agents\."mgc-novel-to-script"\]$/);
+  const legacyRouteTemperature = findNumberValue(routeSection, "temperature", 0.3);
   return {
     apiKey: findStringValue(normalized, "api_key", ""),
     defaultProvider: findStringValue(normalized, "default_provider", DEFAULT_PROVIDER),
     defaultModel: findStringValue(normalized, "default_model", DEFAULT_MODEL),
     defaultTemperature: findNumberValue(normalized, "default_temperature", 0.7),
+    routeApiKey: findStringValue(routeSection, "api_key", ""),
     routeProvider: findStringValue(routeSection, "provider", DEFAULT_PROVIDER),
     routeModel: findStringValue(routeSection, "model", DEFAULT_MODEL),
-    routeTemperature: findNumberValue(routeSection, "temperature", 0.3),
     skillsPromptInjectionMode: findStringValue(skillsSection, "prompt_injection_mode", "compact"),
     skillsOpenEnabled: findBooleanValue(skillsSection, "open_skills_enabled", true),
     skillsDir: findStringValue(skillsSection, "open_skills_dir", DEFAULT_SKILLS_DIR),
@@ -198,6 +201,7 @@ const parseDraftFromConfig = (configToml: string): ConfigDraft => {
     }],
     agentProvider: findStringValue(agentSection, "provider", DEFAULT_PROVIDER),
     agentModel: findStringValue(agentSection, "model", DEFAULT_MODEL),
+    agentTemperature: findNumberValue(agentSection, "temperature", legacyRouteTemperature),
     agentMaxIterations: findNumberValue(agentSection, "max_iterations", 30),
     agentMaxDepth: findNumberValue(agentSection, "max_depth", 1),
     agentSystemPrompt: findMultilineValue(agentSection, "system_prompt", ""),
@@ -214,7 +218,7 @@ const buildManagedConfigPreview = (draft: ConfigDraft) => [
   `hint = ${escapeTomlString(MANAGED_AGENT_ID)}`,
   `provider = ${escapeTomlString(draft.routeProvider)}`,
   `model = ${escapeTomlString(draft.routeModel)}`,
-  `temperature = ${draft.routeTemperature}`,
+  ...(draft.routeApiKey.trim() ? [`api_key = ${escapeTomlString(draft.routeApiKey)}`] : []),
   "",
   "[skills]",
   `prompt_injection_mode = ${escapeTomlString(draft.skillsPromptInjectionMode)}`,
@@ -228,6 +232,7 @@ const buildManagedConfigPreview = (draft: ConfigDraft) => [
   `[agents.${escapeTomlString(MANAGED_AGENT_ID)}]`,
   `provider = ${escapeTomlString(draft.agentProvider)}`,
   `model = ${escapeTomlString(draft.agentModel)}`,
+  `temperature = ${draft.agentTemperature}`,
   "agentic = true",
   `max_iterations = ${draft.agentMaxIterations}`,
   `max_depth = ${draft.agentMaxDepth}`,
@@ -402,12 +407,12 @@ export function InstanceConfigPanel({ instance }: { instance: ClawInstance }) {
             <Space direction="vertical" style={{ width: "100%" }} size="small">
               <Text strong>hint</Text>
               <Input value={MANAGED_AGENT_ID} readOnly />
+              <Text strong>api_key</Text>
+              <Input.Password value={draft.routeApiKey} placeholder="可选：模型路由专属 API Key" onChange={(event) => updateDraft("routeApiKey", event.target.value)} />
               <Text strong>provider</Text>
               <Input value={draft.routeProvider} onChange={(event) => updateDraft("routeProvider", event.target.value)} />
               <Text strong>model</Text>
               <Input value={draft.routeModel} onChange={(event) => updateDraft("routeModel", event.target.value)} />
-              <Text strong>temperature</Text>
-              <InputNumber min={0} max={2} step={0.1} style={{ width: "100%" }} value={draft.routeTemperature} onChange={(value) => updateDraft("routeTemperature", Number(value ?? 0))} />
             </Space>
           </Card>
 
@@ -432,6 +437,8 @@ export function InstanceConfigPanel({ instance }: { instance: ClawInstance }) {
               <Input value={draft.agentProvider} onChange={(event) => updateDraft("agentProvider", event.target.value)} />
               <Text strong>model</Text>
               <Input value={draft.agentModel} onChange={(event) => updateDraft("agentModel", event.target.value)} />
+              <Text strong>temperature</Text>
+              <InputNumber min={0} max={2} step={0.1} style={{ width: "100%" }} value={draft.agentTemperature} onChange={(value) => updateDraft("agentTemperature", Number(value ?? 0))} />
               <Text strong>max_iterations</Text>
               <InputNumber min={1} max={200} style={{ width: "100%" }} value={draft.agentMaxIterations} onChange={(value) => updateDraft("agentMaxIterations", Number(value ?? 1))} />
               <Text strong>max_depth</Text>

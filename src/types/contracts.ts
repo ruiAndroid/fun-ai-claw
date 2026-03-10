@@ -98,6 +98,7 @@ export interface OpenClientApp {
   appId: string;
   name: string;
   enabled: boolean;
+  appSecret: string;
   defaultInstanceId?: string | null;
   defaultAgentId?: string | null;
   createdAt: string;

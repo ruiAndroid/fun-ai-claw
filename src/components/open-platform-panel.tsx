@@ -133,6 +133,7 @@ export function OpenPlatformPanel() {
   const [createdResult, setCreatedResult] = useState<OpenClientAppCreateResponse | null>(null);
 
   const [messageApi, contextHolder] = message.useMessage();
+  const [modal, modalContextHolder] = Modal.useModal();
 
   const fetchApps = useCallback(async () => {
     setLoading(true);
@@ -216,7 +217,7 @@ export function OpenPlatformPanel() {
   }, [editingApp, editForm, messageApi, fetchApps]);
 
   const handleDelete = useCallback((app: OpenClientApp) => {
-    Modal.confirm({
+    modal.confirm({
       title: "确认删除",
       content: (
         <div>
@@ -239,7 +240,7 @@ export function OpenPlatformPanel() {
         }
       },
     });
-  }, [messageApi, fetchApps]);
+  }, [modal, messageApi, fetchApps]);
 
   const columns = [
     {
@@ -265,6 +266,24 @@ export function OpenPlatformPanel() {
       dataIndex: "name",
       key: "name",
       width: 160,
+    },
+    {
+      title: "Secret",
+      dataIndex: "appSecret",
+      key: "appSecret",
+      width: 240,
+      render: (secret: string) => (
+        <Space size={4}>
+          <code style={{ fontSize: 12 }}>{maskText(secret, 8, 4)}</code>
+          <Button
+            type="text"
+            size="small"
+            icon={<Copy size={12} />}
+            onClick={() => { void navigator.clipboard.writeText(secret); messageApi.success("Secret 已复制"); }}
+            style={{ color: "#999" }}
+          />
+        </Space>
+      ),
     },
     {
       title: "状态",
@@ -321,6 +340,7 @@ export function OpenPlatformPanel() {
   return (
     <>
       {contextHolder}
+      {modalContextHolder}
 
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>

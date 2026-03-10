@@ -1,11 +1,25 @@
 import type { Metadata } from "next";
-import { ConfigProvider } from "antd";
-import "antd/dist/reset.css";
+import { Plus_Jakarta_Sans, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
+});
+
+const notoSansSC = Noto_Sans_SC({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-noto-sans-sc",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "fun-ai-claw claw\u5b9e\u4f8b\u7ba1\u7406\u53f0",
-  description: "Claw instance management console",
+  title: "funClaw — AI-Powered Claw Orchestration",
+  description:
+    "基于 Docker 的智能 Claw 实例管理平台，支持 Agent 配置与 Skill 编排",
 };
 
 export default function RootLayout({
@@ -15,42 +29,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body>
-        <ConfigProvider
-          theme={{
-            token: {
-              colorPrimary: "#0f766e",
-              colorInfo: "#0f766e",
-              colorSuccess: "#0f766e",
-              colorWarning: "#d97706",
-              colorError: "#dc2626",
-              colorBgLayout: "#f4faf8",
-              colorBgContainer: "#ffffff",
-              colorText: "#0f172a",
-              colorTextSecondary: "#475569",
-              borderRadius: 14,
-              fontFamily: "\"Plus Jakarta Sans\", \"Noto Sans SC\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif",
-            },
-            components: {
-              Layout: {
-                bodyBg: "transparent",
-                headerBg: "transparent",
-              },
-              Card: {
-                bodyPadding: 20,
-              },
-              Button: {
-                controlHeight: 38,
-                borderRadius: 12,
-              },
-              Table: {
-                headerBg: "#eff7f5",
-              },
-            },
-          }}
-        >
-          {children}
-        </ConfigProvider>
+      <body className={`${plusJakarta.variable} ${notoSansSC.variable}`}>
+        {children}
       </body>
     </html>
   );

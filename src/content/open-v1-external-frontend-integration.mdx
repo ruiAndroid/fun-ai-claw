@@ -163,6 +163,134 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 
 响应仍返回会话对象，`status` 会变为 `CLOSED`。
 
+## 调试示例
+
+以下示例均基于最新契约，请求体里不再包含 `externalUserId`。
+
+### cURL 示例
+
+先准备环境变量：
+
+```bash
+BASE_URL=http://your-host/fun-claw/api/open/v1
+APP_ID=your-app-id
+APP_SECRET=your-app-secret
+INSTANCE_ID=00000000-0000-0000-0000-000000000000
+AGENT_ID=mgc-novel-to-script
+EXTERNAL_SESSION_KEY=biz-session-001
+SESSION_ID=11111111-1111-1111-1111-111111111111
+```
+
+创建或恢复会话：
+
+```bash
+curl -X POST "$BASE_URL/sessions" \
+  -H "Content-Type: application/json" \
+  -H "X-Open-App-Id: $APP_ID" \
+  -H "X-Open-App-Secret: $APP_SECRET" \
+  -d '{
+    "instanceId": "'"$INSTANCE_ID"'",
+    "agentId": "'"$AGENT_ID"'",
+    "externalSessionKey": "'"$EXTERNAL_SESSION_KEY"'"
+  }'
+```
+
+查询会话：
+
+```bash
+curl "$BASE_URL/sessions/$SESSION_ID" \
+  -H "X-Open-App-Id: $APP_ID" \
+  -H "X-Open-App-Secret: $APP_SECRET"
+```
+
+查询历史消息：
+
+```bash
+curl "$BASE_URL/sessions/$SESSION_ID/messages?limit=100" \
+  -H "X-Open-App-Id: $APP_ID" \
+  -H "X-Open-App-Secret: $APP_SECRET"
+```
+
+关闭会话：
+
+```bash
+curl -X POST "$BASE_URL/sessions/$SESSION_ID/close" \
+  -H "X-Open-App-Id: $APP_ID" \
+  -H "X-Open-App-Secret: $APP_SECRET"
+```
+
+如果你走自动路由模式，创建会话时直接去掉 `agentId` 即可。
+
+### Postman 示例
+
+建议先在 Postman 里配置环境变量：
+
+- `baseUrl`: `http://your-host/fun-claw/api/open/v1`
+- `appId`: 平台分配的 `appId`
+- `appSecret`: 平台分配的 `appSecret`
+- `instanceId`: 目标实例 ID
+- `agentId`: `mgc-novel-to-script`
+- `externalSessionKey`: 业务侧会话键
+- `sessionId`: 创建会话后返回的 `sessionId`
+- `wsToken`: 创建会话后返回的 `websocketToken`
+
+创建或恢复会话：
+
+- Method: `POST`
+- URL: `{{baseUrl}}/sessions`
+- Headers:
+  - `Content-Type: application/json`
+  - `X-Open-App-Id: {{appId}}`
+  - `X-Open-App-Secret: {{appSecret}}`
+- Body:
+
+```json
+{
+  "instanceId": "{{instanceId}}",
+  "agentId": "{{agentId}}",
+  "externalSessionKey": "{{externalSessionKey}}"
+}
+```
+
+查询会话：
+
+- Method: `GET`
+- URL: `{{baseUrl}}/sessions/{{sessionId}}`
+- Headers:
+  - `X-Open-App-Id: {{appId}}`
+  - `X-Open-App-Secret: {{appSecret}}`
+
+查询历史消息：
+
+- Method: `GET`
+- URL: `{{baseUrl}}/sessions/{{sessionId}}/messages?limit=100`
+- Headers:
+  - `X-Open-App-Id: {{appId}}`
+  - `X-Open-App-Secret: {{appSecret}}`
+
+关闭会话：
+
+- Method: `POST`
+- URL: `{{baseUrl}}/sessions/{{sessionId}}/close`
+- Headers:
+  - `X-Open-App-Id: {{appId}}`
+  - `X-Open-App-Secret: {{appSecret}}`
+
+如果要在 Postman 里测试 WebSocket，可新建 WebSocket Request，连接：
+
+```text
+ws://your-host/fun-claw/api/open/v1/agent-session/ws?sessionId={{sessionId}}&wsToken={{wsToken}}
+```
+
+发送内容使用纯文本，例如：
+
+```text
+script_type=一句话剧本
+script_content=一个被陷害的女律师重生回庭审前夜，反杀幕后黑手并逆袭成律所合伙人。
+target_audience=女频
+expected_episode_count=5
+```
+
 ## WebSocket 接口
 
 ### 1. 建立连接

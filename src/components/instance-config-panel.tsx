@@ -130,22 +130,22 @@ const toTomlMultiline = (value: string) => {
 };
 
 const findStringValue = (text: string, key: string, fallback = "") => {
-  const match = text.match(new RegExp(`(?m)^\\s*${key}\\s*=\\s*\"((?:\\\\.|[^\"\\\\])*)\"\\s*$`));
+  const match = text.match(new RegExp(`^\\s*${key}\\s*=\\s*\"((?:\\\\.|[^\"\\\\])*)\"\\s*$`, "m"));
   return match ? match[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\") : fallback;
 };
 
 const findNumberValue = (text: string, key: string, fallback: number) => {
-  const match = text.match(new RegExp(`(?m)^\\s*${key}\\s*=\\s*([-+]?[0-9]+(?:\\.[0-9]+)?)\\s*$`));
+  const match = text.match(new RegExp(`^\\s*${key}\\s*=\\s*([-+]?[0-9]+(?:\\.[0-9]+)?)\\s*$`, "m"));
   return match ? Number(match[1]) : fallback;
 };
 
 const findBooleanValue = (text: string, key: string, fallback: boolean) => {
-  const match = text.match(new RegExp(`(?m)^\\s*${key}\\s*=\\s*(true|false)\\s*$`));
+  const match = text.match(new RegExp(`^\\s*${key}\\s*=\\s*(true|false)\\s*$`, "m"));
   return match ? match[1] === "true" : fallback;
 };
 
 const findArrayValue = (text: string, key: string) => {
-  const match = text.match(new RegExp(`(?ms)^\\s*${key}\\s*=\\s*\\[(.*?)]\\s*$`));
+  const match = text.match(new RegExp(`^\\s*${key}\\s*=\\s*\\[(.*?)]\\s*$`, "ms"));
   return match ? [...match[1].matchAll(/"((?:\\.|[^"\\])*)"/g)].map((item) => item[1]) : [];
 };
 
@@ -165,7 +165,7 @@ const findSectionBody = (text: string, headerPattern: RegExp) => {
 };
 
 const findMultilineValue = (text: string, key: string, fallback = "") => {
-  const match = text.match(new RegExp(`(?ms)^\\s*${key}\\s*=\\s*\"\"\"(.*?)\"\"\"\\s*$`));
+  const match = text.match(new RegExp(`^\\s*${key}\\s*=\\s*\"\"\"(.*?)\"\"\"\\s*$`, "ms"));
   return match ? match[1].replace(/\\"""/g, "\"\"\"").trim() : fallback;
 };
 

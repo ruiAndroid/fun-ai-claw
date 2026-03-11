@@ -213,7 +213,7 @@ export function AgentBaselinePanel() {
         allowedTools: [...saved.allowedTools],
       });
       await loadItems(saved.agentKey);
-      messageApi.success(`Agent baseline 鐎规瓕寮撶换姘扁偓娑欙公缁?{saved.agentKey}`);
+      messageApi.success(`Agent baseline 閻庤鐡曞鎾舵崲濮樻墎鍋撳☉娆欏叕缂?{saved.agentKey}`);
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
     } finally {
@@ -229,7 +229,7 @@ export function AgentBaselinePanel() {
     setError(undefined);
     try {
       await deleteAgentBaseline(selectedAgentKey);
-      messageApi.success(`Agent baseline 鐎瑰憡褰冮崹褰掓⒔閵堝繒绐?{selectedAgentKey}`);
+      messageApi.success(`Agent baseline 閻庣懓鎲¤ぐ鍐垂瑜版帗鈷旈柕鍫濈箳缁?{selectedAgentKey}`);
       await loadItems();
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
@@ -249,7 +249,7 @@ export function AgentBaselinePanel() {
       createForm.resetFields();
       await loadItems(created.agentKey);
       setSelectedAgentKey(created.agentKey);
-      messageApi.success(`Agent baseline 鐎瑰憡褰冮崹鍗烆嚈閻氬绐?{created.agentKey}`);
+      messageApi.success(`Agent baseline 閻庣懓鎲¤ぐ鍐垂閸楃儐鍤堥柣姘嚟缁?{created.agentKey}`);
     } catch (apiError) {
       if ((apiError as { errorFields?: unknown }).errorFields) {
         return;
@@ -269,10 +269,10 @@ export function AgentBaselinePanel() {
         extra={(
           <Space size="small" wrap>
             <Button size="small" onClick={() => void loadItems(selectedAgentKey)} loading={loading} icon={<RefreshCw size={12} />}>
-              闁告帡鏀遍弻?Agent baseline
+              闂佸憡甯￠弨閬嶅蓟?Agent baseline
             </Button>
             <Button size="small" type="primary" onClick={() => setCreateModalOpen(true)} icon={<Plus size={12} />}>
-              闁哄倹婢橀·?Agent
+              闂佸搫鍊瑰姗€路?Agent
             </Button>
           </Space>
         )}
@@ -282,7 +282,7 @@ export function AgentBaselinePanel() {
             <Alert
               showIcon
               type="error"
-              message="Agent baseline 濠㈣泛瀚幃濠冨緞鏉堫偉袝"
+              message="Agent baseline 婵犮垼娉涚€氼噣骞冩繝鍐ㄧ窞閺夊牜鍋夎"
               description={error}
             />
           ) : null}
@@ -293,16 +293,16 @@ export function AgentBaselinePanel() {
 
           {(!loading && items.length === 0) ? (
             <Empty
-              description="褰撳墠杩樻病鏈?Agent baseline锛屽彲浠ュ厛鍒涘缓涓€鏉¤褰曘€?
+              description={"No Agent baseline yet. Create one to get started."}
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             >
-              <Button type="primary" onClick={() => setCreateModalOpen(true)}>鏂板 Agent</Button>
+              <Button type="primary" onClick={() => setCreateModalOpen(true)}>Create Agent</Button>
             </Empty>
           ) : null}
 
           {items.length > 0 ? (
             <>
-              <Text type="secondary">选择一个 Agent baseline 进行查看和编辑。</Text>
+              <Text type="secondary">Select an Agent baseline to view or edit.</Text>
               <div className="agent-selector-grid">
                 {items.map((item) => {
                   const selected = selectedAgentKey === item.agentKey;
@@ -343,26 +343,26 @@ export function AgentBaselinePanel() {
                     <Space size={[8, 8]} wrap>
                       <Tag color="blue">{draft.agentKey}</Tag>
                       <Tag>{draft.runtime}</Tag>
-                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "鐎瑰憡褰冮幆搴ㄦ偨? : "鐎瑰憡褰冩禒鐘绘偨?}</Tag>
+                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "閻庣懓鎲¤ぐ鍐箚鎼淬劍鍋? : "閻庣懓鎲¤ぐ鍐╃閻樼粯鍋?}</Tag>
                       {draft.model ? <Tag color="purple">{draft.model}</Tag> : null}
                       {draft.provider ? <Tag>{draft.provider}</Tag> : null}
                     </Space>
                   </div>
                   <Space size="small" wrap>
-                    <Text type="secondary">闁哄牃鍋撻弶鈺傚灦濞插潡寮敮顔剧獥{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
+                    <Text type="secondary">闂佸搫鐗冮崑鎾诲级閳哄倸鐏︽繛鎻掓健瀵剛鏁鍓х崶{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
                     <Popconfirm
-                      title="闁告帞濞€濞?Agent baseline"
-                      description={`缁绢収鍠涢濠氬礆閻樼粯鐝?${draft.agentKey} 闁告碍顨愮槐闈涱潰閵堝棙鎯欏ù锝嗙矊瑜把嗐亹閸楃偞鎯欓柛娆愬婢跺嫰鏁嶇仦鑲╃憹鐟滄澘宕幖鐑芥偝閻楀牊绠掗悗鍦仒缁躲儵濡存穱妾?
-                      okText="缁绢収鍠涢濠氬礆閻樼粯鐝?
-                      cancelText="闁告瑦鐗楃粔?
+                      title="闂佸憡甯炴繛鈧繛?Agent baseline"
+                      description={`缂佺虎鍙庨崰娑㈩敇婵犳艾绀嗛柣妯肩帛閻?${draft.agentKey} 闂佸憡纰嶉〃鎰闂堟侗娼伴柕鍫濇閹瑥霉閿濆棛鐭婄憸鎶婂棎浜归柛妤冨仦閹瑩鏌涘▎鎰€滃璺哄閺佸秶浠﹂懖鈺冩喒閻熸粍婢樺畷顒勫箹閻戣姤鍋濋柣妤€鐗婄粻鎺楁倵閸︻厼浠掔紒韬插劦婵″瓨绌卞?
+                      okText="缂佺虎鍙庨崰娑㈩敇婵犳艾绀嗛柣妯肩帛閻?
+                      cancelText="闂佸憡鐟﹂悧妤冪矓?
                       onConfirm={() => void handleDelete()}
                     >
                       <Button danger loading={deleting} icon={<Trash2 size={12} />}>
-                        闁告帞濞€濞?
+                        闂佸憡甯炴繛鈧繛?
                       </Button>
                     </Popconfirm>
                     <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void handleSave()}>
-                      濞ｅ洦绻傞悺?
+                      婵烇絽娲︾换鍌炴偤?
                     </Button>
                   </Space>
                 </div>
@@ -370,7 +370,7 @@ export function AgentBaselinePanel() {
                 <div className="agent-baseline-grid">
                   <div className="agent-prompt-card">
                     <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">闁糕晞娅ｉ、鍛┍閳╁啩绱?/span>
+                      <span className="agent-prompt-header-title">闂佺硶鏅炲▍锝夈€侀崨顔锯攳闁斥晛鍟╃槐?/span>
                     </div>
                     <div className="agent-prompt-body is-spacious">
                       <div className="agent-baseline-fields">
@@ -407,7 +407,7 @@ export function AgentBaselinePanel() {
                           <Input
                             value={draft.updatedBy ?? ""}
                             onChange={(event) => updateDraft({ updatedBy: event.target.value })}
-                            placeholder="闁告瑯鍨堕埀顒€顧€缁辨繄鎷嬮弶璺ㄧЭ闁哄牜鍓氶鑲╃磼鐎涙ê袘濞?
+                            placeholder="闂佸憡鐟崹鍫曞焵椤掆偓椤р偓缂佽鲸绻勯幏瀣级鐠恒劎协闂佸搫鐗滈崜姘额敃閼测晝纾奸悗娑櫭婵?
                           />
                         </div>
                       </div>
@@ -454,7 +454,7 @@ export function AgentBaselinePanel() {
                             onChange={(value) => updateDraft({ allowedTools: value })}
                             style={{ width: "100%" }}
                             tokenSeparators={[",", "\n"]}
-                            placeholder="鐟滅増娲栭崣?allowed_tools"
+                            placeholder="閻熸粎澧楀ú鏍矗?allowed_tools"
                           />
                         </div>
                       </div>
@@ -483,14 +483,14 @@ export function AgentBaselinePanel() {
       </Card>
 
       <Modal
-        title="闁哄倹婢橀·?Agent baseline"
+        title="闂佸搫鍊瑰姗€路?Agent baseline"
         open={createModalOpen}
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
         }}
         onOk={() => void handleCreate()}
-        okText="闁告帗绋戠紓?
+        okText="闂佸憡甯楃粙鎴犵磽?
         confirmLoading={creating}
       >
         <Form<CreateBaselineForm> form={createForm} layout="vertical">
@@ -498,14 +498,14 @@ export function AgentBaselinePanel() {
             name="agentKey"
             label="Agent Key"
             rules={[
-              { required: true, message: "閻犲洨鏌夌欢顓㈠礂?Agent Key" },
-              { pattern: /^[A-Za-z0-9._-]+$/, message: "濞寸姴鎳忛弫顕€骞愭担鍝ユ憻婵絽绉查埀顑跨劍閺嗙喓鈧稒銇滈埀顑胯兌閸嬶綁濡存担椋庣憮闁告帗甯為崵搴ㄥ椽鐏炶壈鍘柛鎺撳笧閸? },
+              { required: true, message: "闁荤姴娲ㄩ弻澶屾椤撱垹绀?Agent Key" },
+              { pattern: /^[A-Za-z0-9._-]+$/, message: "婵炲濮撮幊蹇涘极椤曗偓楠炴劖鎷呴崫銉︽喕濠殿噯绲界粔鏌ュ焵椤戣法鍔嶉柡鍡欏枔閳ь剚绋掗妵婊堝焵椤戣儻鍏岄柛瀣剁秮婵″瓨鎷呮搴ｆ啴闂佸憡甯楃敮鐐哄吹鎼淬劌妞介悘鐐跺閸橆剟鏌涢幒鎾崇闁? },
             ]}
           >
-            <Input placeholder="濞撴艾顑呴々褔鏁嶅鐢甤-novel-to-script" />
+            <Input placeholder="婵炴挻鑹鹃鍛淬€呰閺佸秴顫㈤悽鐢?novel-to-script" />
           </Form.Item>
           <Form.Item name="displayName" label="Display Name">
-            <Input placeholder="闁告瑯鍨堕埀顒€顧€缁辨繃绋夊鍜冪稏闁哄啫鐖肩划顖滄媼閵堝嫮鐟?Agent Key 闁烩晝顭堥幃? />
+            <Input placeholder="闂佸憡鐟崹鍫曞焵椤掆偓椤р偓缂佽鲸绻冪粙澶婎吋閸滃啰绋忛梺鍝勫暙閻栬偐鍒掗婊勫闁靛牆瀚悷?Agent Key 闂佺儵鏅濋…鍫ュ箖? />
           </Form.Item>
         </Form>
       </Modal>

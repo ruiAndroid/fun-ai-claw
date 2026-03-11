@@ -10,6 +10,7 @@ import {
   InstanceConfig,
   InstanceMainAgentGuidance,
   InstanceRoutingConfig,
+  InstanceSkillBinding,
   InstanceActionType,
   ListResponse,
   OpenClientApp,
@@ -162,6 +163,23 @@ export async function upsertAgentSystemPrompt(
 
 export async function listInstanceSkills(instanceId: string) {
   return requestJson<ListResponse<SkillDescriptor>>(`/v1/instances/${instanceId}/skills`);
+}
+
+export async function listInstanceSkillBindings(instanceId: string) {
+  return requestJson<ListResponse<InstanceSkillBinding>>(`/v1/instances/${instanceId}/skill-bindings`);
+}
+
+export async function installInstanceSkill(instanceId: string, skillKey: string, updatedBy = "console") {
+  return requestJson<InstanceSkillBinding>(`/v1/instances/${instanceId}/skill-bindings/${encodeURIComponent(skillKey)}`, {
+    method: "PUT",
+    body: JSON.stringify({ updatedBy }),
+  });
+}
+
+export async function uninstallInstanceSkill(instanceId: string, skillKey: string) {
+  return requestVoid(`/v1/instances/${instanceId}/skill-bindings/${encodeURIComponent(skillKey)}`, {
+    method: "DELETE",
+  });
 }
 
 export async function getInstanceMainAgentGuidance(instanceId: string) {

@@ -8,7 +8,6 @@ import {
   getInstancePairingCode,
   listImages,
   listInstanceAgents,
-  listInstanceSkills,
   listInstances,
   submitInstanceAction,
   upsertAgentSystemPrompt,
@@ -16,11 +15,12 @@ import {
 } from "@/lib/control-api";
 import { AgentBaselinePanel } from "@/components/agent-baseline-panel";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
+import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
 import { SkillBaselinePanel } from "@/components/skill-baseline-panel";
 import { appConfig } from "@/config/app-config";
-import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Zap, Shield, Copy, CalendarClock, Plug } from "lucide-react";
+import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse } from "@/types/contracts";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Copy, CalendarClock, Plug } from "lucide-react";
 import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion } from "framer-motion";
@@ -965,10 +965,6 @@ export function Dashboard() {
   const [agentSystemPromptError, setAgentSystemPromptError] = useState<string>();
   const [agentSystemPromptCollapsed, setAgentSystemPromptCollapsed] = useState(true);
   const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("direct");
-  const [skills, setSkills] = useState<SkillDescriptor[]>([]);
-  const [skillsLoading, setSkillsLoading] = useState(false);
-  const [skillsError, setSkillsError] = useState<string>();
-  const [selectedSkillId, setSelectedSkillId] = useState<string>();
   const [agentMessageInput, setAgentMessageInput] = useState("");
   const [agentComposerInteractionDraft, setAgentComposerInteractionDraft] = useState<AgentComposerInteractionDraft>();
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
@@ -1027,10 +1023,6 @@ export function Dashboard() {
     () => agents.find((item) => item.id === selectedAgentId),
     [agents, selectedAgentId]
   );
-  const selectedSkill = useMemo(
-    () => skills.find((item) => item.id === selectedSkillId),
-    [skills, selectedSkillId]
-  );
   useEffect(() => {
     agentSessionHasStartedRef.current = agentSessionHasStarted;
   }, [agentSessionHasStarted]);
@@ -1046,15 +1038,6 @@ export function Dashboard() {
   );
   const baselineSelectedAgentSystemPrompt = selectedAgent?.systemPrompt ?? "";
   const selectedAgentSystemPromptDirty = selectedAgentSystemPromptDraft !== baselineSelectedAgentSystemPrompt;
-  const selectedSkillNotAllowed = useMemo(() => {
-    if (!selectedSkill) {
-      return false;
-    }
-    if (selectedAgentAllowedTools.length === 0) {
-      return false;
-    }
-    return !selectedAgentAllowedTools.includes(selectedSkill.id);
-  }, [selectedAgentAllowedTools, selectedSkill]);
   const selectedStatus = selectedInstance?.status;
   const actionBusy = submittingAction || deletingInstance;
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
@@ -1261,37 +1244,6 @@ export function Dashboard() {
     }
   }, [messageApi, selectedAgentId, selectedAgentSystemPromptDraft, selectedInstanceId]);
 
-  const loadSkills = useCallback(async (instanceId?: string) => {
-    if (!instanceId) {
-      setSkills([]);
-      setSelectedSkillId(undefined);
-      setSkillsError(undefined);
-      return;
-    }
-
-    setSkillsLoading(true);
-    setSkillsError(undefined);
-    try {
-      const response = await listInstanceSkills(instanceId);
-      setSkills(response.items);
-      setSelectedSkillId((current) => {
-        if (!response.items.length) {
-          return undefined;
-        }
-        if (current && response.items.some((item) => item.id === current)) {
-          return current;
-        }
-        return response.items[0].id;
-      });
-    } catch (apiError) {
-      setSkills([]);
-      setSelectedSkillId(undefined);
-      setSkillsError(apiError instanceof Error ? apiError.message : uiText.loadSkillsFailed);
-    } finally {
-      setSkillsLoading(false);
-    }
-  }, []);
-
   const loadMainAgentGuidance = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
       setMainAgentGuidance(undefined);
@@ -1384,9 +1336,8 @@ export function Dashboard() {
 
   useEffect(() => {
     void loadAgents(selectedInstanceId);
-    void loadSkills(selectedInstanceId);
     void loadMainAgentGuidance(selectedInstanceId);
-  }, [loadAgents, loadMainAgentGuidance, loadSkills, selectedInstanceId]);
+  }, [loadAgents, loadMainAgentGuidance, selectedInstanceId]);
 
   useEffect(() => {
     setMainAgentGuidanceCollapsed(true);
@@ -4077,72 +4028,10 @@ export function Dashboard() {
                           key: "skills",
                           label: uiText.tabSkill,
                           children: (
-                            <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                              <div className="tab-section-header">
-                                <div className="tab-section-title">
-                                  <span className="tab-section-icon is-skill"><Wrench size={16} /></span>
-                                  {uiText.tabSkill}
-                                </div>
-                                <Button size="small" loading={skillsLoading} onClick={() => void loadSkills(selectedInstance.id)} icon={<RefreshCw size={12} />}>
-                                  {uiText.refreshSkills}
-                                </Button>
-                              </div>
-                              {skillsError ? <Alert type="error" showIcon message={skillsError} /> : null}
-                              <Alert type="info" showIcon message={uiText.skillScopeHint} />
-                              {(!skillsLoading && skills.length === 0) ? (
-                                <div className="empty-panel">{uiText.noSkills}</div>
-                              ) : null}
-                              {skills.length > 0 ? (
-                                <>
-                                  <Text type="secondary">{uiText.skillListHint}</Text>
-                                  <div className="skill-card-grid-v2">
-                                    {skills.map((item) => {
-                                      const selected = selectedSkillId === item.id;
-                                      const allowed = selectedAgentAllowedTools.length === 0 || selectedAgentAllowedTools.includes(item.id);
-                                      return (
-                                        <button
-                                          key={item.id}
-                                          type="button"
-                                          className={`skill-card-v2 ${selected ? "is-selected" : ""}`}
-                                          onClick={() => setSelectedSkillId(item.id)}
-                                        >
-                                          <div className={`skill-card-v2-icon ${allowed ? "is-allowed" : "is-blocked"}`}>
-                                            {allowed ? <Zap size={18} /> : <Shield size={18} />}
-                                          </div>
-                                          <strong className="skill-card-v2-title">{item.id}</strong>
-                                          <p className="skill-card-v2-path">{item.path}</p>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </>
-                              ) : null}
-                              {selectedSkill ? (
-                                <motion.div
-                                  initial={{ opacity: 0, y: 12 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                                >
-                                  <div className="agent-prompt-card">
-                                    <div className="agent-prompt-header">
-                                      <span className="agent-prompt-header-title">{selectedSkill.id}</span>
-                                      <Text code copyable={{ text: selectedSkill.path }} style={{ fontSize: 11 }}>{selectedSkill.path}</Text>
-                                    </div>
-                                    <div className="agent-prompt-body is-spacious">
-                                      {selectedSkillNotAllowed ? <Alert type="warning" showIcon message={uiText.agentSkillNotAllowed} style={{ marginBottom: 12 }} /> : null}
-                                      <Input.TextArea
-                                        className="prompt-textarea prompt-textarea-skill"
-                                        rows={20}
-                                        readOnly
-                                        value={selectedSkill.prompt}
-                                      />
-                                    </div>
-                                  </div>
-                                </motion.div>
-                              ) : (
-                                <Text type="secondary">{uiText.noSkillPrompt}</Text>
-                              )}
-                            </Space>
+                            <InstanceSkillPanel
+                              instanceId={selectedInstance.id}
+                              selectedAgentAllowedTools={selectedAgentAllowedTools}
+                            />
                           ),
                         },
                         {

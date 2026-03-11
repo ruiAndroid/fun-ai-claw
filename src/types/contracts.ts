@@ -117,6 +117,17 @@ export interface SkillBaselineSummary {
   updatedAt: string;
 }
 
+export interface InstanceSkillBinding {
+  instanceId: string;
+  skillKey: string;
+  displayName: string;
+  description?: string | null;
+  baselineEnabled: boolean;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SkillBaseline {
   skillKey: string;
   displayName: string;

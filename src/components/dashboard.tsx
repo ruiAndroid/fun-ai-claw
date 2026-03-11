@@ -4013,7 +4013,7 @@ export function Dashboard() {
                                         ) : null}
                                       </Space>
                                     </div>
-                                    <div className="agent-prompt-body">
+                                    <div className="agent-prompt-body is-spacious">
                                       {agentSystemPromptCollapsed ? (
                                         <Text type="secondary">默认折叠，展开后可查看或编辑当前 Agent 的 system_prompt。</Text>
                                       ) : (
@@ -4021,7 +4021,8 @@ export function Dashboard() {
                                           <Text type="secondary">{uiText.agentSystemPromptHint}</Text>
                                           {agentSystemPromptError ? <Alert type="error" showIcon message={agentSystemPromptError} /> : null}
                                           <Input.TextArea
-                                            rows={10}
+                                            className="prompt-textarea prompt-textarea-agent"
+                                            rows={18}
                                             value={agentSystemPromptEditing ? selectedAgentSystemPromptDraft : (selectedAgent.systemPrompt ?? "")}
                                             onChange={(event) => setSelectedAgentSystemPromptDraft(event.target.value)}
                                             placeholder={uiText.agentSystemPromptPlaceholder}
@@ -4094,10 +4095,11 @@ export function Dashboard() {
                                       <span className="agent-prompt-header-title">{selectedSkill.id}</span>
                                       <Text code copyable={{ text: selectedSkill.path }} style={{ fontSize: 11 }}>{selectedSkill.path}</Text>
                                     </div>
-                                    <div className="agent-prompt-body">
+                                    <div className="agent-prompt-body is-spacious">
                                       {selectedSkillNotAllowed ? <Alert type="warning" showIcon message={uiText.agentSkillNotAllowed} style={{ marginBottom: 12 }} /> : null}
                                       <Input.TextArea
-                                        rows={10}
+                                        className="prompt-textarea prompt-textarea-skill"
+                                        rows={20}
                                         readOnly
                                         value={selectedSkill.prompt}
                                       />

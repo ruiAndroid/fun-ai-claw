@@ -213,7 +213,7 @@ export function AgentBaselinePanel() {
         allowedTools: [...saved.allowedTools],
       });
       await loadItems(saved.agentKey);
-      messageApi.success(`Agent baseline 瀹歌弓绻氱€涙﹫绱?{saved.agentKey}`);
+      messageApi.success(`Agent baseline 鐎规瓕寮撶换姘扁偓娑欙公缁?{saved.agentKey}`);
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
     } finally {
@@ -229,7 +229,7 @@ export function AgentBaselinePanel() {
     setError(undefined);
     try {
       await deleteAgentBaseline(selectedAgentKey);
-      messageApi.success(`Agent baseline 瀹告彃鍨归梽銈忕窗${selectedAgentKey}`);
+      messageApi.success(`Agent baseline 鐎瑰憡褰冮崹褰掓⒔閵堝繒绐?{selectedAgentKey}`);
       await loadItems();
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
@@ -249,7 +249,7 @@ export function AgentBaselinePanel() {
       createForm.resetFields();
       await loadItems(created.agentKey);
       setSelectedAgentKey(created.agentKey);
-      messageApi.success(`Agent baseline 瀹告彃鍨卞鐚寸窗${created.agentKey}`);
+      messageApi.success(`Agent baseline 鐎瑰憡褰冮崹鍗烆嚈閻氬绐?{created.agentKey}`);
     } catch (apiError) {
       if ((apiError as { errorFields?: unknown }).errorFields) {
         return;
@@ -269,10 +269,10 @@ export function AgentBaselinePanel() {
         extra={(
           <Space size="small" wrap>
             <Button size="small" onClick={() => void loadItems(selectedAgentKey)} loading={loading} icon={<RefreshCw size={12} />}>
-              閸掗攱鏌?Agent baseline
+              闁告帡鏀遍弻?Agent baseline
             </Button>
             <Button size="small" type="primary" onClick={() => setCreateModalOpen(true)} icon={<Plus size={12} />}>
-              閺傛澘顤?Agent
+              闁哄倹婢橀·?Agent
             </Button>
           </Space>
         )}
@@ -282,7 +282,7 @@ export function AgentBaselinePanel() {
             <Alert
               showIcon
               type="error"
-              message="Agent baseline 婢跺嫮鎮婃径杈Е"
+              message="Agent baseline 濠㈣泛瀚幃濠冨緞鏉堫偉袝"
               description={error}
             />
           ) : null}
@@ -293,16 +293,16 @@ export function AgentBaselinePanel() {
 
           {(!loading && items.length === 0) ? (
             <Empty
-              description="当前还没有 Agent baseline，可以先创建一条记录。"
+              description="褰撳墠杩樻病鏈?Agent baseline锛屽彲浠ュ厛鍒涘缓涓€鏉¤褰曘€?
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             >
-              <Button type="primary" onClick={() => setCreateModalOpen(true)}>新增 Agent</Button>
+              <Button type="primary" onClick={() => setCreateModalOpen(true)}>鏂板 Agent</Button>
             </Empty>
           ) : null}
 
           {items.length > 0 ? (
             <>
-              <Text type="secondary">閻愮懓鍤?Agent 閸楋紕澧栭弻銉ф箙楠炲墎娣幎銈呯唨缁惧潡鍘ょ純顔衡偓?/Text>
+              <Text type="secondary">选择一个 Agent baseline 进行查看和编辑。</Text>
               <div className="agent-selector-grid">
                 {items.map((item) => {
                   const selected = selectedAgentKey === item.agentKey;
@@ -343,26 +343,26 @@ export function AgentBaselinePanel() {
                     <Space size={[8, 8]} wrap>
                       <Tag color="blue">{draft.agentKey}</Tag>
                       <Tag>{draft.runtime}</Tag>
-                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "瀹告彃鎯庨悽? : "瀹告彃浠犻悽?}</Tag>
+                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "鐎瑰憡褰冮幆搴ㄦ偨? : "鐎瑰憡褰冩禒鐘绘偨?}</Tag>
                       {draft.model ? <Tag color="purple">{draft.model}</Tag> : null}
                       {draft.provider ? <Tag>{draft.provider}</Tag> : null}
                     </Space>
                   </div>
                   <Space size="small" wrap>
-                    <Text type="secondary">閺堚偓鏉╂垶娲块弬甯窗{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
+                    <Text type="secondary">闁哄牃鍋撻弶鈺傚灦濞插潡寮敮顔剧獥{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
                     <Popconfirm
-                      title="閸掔娀娅?Agent baseline"
-                      description={`绾喛顓婚崚鐘绘珟 ${draft.agentKey} 閸氭绱靛銈嗘惙娴ｆ粌褰цぐ鍗炴惙閸欐媽澶勯敍灞肩瑝瑜板崬鎼烽悳鐗堟箒鐎圭偘绶ラ妴淇檥
-                      okText="绾喛顓婚崚鐘绘珟"
-                      cancelText="閸欐牗绉?
+                      title="闁告帞濞€濞?Agent baseline"
+                      description={`缁绢収鍠涢濠氬礆閻樼粯鐝?${draft.agentKey} 闁告碍顨愮槐闈涱潰閵堝棙鎯欏ù锝嗙矊瑜把嗐亹閸楃偞鎯欓柛娆愬婢跺嫰鏁嶇仦鑲╃憹鐟滄澘宕幖鐑芥偝閻楀牊绠掗悗鍦仒缁躲儵濡存穱妾?
+                      okText="缁绢収鍠涢濠氬礆閻樼粯鐝?
+                      cancelText="闁告瑦鐗楃粔?
                       onConfirm={() => void handleDelete()}
                     >
                       <Button danger loading={deleting} icon={<Trash2 size={12} />}>
-                        閸掔娀娅?
+                        闁告帞濞€濞?
                       </Button>
                     </Popconfirm>
                     <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void handleSave()}>
-                      娣囨繂鐡?
+                      濞ｅ洦绻傞悺?
                     </Button>
                   </Space>
                 </div>
@@ -370,7 +370,7 @@ export function AgentBaselinePanel() {
                 <div className="agent-baseline-grid">
                   <div className="agent-prompt-card">
                     <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">閸╄櫣顢呮穱鈩冧紖</span>
+                      <span className="agent-prompt-header-title">闁糕晞娅ｉ、鍛┍閳╁啩绱?/span>
                     </div>
                     <div className="agent-prompt-body is-spacious">
                       <div className="agent-baseline-fields">
@@ -407,7 +407,7 @@ export function AgentBaselinePanel() {
                           <Input
                             value={draft.updatedBy ?? ""}
                             onChange={(event) => updateDraft({ updatedBy: event.target.value })}
-                            placeholder="閸欘垶鈧绱濈拋鏉跨秿閺堫剚顐肩紒瀛樺Б娴?
+                            placeholder="闁告瑯鍨堕埀顒€顧€缁辨繄鎷嬮弶璺ㄧЭ闁哄牜鍓氶鑲╃磼鐎涙ê袘濞?
                           />
                         </div>
                       </div>
@@ -454,7 +454,7 @@ export function AgentBaselinePanel() {
                             onChange={(value) => updateDraft({ allowedTools: value })}
                             style={{ width: "100%" }}
                             tokenSeparators={[",", "\n"]}
-                            placeholder="瑜版洖鍙?allowed_tools"
+                            placeholder="鐟滅増娲栭崣?allowed_tools"
                           />
                         </div>
                       </div>
@@ -483,14 +483,14 @@ export function AgentBaselinePanel() {
       </Card>
 
       <Modal
-        title="閺傛澘顤?Agent baseline"
+        title="闁哄倹婢橀·?Agent baseline"
         open={createModalOpen}
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
         }}
         onOk={() => void handleCreate()}
-        okText="閸掓稑缂?
+        okText="闁告帗绋戠紓?
         confirmLoading={creating}
       >
         <Form<CreateBaselineForm> form={createForm} layout="vertical">
@@ -498,14 +498,14 @@ export function AgentBaselinePanel() {
             name="agentKey"
             label="Agent Key"
             rules={[
-              { required: true, message: "鐠囩柉绶崗?Agent Key" },
-              { pattern: /^[A-Za-z0-9._-]+$/, message: "娴犲懏鏁幐浣哥摟濮ｅ秲鈧焦鏆熺€涙ぜ鈧胶鍋ｉ妴浣风瑓閸掓帞鍤庨崪灞艰厬閸掓帞鍤? },
+              { required: true, message: "閻犲洨鏌夌欢顓㈠礂?Agent Key" },
+              { pattern: /^[A-Za-z0-9._-]+$/, message: "濞寸姴鎳忛弫顕€骞愭担鍝ユ憻婵絽绉查埀顑跨劍閺嗙喓鈧稒銇滈埀顑胯兌閸嬶綁濡存担椋庣憮闁告帗甯為崵搴ㄥ椽鐏炶壈鍘柛鎺撳笧閸? },
             ]}
           >
-            <Input placeholder="娓氬顩ч敍姝甮c-novel-to-script" />
+            <Input placeholder="濞撴艾顑呴々褔鏁嶅鐢甤-novel-to-script" />
           </Form.Item>
           <Form.Item name="displayName" label="Display Name">
-            <Input placeholder="閸欘垶鈧绱濇稉宥咃綖閺冨爼绮拋銈勭瑢 Agent Key 閻╃鎮? />
+            <Input placeholder="闁告瑯鍨堕埀顒€顧€缁辨繃绋夊鍜冪稏闁哄啫鐖肩划顖滄媼閵堝嫮鐟?Agent Key 闁烩晝顭堥幃? />
           </Form.Item>
         </Form>
       </Modal>

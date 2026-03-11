@@ -206,22 +206,6 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {topSection ?? null}
 
-        <Alert
-          showIcon
-          type={sourceMeta.alertType}
-          message={sourceMeta.title}
-          description={
-            <Space direction="vertical" size={4}>
-              <Text>{sourceMeta.description}</Text>
-              {config ? (
-                <Text type="secondary">
-                  当前运行时文件路径：{config.runtimeConfigPath}
-                </Text>
-              ) : null}
-            </Space>
-          }
-        />
-
         {error ? (
           <Alert
             showIcon

@@ -16,6 +16,9 @@ import {
   OpenClientAppCreateResponse,
   OpenClientAppUpdateRequest,
   PairingCodeResponse,
+  SkillBaseline,
+  SkillBaselineSummary,
+  SkillBaselineUpsertRequest,
   SkillDescriptor,
 } from "@/types/contracts";
 import { appConfig } from "@/config/app-config";
@@ -81,6 +84,34 @@ export async function upsertAgentBaseline(agentKey: string, request: AgentBaseli
 
 export async function deleteAgentBaseline(agentKey: string) {
   return requestVoid(`/v1/agent-baselines/${encodeURIComponent(agentKey)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listSkillBaselines() {
+  return requestJson<ListResponse<SkillBaselineSummary>>("/v1/skill-baselines");
+}
+
+export async function getSkillBaseline(skillKey: string) {
+  return requestJson<SkillBaseline>(`/v1/skill-baselines/${encodeURIComponent(skillKey)}`);
+}
+
+export async function createSkillBaseline(request: SkillBaselineUpsertRequest) {
+  return requestJson<SkillBaseline>("/v1/skill-baselines", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function upsertSkillBaseline(skillKey: string, request: SkillBaselineUpsertRequest) {
+  return requestJson<SkillBaseline>(`/v1/skill-baselines/${encodeURIComponent(skillKey)}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteSkillBaseline(skillKey: string) {
+  return requestVoid(`/v1/skill-baselines/${encodeURIComponent(skillKey)}`, {
     method: "DELETE",
   });
 }

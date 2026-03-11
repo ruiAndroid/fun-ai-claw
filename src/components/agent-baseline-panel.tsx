@@ -286,13 +286,6 @@ export function AgentBaselinePanel() {
         )}
       >
         <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-          <Alert
-            showIcon
-            type="info"
-            message="当前阶段仅管理 Agent baseline 台账"
-            description="这里的保存只写入数据库，不会影响现有 claw 实例运行；后续再逐步接入实例装配与启动链路。"
-          />
-
           {error ? (
             <Alert
               showIcon

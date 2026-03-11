@@ -17,9 +17,10 @@ import {
 import { AgentBaselinePanel } from "@/components/agent-baseline-panel";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
+import { SkillBaselinePanel } from "@/components/skill-baseline-panel";
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Zap, Shield, Copy, CalendarClock } from "lucide-react";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Zap, Shield, Copy, CalendarClock, Plug } from "lucide-react";
 import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion } from "framer-motion";
@@ -27,7 +28,7 @@ import { motion } from "framer-motion";
 const { Header, Content } = Layout;
 const { Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
-type ConsoleView = "instances" | "agents" | "skills" | "instance-detail" | "open-platform";
+type ConsoleView = "instances" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
 type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills" | "tasks";
 type AgentSessionMode = "auto" | "direct";
 
@@ -676,6 +677,7 @@ const uiText = {
   menuInstances: "\u5b9e\u4f8b\u5217\u8868",
   menuAgents: "Agents",
   menuSkills: "Skills",
+  menuMcp: "MCP",
   menuOpenPlatform: "开放平台",
   backToInstances: "\u8fd4\u56de\u5b9e\u4f8b\u5217\u8868",
   listTitle: "claw\u5b9e\u4f8b\u5217\u8868",
@@ -3166,6 +3168,15 @@ export function Dashboard() {
                 </button>
                 <button
                   type="button"
+                  className={`sidebar-item ${activeMenuView === "mcp" ? "is-active" : ""}`}
+                  onClick={() => openMenuView("mcp")}
+                  title={uiText.menuMcp}
+                >
+                  <span className="sidebar-icon-wrap"><Plug size={16} /></span>
+                  {!sidebarCollapsed ? <span>{uiText.menuMcp}</span> : null}
+                </button>
+                <button
+                  type="button"
                   className={`sidebar-item ${activeMenuView === "open-platform" ? "is-active" : ""}`}
                   onClick={() => openMenuView("open-platform")}
                   title={uiText.menuOpenPlatform}
@@ -4165,8 +4176,11 @@ export function Dashboard() {
                   <AgentBaselinePanel />
                 ) : null}
                 {activeView === "skills" ? (
-                  <Card className="glass-card" title={uiText.menuSkills}>
-                    <div className="empty-panel">{uiText.noSkillsSection}</div>
+                  <SkillBaselinePanel />
+                ) : null}
+                {activeView === "mcp" ? (
+                  <Card className="glass-card" title={uiText.menuMcp}>
+                    <div className="empty-panel">MCP 服务管理即将上线，敬请期待。</div>
                   </Card>
                 ) : null}
                 {activeView === "open-platform" ? (

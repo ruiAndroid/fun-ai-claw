@@ -113,6 +113,43 @@ export interface SkillDescriptor {
   prompt: string;
 }
 
+export interface SkillBaselineSummary {
+  skillKey: string;
+  displayName: string;
+  description?: string | null;
+  sourceType: string;
+  sourceRef?: string | null;
+  enabled: boolean;
+  lineCount: number;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SkillBaseline {
+  skillKey: string;
+  displayName: string;
+  description?: string | null;
+  sourceType: string;
+  sourceRef?: string | null;
+  enabled: boolean;
+  skillMd: string;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SkillBaselineUpsertRequest {
+  skillKey?: string;
+  displayName?: string;
+  description?: string | null;
+  sourceType?: string | null;
+  sourceRef?: string | null;
+  enabled?: boolean | null;
+  skillMd?: string | null;
+  updatedBy?: string | null;
+}
+
 export interface ImagePreset {
   id: string;
   name: string;

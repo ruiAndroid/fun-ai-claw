@@ -1220,6 +1220,40 @@ export function Dashboard() {
     }
   }, []);
 
+  const saveSelectedAgentSystemPrompt = useCallback(async (): Promise<boolean> => {
+    if (!selectedInstanceId || !selectedAgentId) {
+      return false;
+    }
+    setAgentSystemPromptSaving(true);
+    setAgentSystemPromptError(undefined);
+    try {
+      const response = await upsertAgentSystemPrompt(selectedInstanceId, selectedAgentId, {
+        systemPrompt: selectedAgentSystemPromptDraft,
+        updatedBy: "ui-dashboard",
+      });
+      setAgents((current) => current.map((item) => (
+        item.id === selectedAgentId
+          ? {
+              ...item,
+              systemPrompt: response.systemPrompt ?? null,
+              configPath: response.configPath ?? item.configPath,
+            }
+          : item
+      )));
+      setSelectedAgentSystemPromptDraft(response.systemPrompt ?? "");
+      setAgentSystemPromptEditing(false);
+      messageApi.success(uiText.agentSystemPromptSaved);
+      return true;
+    } catch (apiError) {
+      const messageText = apiError instanceof Error ? apiError.message : uiText.agentSystemPromptSaveFailed;
+      setAgentSystemPromptError(messageText);
+      messageApi.error(messageText);
+      return false;
+    } finally {
+      setAgentSystemPromptSaving(false);
+    }
+  }, [messageApi, selectedAgentId, selectedAgentSystemPromptDraft, selectedInstanceId]);
+
   const loadSkills = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
       setSkills([]);
@@ -3919,17 +3953,59 @@ export function Dashboard() {
                                   <div className="agent-prompt-card">
                                     <div className="agent-prompt-header">
                                       <span className="agent-prompt-header-title">{uiText.agentSystemPromptTitle}</span>
-                                      {selectedAgent.configPath ? (
-                                        <Text code copyable={{ text: selectedAgent.configPath }} style={{ fontSize: 11 }}>{selectedAgent.configPath}</Text>
-                                      ) : null}
+                                      <Space size="small" wrap>
+                                        {agentSystemPromptEditing ? (
+                                          <>
+                                            <Button
+                                              type="primary"
+                                              size="small"
+                                              loading={agentSystemPromptSaving}
+                                              disabled={!selectedAgentSystemPromptDirty}
+                                              onClick={() => void saveSelectedAgentSystemPrompt()}
+                                            >
+                                              {uiText.agentSystemPromptSave}
+                                            </Button>
+                                            <Button
+                                              size="small"
+                                              disabled={agentSystemPromptSaving}
+                                              onClick={() => {
+                                                setSelectedAgentSystemPromptDraft(baselineSelectedAgentSystemPrompt);
+                                                setAgentSystemPromptEditing(false);
+                                                setAgentSystemPromptError(undefined);
+                                              }}
+                                            >
+                                              {uiText.agentSystemPromptCancel}
+                                            </Button>
+                                          </>
+                                        ) : (
+                                          <Button
+                                            size="small"
+                                            disabled={agentSystemPromptSaving}
+                                            onClick={() => setAgentSystemPromptEditing(true)}
+                                          >
+                                            {uiText.agentSystemPromptEdit}
+                                          </Button>
+                                        )}
+                                        {selectedAgent.configPath ? (
+                                          <Text code copyable={{ text: selectedAgent.configPath }} style={{ fontSize: 11 }}>{selectedAgent.configPath}</Text>
+                                        ) : null}
+                                      </Space>
                                     </div>
                                     <div className="agent-prompt-body">
-                                      <Input.TextArea
-                                        rows={10}
-                                        value={selectedAgent.systemPrompt ?? ""}
-                                        placeholder={uiText.agentSystemPromptPlaceholder}
-                                        readOnly
-                                      />
+                                      <Space direction="vertical" style={{ width: "100%" }} size="small">
+                                        <Text type="secondary">{uiText.agentSystemPromptHint}</Text>
+                                        {agentSystemPromptError ? <Alert type="error" showIcon message={agentSystemPromptError} /> : null}
+                                        <Input.TextArea
+                                          rows={10}
+                                          value={agentSystemPromptEditing ? selectedAgentSystemPromptDraft : (selectedAgent.systemPrompt ?? "")}
+                                          onChange={(event) => setSelectedAgentSystemPromptDraft(event.target.value)}
+                                          placeholder={uiText.agentSystemPromptPlaceholder}
+                                          readOnly={!agentSystemPromptEditing}
+                                        />
+                                        {agentSystemPromptEditing ? (
+                                          <Text type="secondary">{uiText.agentSystemPromptClearHint}</Text>
+                                        ) : null}
+                                      </Space>
                                     </div>
                                   </div>
                                 </motion.div>

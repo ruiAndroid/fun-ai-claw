@@ -30,7 +30,7 @@ function getSourceMeta(source?: string) {
         color: "green" as const,
         alertType: "success" as const,
         title: "当前正在使用实例级 config 覆盖",
-        description: "保存会更新当前实例覆盖；恢复默认模板后，会回退到系统默认的 config 模板。",
+        description: "推荐优先在这里维护 config.toml。保存会更新当前实例覆盖；实例运行中会直接同步到 runtime，恢复默认模板后会回退到系统默认模板。",
       };
     case "DEFAULT_TEMPLATE":
       return {
@@ -38,7 +38,7 @@ function getSourceMeta(source?: string) {
         color: "blue" as const,
         alertType: "info" as const,
         title: "当前显示的是系统默认 config 模板",
-        description: "保存后会为当前实例创建独立的 config 覆盖，不会影响其他实例。",
+        description: "推荐优先在这里维护 config.toml。保存后会为当前实例创建独立的 config 覆盖；如果实例正在运行，会立即同步到 runtime。",
       };
     default:
       return {
@@ -271,7 +271,7 @@ export function InstanceConfigPanel({ instance }: { instance: ClawInstance }) {
         >
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <Text type="secondary">
-              这里显示的是当前实例最终会使用的 TOML 内容。直接保存会写入实例级覆盖；恢复默认模板会删除当前实例覆盖并回退到系统模板。
+              这里显示的是当前实例最终会使用的 TOML 内容。直接保存会写入实例级覆盖；运行中的实例会立即同步到 runtime。正常建议在这里维护，UI Controller 仍保留作兜底。
             </Text>
 
             <TextArea

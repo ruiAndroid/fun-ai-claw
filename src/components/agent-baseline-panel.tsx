@@ -50,9 +50,7 @@ function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
     model: "",
     temperature: null,
     agentic: null,
-    entrySkill: "",
     allowedTools: [],
-    skillIds: [],
     systemPrompt: "",
     updatedBy: "",
     createdAt: now,
@@ -76,9 +74,7 @@ function snapshotBaseline(value?: AgentBaseline | null): string {
     model: value.model ?? "",
     temperature: value.temperature ?? null,
     agentic: value.agentic ?? null,
-    entrySkill: value.entrySkill ?? "",
     allowedTools: [...value.allowedTools],
-    skillIds: [...value.skillIds],
     systemPrompt: value.systemPrompt ?? "",
     updatedBy: value.updatedBy ?? "",
   });
@@ -97,9 +93,7 @@ function toUpsertRequest(value: AgentBaseline): AgentBaselineUpsertRequest {
     model: value.model ?? null,
     temperature: value.temperature ?? null,
     agentic: value.agentic ?? null,
-    entrySkill: value.entrySkill ?? null,
     allowedTools: value.allowedTools,
-    skillIds: value.skillIds,
     systemPrompt: value.systemPrompt ?? null,
     updatedBy: value.updatedBy ?? null,
   };
@@ -168,7 +162,6 @@ export function AgentBaselinePanel() {
       setDraft({
         ...response,
         allowedTools: [...response.allowedTools],
-        skillIds: [...response.skillIds],
       });
     } catch (apiError) {
       setSelectedBaseline(undefined);
@@ -218,10 +211,9 @@ export function AgentBaselinePanel() {
       setDraft({
         ...saved,
         allowedTools: [...saved.allowedTools],
-        skillIds: [...saved.skillIds],
       });
       await loadItems(saved.agentKey);
-      messageApi.success(`Agent baseline 已保存：${saved.agentKey}`);
+      messageApi.success(`Agent baseline 宸蹭繚瀛橈細${saved.agentKey}`);
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
     } finally {
@@ -237,7 +229,7 @@ export function AgentBaselinePanel() {
     setError(undefined);
     try {
       await deleteAgentBaseline(selectedAgentKey);
-      messageApi.success(`Agent baseline 已删除：${selectedAgentKey}`);
+      messageApi.success(`Agent baseline 宸插垹闄わ細${selectedAgentKey}`);
       await loadItems();
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
@@ -257,7 +249,7 @@ export function AgentBaselinePanel() {
       createForm.resetFields();
       await loadItems(created.agentKey);
       setSelectedAgentKey(created.agentKey);
-      messageApi.success(`Agent baseline 已创建：${created.agentKey}`);
+      messageApi.success(`Agent baseline 宸插垱寤猴細${created.agentKey}`);
     } catch (apiError) {
       if ((apiError as { errorFields?: unknown }).errorFields) {
         return;
@@ -277,10 +269,10 @@ export function AgentBaselinePanel() {
         extra={(
           <Space size="small" wrap>
             <Button size="small" onClick={() => void loadItems(selectedAgentKey)} loading={loading} icon={<RefreshCw size={12} />}>
-              刷新 Agent baseline
+              鍒锋柊 Agent baseline
             </Button>
             <Button size="small" type="primary" onClick={() => setCreateModalOpen(true)} icon={<Plus size={12} />}>
-              新增 Agent
+              鏂板 Agent
             </Button>
           </Space>
         )}
@@ -290,7 +282,7 @@ export function AgentBaselinePanel() {
             <Alert
               showIcon
               type="error"
-              message="Agent baseline 处理失败"
+              message="Agent baseline 澶勭悊澶辫触"
               description={error}
             />
           ) : null}
@@ -301,16 +293,16 @@ export function AgentBaselinePanel() {
 
           {(!loading && items.length === 0) ? (
             <Empty
-              description="当前还没有 Agent baseline，可先创建一条台账记录。"
+              description="褰撳墠杩樻病鏈?Agent baseline锛屽彲鍏堝垱寤轰竴鏉″彴璐﹁褰曘€?
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             >
-              <Button type="primary" onClick={() => setCreateModalOpen(true)}>新增 Agent</Button>
+              <Button type="primary" onClick={() => setCreateModalOpen(true)}>鏂板 Agent</Button>
             </Empty>
           ) : null}
 
           {items.length > 0 ? (
             <>
-              <Text type="secondary">点击 Agent 卡片查看并维护基线配置。</Text>
+              <Text type="secondary">鐐瑰嚮 Agent 鍗＄墖鏌ョ湅骞剁淮鎶ゅ熀绾块厤缃€?/Text>
               <div className="agent-selector-grid">
                 {items.map((item) => {
                   const selected = selectedAgentKey === item.agentKey;
@@ -351,26 +343,26 @@ export function AgentBaselinePanel() {
                     <Space size={[8, 8]} wrap>
                       <Tag color="blue">{draft.agentKey}</Tag>
                       <Tag>{draft.runtime}</Tag>
-                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "已启用" : "已停用"}</Tag>
+                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "宸插惎鐢? : "宸插仠鐢?}</Tag>
                       {draft.model ? <Tag color="purple">{draft.model}</Tag> : null}
                       {draft.provider ? <Tag>{draft.provider}</Tag> : null}
                     </Space>
                   </div>
                   <Space size="small" wrap>
-                    <Text type="secondary">最近更新：{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
+                    <Text type="secondary">鏈€杩戞洿鏂帮細{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
                     <Popconfirm
-                      title="删除 Agent baseline"
-                      description={`确认删除 ${draft.agentKey} 吗？此操作只影响台账，不影响现有实例。`}
-                      okText="确认删除"
-                      cancelText="取消"
+                      title="鍒犻櫎 Agent baseline"
+                      description={`纭鍒犻櫎 ${draft.agentKey} 鍚楋紵姝ゆ搷浣滃彧褰卞搷鍙拌处锛屼笉褰卞搷鐜版湁瀹炰緥銆俙}
+                      okText="纭鍒犻櫎"
+                      cancelText="鍙栨秷"
                       onConfirm={() => void handleDelete()}
                     >
                       <Button danger loading={deleting} icon={<Trash2 size={12} />}>
-                        删除
+                        鍒犻櫎
                       </Button>
                     </Popconfirm>
                     <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void handleSave()}>
-                      保存
+                      淇濆瓨
                     </Button>
                   </Space>
                 </div>
@@ -378,7 +370,7 @@ export function AgentBaselinePanel() {
                 <div className="agent-baseline-grid">
                   <div className="agent-prompt-card">
                     <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">基础信息</span>
+                      <span className="agent-prompt-header-title">鍩虹淇℃伅</span>
                     </div>
                     <div className="agent-prompt-body is-spacious">
                       <div className="agent-baseline-fields">
@@ -415,7 +407,7 @@ export function AgentBaselinePanel() {
                           <Input
                             value={draft.updatedBy ?? ""}
                             onChange={(event) => updateDraft({ updatedBy: event.target.value })}
-                            placeholder="可选，记录本次维护人"
+                            placeholder="鍙€夛紝璁板綍鏈缁存姢浜?
                           />
                         </div>
                       </div>
@@ -447,10 +439,6 @@ export function AgentBaselinePanel() {
                             onChange={(value) => updateDraft({ temperature: typeof value === "number" ? value : null })}
                           />
                         </div>
-                        <div className="agent-baseline-field">
-                          <span className="agent-detail-prop-label">Entry Skill</span>
-                          <Input value={draft.entrySkill ?? ""} onChange={(event) => updateDraft({ entrySkill: event.target.value })} />
-                        </div>
                         <div className="agent-baseline-field is-switch">
                           <span className="agent-detail-prop-label">Agentic</span>
                           <Switch
@@ -466,18 +454,7 @@ export function AgentBaselinePanel() {
                             onChange={(value) => updateDraft({ allowedTools: value })}
                             style={{ width: "100%" }}
                             tokenSeparators={[",", "\n"]}
-                            placeholder="录入 allowed_tools"
-                          />
-                        </div>
-                        <div className="agent-baseline-field is-wide">
-                          <span className="agent-detail-prop-label">Skill IDs</span>
-                          <Select
-                            mode="tags"
-                            value={draft.skillIds}
-                            onChange={(value) => updateDraft({ skillIds: value })}
-                            style={{ width: "100%" }}
-                            tokenSeparators={[",", "\n"]}
-                            placeholder="录入该 Agent baseline 对应的 skill 列表"
+                            placeholder="褰曞叆 allowed_tools"
                           />
                         </div>
                       </div>
@@ -506,14 +483,14 @@ export function AgentBaselinePanel() {
       </Card>
 
       <Modal
-        title="新增 Agent baseline"
+        title="鏂板 Agent baseline"
         open={createModalOpen}
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
         }}
         onOk={() => void handleCreate()}
-        okText="创建"
+        okText="鍒涘缓"
         confirmLoading={creating}
       >
         <Form<CreateBaselineForm> form={createForm} layout="vertical">
@@ -521,14 +498,14 @@ export function AgentBaselinePanel() {
             name="agentKey"
             label="Agent Key"
             rules={[
-              { required: true, message: "请输入 Agent Key" },
-              { pattern: /^[A-Za-z0-9._-]+$/, message: "仅支持字母、数字、点、下划线和中划线" },
+              { required: true, message: "璇疯緭鍏?Agent Key" },
+              { pattern: /^[A-Za-z0-9._-]+$/, message: "浠呮敮鎸佸瓧姣嶃€佹暟瀛椼€佺偣銆佷笅鍒掔嚎鍜屼腑鍒掔嚎" },
             ]}
           >
-            <Input placeholder="例如：mgc-novel-to-script" />
+            <Input placeholder="渚嬪锛歮gc-novel-to-script" />
           </Form.Item>
           <Form.Item name="displayName" label="Display Name">
-            <Input placeholder="可选，不填时默认与 Agent Key 相同" />
+            <Input placeholder="鍙€夛紝涓嶅～鏃堕粯璁や笌 Agent Key 鐩稿悓" />
           </Form.Item>
         </Form>
       </Modal>

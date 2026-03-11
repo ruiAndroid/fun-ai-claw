@@ -59,9 +59,7 @@ export interface AgentBaselineSummary {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
-  entrySkill?: string | null;
   allowedToolCount: number;
-  skillCount: number;
   updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -79,9 +77,7 @@ export interface AgentBaseline {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
-  entrySkill?: string | null;
   allowedTools: string[];
-  skillIds: string[];
   systemPrompt?: string | null;
   updatedBy?: string | null;
   createdAt: string;
@@ -100,9 +96,7 @@ export interface AgentBaselineUpsertRequest {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
-  entrySkill?: string | null;
   allowedTools?: string[];
-  skillIds?: string[];
   systemPrompt?: string | null;
   updatedBy?: string | null;
 }

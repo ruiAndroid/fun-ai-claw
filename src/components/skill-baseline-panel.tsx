@@ -252,13 +252,6 @@ export function SkillBaselinePanel() {
         )}
       >
         <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-          <Alert
-            showIcon
-            type="info"
-            message="当前阶段仅管理 Skill baseline 台账"
-            description="这里的保存只写入数据库，不会影响现有 claw 实例运行；后续再逐步接入实例绑定与 skill 装配链路。"
-          />
-
           {error ? (
             <Alert
               showIcon

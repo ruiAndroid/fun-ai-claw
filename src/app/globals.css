@@ -1088,6 +1088,11 @@ body {
 
 .agent-baseline-field.is-switch {
   justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.agent-baseline-field.is-switch .ant-switch {
+  flex-shrink: 0;
 }
 
 /* =========================================

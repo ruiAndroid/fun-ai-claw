@@ -213,7 +213,7 @@ export function AgentBaselinePanel() {
         allowedTools: [...saved.allowedTools],
       });
       await loadItems(saved.agentKey);
-      messageApi.success(`Agent baseline 宸蹭繚瀛橈細${saved.agentKey}`);
+      messageApi.success(`Agent baseline 瀹歌弓绻氱€涙﹫绱?{saved.agentKey}`);
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
     } finally {
@@ -229,7 +229,7 @@ export function AgentBaselinePanel() {
     setError(undefined);
     try {
       await deleteAgentBaseline(selectedAgentKey);
-      messageApi.success(`Agent baseline 宸插垹闄わ細${selectedAgentKey}`);
+      messageApi.success(`Agent baseline 瀹告彃鍨归梽銈忕窗${selectedAgentKey}`);
       await loadItems();
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
@@ -249,7 +249,7 @@ export function AgentBaselinePanel() {
       createForm.resetFields();
       await loadItems(created.agentKey);
       setSelectedAgentKey(created.agentKey);
-      messageApi.success(`Agent baseline 宸插垱寤猴細${created.agentKey}`);
+      messageApi.success(`Agent baseline 瀹告彃鍨卞鐚寸窗${created.agentKey}`);
     } catch (apiError) {
       if ((apiError as { errorFields?: unknown }).errorFields) {
         return;
@@ -269,10 +269,10 @@ export function AgentBaselinePanel() {
         extra={(
           <Space size="small" wrap>
             <Button size="small" onClick={() => void loadItems(selectedAgentKey)} loading={loading} icon={<RefreshCw size={12} />}>
-              鍒锋柊 Agent baseline
+              閸掗攱鏌?Agent baseline
             </Button>
             <Button size="small" type="primary" onClick={() => setCreateModalOpen(true)} icon={<Plus size={12} />}>
-              鏂板 Agent
+              閺傛澘顤?Agent
             </Button>
           </Space>
         )}
@@ -282,7 +282,7 @@ export function AgentBaselinePanel() {
             <Alert
               showIcon
               type="error"
-              message="Agent baseline 澶勭悊澶辫触"
+              message="Agent baseline 婢跺嫮鎮婃径杈Е"
               description={error}
             />
           ) : null}
@@ -293,16 +293,16 @@ export function AgentBaselinePanel() {
 
           {(!loading && items.length === 0) ? (
             <Empty
-              description="褰撳墠杩樻病鏈?Agent baseline锛屽彲鍏堝垱寤轰竴鏉″彴璐﹁褰曘€?
+              description="当前还没有 Agent baseline，可以先创建一条记录。"
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             >
-              <Button type="primary" onClick={() => setCreateModalOpen(true)}>鏂板 Agent</Button>
+              <Button type="primary" onClick={() => setCreateModalOpen(true)}>新增 Agent</Button>
             </Empty>
           ) : null}
 
           {items.length > 0 ? (
             <>
-              <Text type="secondary">鐐瑰嚮 Agent 鍗＄墖鏌ョ湅骞剁淮鎶ゅ熀绾块厤缃€?/Text>
+              <Text type="secondary">閻愮懓鍤?Agent 閸楋紕澧栭弻銉ф箙楠炲墎娣幎銈呯唨缁惧潡鍘ょ純顔衡偓?/Text>
               <div className="agent-selector-grid">
                 {items.map((item) => {
                   const selected = selectedAgentKey === item.agentKey;
@@ -343,26 +343,26 @@ export function AgentBaselinePanel() {
                     <Space size={[8, 8]} wrap>
                       <Tag color="blue">{draft.agentKey}</Tag>
                       <Tag>{draft.runtime}</Tag>
-                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "宸插惎鐢? : "宸插仠鐢?}</Tag>
+                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "瀹告彃鎯庨悽? : "瀹告彃浠犻悽?}</Tag>
                       {draft.model ? <Tag color="purple">{draft.model}</Tag> : null}
                       {draft.provider ? <Tag>{draft.provider}</Tag> : null}
                     </Space>
                   </div>
                   <Space size="small" wrap>
-                    <Text type="secondary">鏈€杩戞洿鏂帮細{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
+                    <Text type="secondary">閺堚偓鏉╂垶娲块弬甯窗{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
                     <Popconfirm
-                      title="鍒犻櫎 Agent baseline"
-                      description={`纭鍒犻櫎 ${draft.agentKey} 鍚楋紵姝ゆ搷浣滃彧褰卞搷鍙拌处锛屼笉褰卞搷鐜版湁瀹炰緥銆俙}
-                      okText="纭鍒犻櫎"
-                      cancelText="鍙栨秷"
+                      title="閸掔娀娅?Agent baseline"
+                      description={`绾喛顓婚崚鐘绘珟 ${draft.agentKey} 閸氭绱靛銈嗘惙娴ｆ粌褰цぐ鍗炴惙閸欐媽澶勯敍灞肩瑝瑜板崬鎼烽悳鐗堟箒鐎圭偘绶ラ妴淇檥
+                      okText="绾喛顓婚崚鐘绘珟"
+                      cancelText="閸欐牗绉?
                       onConfirm={() => void handleDelete()}
                     >
                       <Button danger loading={deleting} icon={<Trash2 size={12} />}>
-                        鍒犻櫎
+                        閸掔娀娅?
                       </Button>
                     </Popconfirm>
                     <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void handleSave()}>
-                      淇濆瓨
+                      娣囨繂鐡?
                     </Button>
                   </Space>
                 </div>
@@ -370,7 +370,7 @@ export function AgentBaselinePanel() {
                 <div className="agent-baseline-grid">
                   <div className="agent-prompt-card">
                     <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">鍩虹淇℃伅</span>
+                      <span className="agent-prompt-header-title">閸╄櫣顢呮穱鈩冧紖</span>
                     </div>
                     <div className="agent-prompt-body is-spacious">
                       <div className="agent-baseline-fields">
@@ -407,7 +407,7 @@ export function AgentBaselinePanel() {
                           <Input
                             value={draft.updatedBy ?? ""}
                             onChange={(event) => updateDraft({ updatedBy: event.target.value })}
-                            placeholder="鍙€夛紝璁板綍鏈缁存姢浜?
+                            placeholder="閸欘垶鈧绱濈拋鏉跨秿閺堫剚顐肩紒瀛樺Б娴?
                           />
                         </div>
                       </div>
@@ -454,7 +454,7 @@ export function AgentBaselinePanel() {
                             onChange={(value) => updateDraft({ allowedTools: value })}
                             style={{ width: "100%" }}
                             tokenSeparators={[",", "\n"]}
-                            placeholder="褰曞叆 allowed_tools"
+                            placeholder="瑜版洖鍙?allowed_tools"
                           />
                         </div>
                       </div>
@@ -483,14 +483,14 @@ export function AgentBaselinePanel() {
       </Card>
 
       <Modal
-        title="鏂板 Agent baseline"
+        title="閺傛澘顤?Agent baseline"
         open={createModalOpen}
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
         }}
         onOk={() => void handleCreate()}
-        okText="鍒涘缓"
+        okText="閸掓稑缂?
         confirmLoading={creating}
       >
         <Form<CreateBaselineForm> form={createForm} layout="vertical">
@@ -498,14 +498,14 @@ export function AgentBaselinePanel() {
             name="agentKey"
             label="Agent Key"
             rules={[
-              { required: true, message: "璇疯緭鍏?Agent Key" },
-              { pattern: /^[A-Za-z0-9._-]+$/, message: "浠呮敮鎸佸瓧姣嶃€佹暟瀛椼€佺偣銆佷笅鍒掔嚎鍜屼腑鍒掔嚎" },
+              { required: true, message: "鐠囩柉绶崗?Agent Key" },
+              { pattern: /^[A-Za-z0-9._-]+$/, message: "娴犲懏鏁幐浣哥摟濮ｅ秲鈧焦鏆熺€涙ぜ鈧胶鍋ｉ妴浣风瑓閸掓帞鍤庨崪灞艰厬閸掓帞鍤? },
             ]}
           >
-            <Input placeholder="渚嬪锛歮gc-novel-to-script" />
+            <Input placeholder="娓氬顩ч敍姝甮c-novel-to-script" />
           </Form.Item>
           <Form.Item name="displayName" label="Display Name">
-            <Input placeholder="鍙€夛紝涓嶅～鏃堕粯璁や笌 Agent Key 鐩稿悓" />
+            <Input placeholder="閸欘垶鈧绱濇稉宥咃綖閺冨爼绮拋銈勭瑢 Agent Key 閻╃鎮? />
           </Form.Item>
         </Form>
       </Modal>

@@ -1044,6 +1044,60 @@ body {
   min-height: 460px !important;
 }
 
+.prompt-textarea-manifest {
+  min-height: 360px !important;
+}
+
+.prompt-textarea-main-agents {
+  min-height: 360px !important;
+}
+
+.agent-baseline-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.agent-baseline-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agent-baseline-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.agent-baseline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.agent-baseline-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.agent-baseline-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-baseline-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+.agent-baseline-field.is-switch {
+  justify-content: flex-end;
+}
+
 /* =========================================
    Agent Selector Cards
    ========================================= */
@@ -1973,6 +2027,11 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .agent-baseline-grid,
+  .agent-baseline-fields {
+    grid-template-columns: 1fr;
+  }
+
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2047,6 +2106,10 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .agent-baseline-header {
+    flex-direction: column;
+  }
+
   .agent-prompt-header {
     align-items: flex-start;
     flex-direction: column;
@@ -2062,6 +2125,11 @@ body {
 
   .prompt-textarea-skill {
     min-height: 340px !important;
+  }
+
+  .prompt-textarea-manifest,
+  .prompt-textarea-main-agents {
+    min-height: 280px !important;
   }
 
   .kpi-grid {

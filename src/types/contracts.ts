@@ -53,6 +53,69 @@ export interface AgentSystemPrompt {
   configPath?: string | null;
 }
 
+export interface AgentBaselineSummary {
+  agentKey: string;
+  displayName: string;
+  runtime: string;
+  sourceType: string;
+  sourceRef?: string | null;
+  enabled: boolean;
+  provider?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  agentic?: boolean | null;
+  entrySkill?: string | null;
+  allowedToolCount: number;
+  skillCount: number;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentBaseline {
+  agentKey: string;
+  displayName: string;
+  description?: string | null;
+  runtime: string;
+  sourceType: string;
+  sourceRef?: string | null;
+  enabled: boolean;
+  manifestJson?: string | null;
+  mainAgentsMd?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  agentic?: boolean | null;
+  entrySkill?: string | null;
+  allowedTools: string[];
+  skillIds: string[];
+  systemPrompt?: string | null;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentBaselineUpsertRequest {
+  agentKey?: string;
+  displayName?: string;
+  description?: string | null;
+  runtime?: string | null;
+  sourceType?: string | null;
+  sourceRef?: string | null;
+  enabled?: boolean | null;
+  manifestJson?: string | null;
+  mainAgentsMd?: string | null;
+  provider?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  agentic?: boolean | null;
+  entrySkill?: string | null;
+  allowedTools?: string[];
+  skillIds?: string[];
+  systemPrompt?: string | null;
+  updatedBy?: string | null;
+}
+
 export interface SkillDescriptor {
   id: string;
   path: string;

@@ -1,4 +1,7 @@
 import {
+  AgentBaseline,
+  AgentBaselineSummary,
+  AgentBaselineUpsertRequest,
   AgentDescriptor,
   AgentSystemPrompt,
   AcceptedActionResponse,
@@ -53,6 +56,34 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
 
 export async function listInstances() {
   return requestJson<ListResponse<ClawInstance>>("/v1/instances");
+}
+
+export async function listAgentBaselines() {
+  return requestJson<ListResponse<AgentBaselineSummary>>("/v1/agent-baselines");
+}
+
+export async function getAgentBaseline(agentKey: string) {
+  return requestJson<AgentBaseline>(`/v1/agent-baselines/${encodeURIComponent(agentKey)}`);
+}
+
+export async function createAgentBaseline(request: AgentBaselineUpsertRequest) {
+  return requestJson<AgentBaseline>("/v1/agent-baselines", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function upsertAgentBaseline(agentKey: string, request: AgentBaselineUpsertRequest) {
+  return requestJson<AgentBaseline>(`/v1/agent-baselines/${encodeURIComponent(agentKey)}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteAgentBaseline(agentKey: string) {
+  return requestVoid(`/v1/agent-baselines/${encodeURIComponent(agentKey)}`, {
+    method: "DELETE",
+  });
 }
 
 export async function listImages() {

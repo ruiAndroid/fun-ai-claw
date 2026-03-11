@@ -14,6 +14,7 @@ import {
   upsertAgentSystemPrompt,
   upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
+import { AgentBaselinePanel } from "@/components/agent-baseline-panel";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
 import { appConfig } from "@/config/app-config";
@@ -4142,9 +4143,7 @@ export function Dashboard() {
                   </Space>
                 ) : null}
                 {activeView === "agents" ? (
-                  <Card className="glass-card" title={uiText.menuAgents}>
-                    <div className="empty-panel">{uiText.noAgentsSection}</div>
-                  </Card>
+                  <AgentBaselinePanel />
                 ) : null}
                 {activeView === "skills" ? (
                   <Card className="glass-card" title={uiText.menuSkills}>

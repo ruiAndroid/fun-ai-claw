@@ -25,7 +25,7 @@ import {
   Typography,
   message,
 } from "antd";
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Bot, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Text } = Typography;
@@ -298,23 +298,25 @@ export function AgentBaselinePanel() {
               <div className="agent-selector-grid">
                 {items.map((item) => {
                   const selected = selectedAgentKey === item.agentKey;
+                  const statusLabel = item.enabled ? "Enabled" : "Disabled";
                   return (
                     <button
                       key={item.agentKey}
                       type="button"
-                      className={`agent-selector-card${selected ? " is-active" : ""}`}
+                      className={`agent-selector-card ${selected ? "is-selected" : ""}`}
                       onClick={() => setSelectedAgentKey(item.agentKey)}
                     >
-                      <span className="agent-selector-title-row">
-                        <span className="agent-selector-title">{item.displayName}</span>
-                        <Tag color={item.enabled ? "green" : "default"}>{item.enabled ? "Enabled" : "Disabled"}</Tag>
-                      </span>
-                      <span className="agent-selector-meta">{item.agentKey}</span>
-                      <span className="agent-selector-tag-list">
-                        <Tag>{item.runtime}</Tag>
-                        {item.model ? <Tag color="purple">{item.model}</Tag> : null}
-                        {item.provider ? <Tag>{item.provider}</Tag> : null}
-                      </span>
+                      <div className={`agent-selector-card-icon ${item.agentic ? "is-agentic" : "is-standard"}`}>
+                        <Bot size={18} />
+                      </div>
+                      <strong className="agent-selector-card-title">{item.displayName || item.agentKey}</strong>
+                      <p className="agent-selector-card-subline">{item.agentKey}</p>
+                      <div className="agent-selector-card-meta">
+                        <span className="agent-selector-card-chip is-neutral">{item.runtime}</span>
+                        <span className={`agent-selector-card-chip ${item.enabled ? "is-agentic" : "is-neutral"}`}>{statusLabel}</span>
+                        {item.model ? <span className="agent-selector-card-chip is-model">{item.model}</span> : null}
+                        {item.provider ? <span className="agent-selector-card-chip is-neutral">{item.provider}</span> : null}
+                      </div>
                     </button>
                   );
                 })}

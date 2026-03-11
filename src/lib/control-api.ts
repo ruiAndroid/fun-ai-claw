@@ -1,5 +1,6 @@
 import {
   AgentDescriptor,
+  AgentSystemPrompt,
   AcceptedActionResponse,
   ClawInstance,
   CreateInstanceRequest,
@@ -84,6 +85,17 @@ export async function getInstancePairingCode(instanceId: string) {
 
 export async function listInstanceAgents(instanceId: string) {
   return requestJson<ListResponse<AgentDescriptor>>(`/v1/instances/${instanceId}/agents`);
+}
+
+export async function upsertAgentSystemPrompt(
+  instanceId: string,
+  agentId: string,
+  request: { systemPrompt: string; updatedBy?: string }
+) {
+  return requestJson<AgentSystemPrompt>(`/v1/instances/${instanceId}/agents/${encodeURIComponent(agentId)}/system-prompt`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function listInstanceSkills(instanceId: string) {

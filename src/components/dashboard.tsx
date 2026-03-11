@@ -11,6 +11,7 @@ import {
   listInstanceSkills,
   listInstances,
   submitInstanceAction,
+  upsertAgentSystemPrompt,
   upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
@@ -788,6 +789,14 @@ const uiText = {
   agentSystemPromptPath: "\u914d\u7f6e\u8def\u5f84",
   agentSystemPromptPreview: "system_prompt \u9884\u89c8",
   agentSystemPromptPlaceholder: "当前未配置 system_prompt",
+  agentSystemPromptHint: "这里的修改会回写到 config.toml 中对应的 agents.<agentId>.system_prompt，并在实例运行中同步到 runtime。",
+  agentSystemPromptEdit: "编辑",
+  agentSystemPromptSave: "保存",
+  agentSystemPromptCancel: "取消",
+  agentSystemPromptSaving: "正在保存 system_prompt",
+  agentSystemPromptSaved: "system_prompt 已保存",
+  agentSystemPromptSaveFailed: "保存 system_prompt 失败",
+  agentSystemPromptClearHint: "留空后保存会清空该 Agent 的 system_prompt 配置。",
   agentSkillNotAllowed: "\u5f53\u524d Agent \u7684 allowed_tools \u672a\u5305\u542b\u8be5 Skill ID\uff0c\u53ef\u80fd\u65e0\u6cd5\u76f4\u63a5\u8c03\u7528",
   selectAgent: "\u9009\u62e9 Agent",
   agentModel: "\u6a21\u578b",
@@ -945,6 +954,10 @@ export function Dashboard() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState<string>();
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
+  const [selectedAgentSystemPromptDraft, setSelectedAgentSystemPromptDraft] = useState("");
+  const [agentSystemPromptEditing, setAgentSystemPromptEditing] = useState(false);
+  const [agentSystemPromptSaving, setAgentSystemPromptSaving] = useState(false);
+  const [agentSystemPromptError, setAgentSystemPromptError] = useState<string>();
   const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("direct");
   const [skills, setSkills] = useState<SkillDescriptor[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
@@ -1015,10 +1028,17 @@ export function Dashboard() {
   useEffect(() => {
     agentSessionHasStartedRef.current = agentSessionHasStarted;
   }, [agentSessionHasStarted]);
+  useEffect(() => {
+    setSelectedAgentSystemPromptDraft(selectedAgent?.systemPrompt ?? "");
+    setAgentSystemPromptEditing(false);
+    setAgentSystemPromptError(undefined);
+  }, [selectedAgentId, selectedAgent?.systemPrompt]);
   const selectedAgentAllowedTools = useMemo(
     () => (selectedAgent?.allowedTools ?? []).filter((item): item is string => typeof item === "string" && item.trim().length > 0),
     [selectedAgent]
   );
+  const baselineSelectedAgentSystemPrompt = selectedAgent?.systemPrompt ?? "";
+  const selectedAgentSystemPromptDirty = selectedAgentSystemPromptDraft !== baselineSelectedAgentSystemPrompt;
   const selectedSkillNotAllowed = useMemo(() => {
     if (!selectedSkill) {
       return false;
@@ -4274,4 +4294,3 @@ export function Dashboard() {
     </>
   );
 }
-

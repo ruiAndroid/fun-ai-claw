@@ -75,7 +75,6 @@ export interface AgentBaseline {
   sourceType: string;
   sourceRef?: string | null;
   enabled: boolean;
-  manifestJson?: string | null;
   provider?: string | null;
   model?: string | null;
   temperature?: number | null;
@@ -97,7 +96,6 @@ export interface AgentBaselineUpsertRequest {
   sourceType?: string | null;
   sourceRef?: string | null;
   enabled?: boolean | null;
-  manifestJson?: string | null;
   provider?: string | null;
   model?: string | null;
   temperature?: number | null;

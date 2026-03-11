@@ -1044,10 +1044,6 @@ body {
   min-height: 460px !important;
 }
 
-.prompt-textarea-manifest {
-  min-height: 360px !important;
-}
-
 .agent-baseline-editor {
   display: flex;
   flex-direction: column;
@@ -1463,6 +1459,11 @@ body {
 .tab-section-icon.is-prompt {
   background: linear-gradient(135deg, rgba(15,118,110,0.12), rgba(20,184,166,0.08));
   color: #0f766e;
+}
+
+.tab-section-icon.is-task {
+  background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(168,85,247,0.08));
+  color: #7c3aed;
 }
 
 /* =========================================
@@ -2121,10 +2122,6 @@ body {
 
   .prompt-textarea-skill {
     min-height: 340px !important;
-  }
-
-  .prompt-textarea-manifest {
-    min-height: 280px !important;
   }
 
   .kpi-grid {

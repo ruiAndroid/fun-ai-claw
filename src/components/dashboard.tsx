@@ -19,7 +19,7 @@ import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
 import { appConfig } from "@/config/app-config";
 import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse, SkillDescriptor } from "@/types/contracts";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Zap, Shield, Copy } from "lucide-react";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Zap, Shield, Copy, CalendarClock } from "lucide-react";
 import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion } from "framer-motion";
@@ -28,7 +28,7 @@ const { Header, Content } = Layout;
 const { Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "instance-detail" | "open-platform";
-type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills";
+type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills" | "tasks";
 type AgentSessionMode = "auto" | "direct";
 
 const MD3_EASE = [0.22, 1, 0.36, 1] as const;
@@ -776,6 +776,7 @@ const uiText = {
   tabConfig: "Config",
   tabAgent: "Agent",
   tabSkill: "Skill",
+  tabTask: "Task",
   agentSkillPanelTitle: "Agent / Skill",
   refreshSkills: "\u5237\u65b0 Skill \u5217\u8868",
   selectSkill: "\u9009\u62e9 Skill",
@@ -4130,6 +4131,24 @@ export function Dashboard() {
                               ) : (
                                 <Text type="secondary">{uiText.noSkillPrompt}</Text>
                               )}
+                            </Space>
+                          ),
+                        },
+                        {
+                          key: "tasks",
+                          label: uiText.tabTask,
+                          children: (
+                            <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                              <div className="tab-section-header">
+                                <div className="tab-section-title">
+                                  <span className="tab-section-icon is-task"><CalendarClock size={16} /></span>
+                                  {uiText.tabTask}
+                                </div>
+                              </div>
+                              <div className="empty-panel" style={{ minHeight: 200, flexDirection: "column", gap: 12 }}>
+                                <CalendarClock size={32} style={{ opacity: 0.25 }} />
+                                <span>长任务与定时任务，敬请期待</span>
+                              </div>
                             </Space>
                           ),
                         },

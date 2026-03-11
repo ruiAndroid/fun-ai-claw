@@ -46,7 +46,6 @@ function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
     sourceType: "MANUAL",
     sourceRef: "",
     enabled: true,
-    manifestJson: "",
     provider: "",
     model: "",
     temperature: null,
@@ -73,7 +72,6 @@ function snapshotBaseline(value?: AgentBaseline | null): string {
     sourceType: value.sourceType,
     sourceRef: value.sourceRef ?? "",
     enabled: value.enabled,
-    manifestJson: value.manifestJson ?? "",
     provider: value.provider ?? "",
     model: value.model ?? "",
     temperature: value.temperature ?? null,
@@ -95,7 +93,6 @@ function toUpsertRequest(value: AgentBaseline): AgentBaselineUpsertRequest {
     sourceType: value.sourceType,
     sourceRef: value.sourceRef ?? null,
     enabled: value.enabled,
-    manifestJson: value.manifestJson ?? null,
     provider: value.provider ?? null,
     model: value.model ?? null,
     temperature: value.temperature ?? null,
@@ -506,21 +503,6 @@ export function AgentBaselinePanel() {
                       value={draft.systemPrompt ?? ""}
                       onChange={(event) => updateDraft({ systemPrompt: event.target.value })}
                       placeholder="Agent system_prompt"
-                    />
-                  </div>
-                </div>
-
-                <div className="agent-prompt-card">
-                  <div className="agent-prompt-header">
-                    <span className="agent-prompt-header-title">Manifest JSON</span>
-                  </div>
-                  <div className="agent-prompt-body is-spacious">
-                    <Input.TextArea
-                      className="prompt-textarea prompt-textarea-manifest"
-                      rows={16}
-                      value={draft.manifestJson ?? ""}
-                      onChange={(event) => updateDraft({ manifestJson: event.target.value })}
-                      placeholder="agent.minifest.json"
                     />
                   </div>
                 </div>

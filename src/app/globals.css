@@ -1045,6 +1045,138 @@ body {
 }
 
 /* =========================================
+   Agent Selector Cards
+   ========================================= */
+
+.agent-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agent-selector-card {
+  border: 1px solid var(--console-border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(250,255,254,0.90));
+  border-radius: 16px;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s var(--console-ease);
+}
+
+.agent-selector-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb, #38bdf8);
+  opacity: 0;
+  transition: opacity 0.25s var(--console-ease);
+}
+
+.agent-selector-card:hover {
+  border-color: rgba(37,99,235,0.28);
+  transform: translateY(-2px);
+  box-shadow: var(--console-shadow-hover);
+}
+
+.agent-selector-card:hover::before {
+  opacity: 1;
+}
+
+.agent-selector-card.is-selected {
+  border-color: rgba(37,99,235,0.48);
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.12), var(--console-shadow);
+}
+
+.agent-selector-card.is-selected::before {
+  opacity: 1;
+}
+
+.agent-selector-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.agent-selector-card-icon.is-agentic {
+  background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(56,189,248,0.10));
+  color: #2563eb;
+}
+
+.agent-selector-card-icon.is-standard {
+  background: rgba(100,116,139,0.10);
+  color: #475569;
+}
+
+.agent-selector-card-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-selector-card-subline {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-selector-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-selector-card-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  color: #334155;
+}
+
+.agent-selector-card-chip.is-model {
+  background: rgba(139,92,246,0.10);
+  border-color: rgba(139,92,246,0.16);
+  color: #7c3aed;
+}
+
+.agent-selector-card-chip.is-agentic {
+  background: rgba(5,150,105,0.10);
+  border-color: rgba(5,150,105,0.16);
+  color: #059669;
+}
+
+.agent-selector-card-chip.is-neutral {
+  background: rgba(100,116,139,0.10);
+  border-color: rgba(100,116,139,0.16);
+  color: #475569;
+}
+
+/* =========================================
    Skill Cards Enhanced
    ========================================= */
 
@@ -1837,6 +1969,10 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .agent-selector-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1904,6 +2040,10 @@ body {
   }
 
   .skill-card-grid-v2 {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-selector-grid {
     grid-template-columns: 1fr;
   }
 

@@ -768,6 +768,7 @@ const uiText = {
   loadAgentsFailed: "\u52a0\u8f7d Agent \u5217\u8868\u5931\u8d25",
   noAgents: "\u8be5\u5b9e\u4f8b\u6682\u65e0\u53ef\u7528 Agent",
   refreshAgents: "\u5237\u65b0 Agent \u5217\u8868",
+  agentListHint: "\u70b9\u51fb Agent \u5361\u7247\u67e5\u770b\u8be6\u60c5",
   loadSkillsFailed: "\u52a0\u8f7d Skill \u5217\u8868\u5931\u8d25",
   noSkills: "\u8be5\u5b9e\u4f8b\u6682\u65e0\u53ef\u7528 Skill",
   tabClaw: "claw\u8be6\u60c5",
@@ -3897,18 +3898,37 @@ export function Dashboard() {
                               {(!agentsLoading && agents.length === 0) ? (
                                 <div className="empty-panel">{uiText.noAgents}</div>
                               ) : null}
-                              <Select
-                                showSearch
-                                loading={agentsLoading}
-                                placeholder={uiText.selectAgent}
-                                value={selectedAgentId}
-                                onChange={setSelectedAgentId}
-                                options={agents.map((item) => ({
-                                  value: item.id,
-                                  label: item.id,
-                                }))}
-                                style={{ width: "100%" }}
-                              />
+                              {agents.length > 0 ? (
+                                <>
+                                  <Text type="secondary">{uiText.agentListHint}</Text>
+                                  <div className="agent-selector-grid">
+                                    {agents.map((item) => {
+                                      const selected = selectedAgentId === item.id;
+                                      const agenticLabel = typeof item.agentic === "boolean"
+                                        ? (item.agentic ? "Agentic" : "Non-agentic")
+                                        : "Agent";
+                                      return (
+                                        <button
+                                          key={item.id}
+                                          type="button"
+                                          className={`agent-selector-card ${selected ? "is-selected" : ""}`}
+                                          onClick={() => setSelectedAgentId(item.id)}
+                                        >
+                                          <div className={`agent-selector-card-icon ${item.agentic ? "is-agentic" : "is-standard"}`}>
+                                            <Bot size={18} />
+                                          </div>
+                                          <strong className="agent-selector-card-title">{item.id}</strong>
+                                          <p className="agent-selector-card-subline">{item.provider ?? "-"}</p>
+                                          <div className="agent-selector-card-meta">
+                                            <span className="agent-selector-card-chip is-model">{item.model ?? "-"}</span>
+                                            <span className={`agent-selector-card-chip ${item.agentic ? "is-agentic" : "is-neutral"}`}>{agenticLabel}</span>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </>
+                              ) : null}
                               {selectedAgent ? (
                                 <motion.div
                                   className="agent-detail-card"

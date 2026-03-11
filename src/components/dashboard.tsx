@@ -958,6 +958,7 @@ export function Dashboard() {
   const [agentSystemPromptEditing, setAgentSystemPromptEditing] = useState(false);
   const [agentSystemPromptSaving, setAgentSystemPromptSaving] = useState(false);
   const [agentSystemPromptError, setAgentSystemPromptError] = useState<string>();
+  const [agentSystemPromptCollapsed, setAgentSystemPromptCollapsed] = useState(true);
   const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("direct");
   const [skills, setSkills] = useState<SkillDescriptor[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
@@ -1032,6 +1033,7 @@ export function Dashboard() {
     setSelectedAgentSystemPromptDraft(selectedAgent?.systemPrompt ?? "");
     setAgentSystemPromptEditing(false);
     setAgentSystemPromptError(undefined);
+    setAgentSystemPromptCollapsed(true);
   }, [selectedAgentId, selectedAgent?.systemPrompt]);
   const selectedAgentAllowedTools = useMemo(
     () => (selectedAgent?.allowedTools ?? []).filter((item): item is string => typeof item === "string" && item.trim().length > 0),
@@ -2970,6 +2972,150 @@ export function Dashboard() {
     }
   }, []);
 
+  const mainAgentGuidanceSection = selectedInstance ? (
+    <div className="main-prompt-section">
+      <div className="main-prompt-header">
+        <div className="main-prompt-header-title">
+          <span className="main-prompt-header-icon"><FileText size={16} /></span>
+          {uiText.mainAgentGuidanceTitle}
+        </div>
+        <Space>
+          <Button
+            size="small"
+            loading={mainAgentGuidanceLoading}
+            onClick={() => void loadMainAgentGuidance(selectedInstance.id)}
+            icon={<RefreshCw size={12} />}
+          >
+            {uiText.mainAgentGuidanceRefresh}
+          </Button>
+          <Button
+            size="small"
+            disabled={mainAgentGuidanceEditing}
+            onClick={() => setMainAgentGuidanceCollapsed((current) => !current)}
+            icon={mainAgentGuidanceCollapsed ? <Eye size={12} /> : <ChevronLeft size={12} />}
+          >
+            {mainAgentGuidanceCollapsed ? uiText.mainAgentGuidanceExpand : uiText.mainAgentGuidanceCollapse}
+          </Button>
+          {!mainAgentGuidanceCollapsed && mainAgentGuidanceEditing ? (
+            <>
+              <Button
+                type="primary"
+                size="small"
+                loading={mainAgentGuidanceSaving}
+                disabled={mainAgentGuidanceLoading || mainAgentGuidanceDeleting || !mainAgentGuidanceDirty}
+                onClick={async () => {
+                  const saved = await saveMainAgentGuidance();
+                  if (saved) {
+                    setMainAgentGuidanceEditing(false);
+                  }
+                }}
+              >
+                {uiText.mainAgentGuidanceSave}
+              </Button>
+              <Button
+                size="small"
+                disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                onClick={cancelMainAgentGuidanceEdit}
+              >
+                {uiText.mainAgentGuidanceCancel}
+              </Button>
+            </>
+          ) : null}
+          {!mainAgentGuidanceCollapsed && !mainAgentGuidanceEditing ? (
+            <>
+              <Button
+                size="small"
+                disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                onClick={() => setMainAgentGuidanceEditing(true)}
+              >
+                {uiText.mainAgentGuidanceEdit}
+              </Button>
+              <Button
+                danger
+                size="small"
+                loading={mainAgentGuidanceDeleting}
+                disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || !mainAgentGuidance?.overrideExists}
+                onClick={() => void removeMainAgentGuidanceOverride()}
+              >
+                {uiText.mainAgentGuidanceDelete}
+              </Button>
+            </>
+          ) : null}
+        </Space>
+      </div>
+      {mainAgentGuidanceCollapsed ? (
+        <div className="main-prompt-collapsed">
+          <FileText size={16} style={{ opacity: 0.4 }} />
+          默认折叠，展开后可查看或编辑当前主 Agent 提示词。
+        </div>
+      ) : (
+        <div className="main-prompt-body">
+          {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} style={{ marginBottom: 16 }} /> : null}
+          <div className="main-prompt-meta-grid">
+            <div className="main-prompt-meta-item">
+              <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceSource}</span>
+              <span className="main-prompt-meta-value">{mainAgentGuidance?.source ?? "-"}</span>
+            </div>
+            <div className="main-prompt-meta-item">
+              <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceOverwriteOnStart}</span>
+              <span className="main-prompt-meta-value">
+                {typeof mainAgentGuidance?.overwriteOnStart === "boolean" ? String(mainAgentGuidance.overwriteOnStart) : "-"}
+              </span>
+            </div>
+            <div className="main-prompt-meta-item">
+              <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceWorkspacePath}</span>
+              <span className="main-prompt-meta-value">
+                <Text code copyable={mainAgentGuidance?.workspacePath ? { text: mainAgentGuidance.workspacePath } : false} style={{ fontSize: 12 }}>
+                  {mainAgentGuidance?.workspacePath ?? "-"}
+                </Text>
+              </span>
+            </div>
+            <div className="main-prompt-meta-item">
+              <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceGlobalPath}</span>
+              <span className="main-prompt-meta-value">
+                {mainAgentGuidance?.globalDefaultPath ? (
+                  <Text code copyable={{ text: mainAgentGuidance.globalDefaultPath }} style={{ fontSize: 12 }}>
+                    {mainAgentGuidance.globalDefaultPath}
+                  </Text>
+                ) : "-"}
+              </span>
+            </div>
+          </div>
+          {mainAgentGuidanceEditing ? (
+            <Space direction="vertical" style={{ width: "100%" }} size="middle">
+              <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
+                <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
+                <Switch
+                  checked={mainAgentOverrideEnabledDraft}
+                  onChange={setMainAgentOverrideEnabledDraft}
+                  disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+                />
+              </Space>
+              <Input.TextArea
+                rows={8}
+                value={mainAgentPromptDraft}
+                onChange={(event) => setMainAgentPromptDraft(event.target.value)}
+                placeholder={uiText.mainAgentGuidanceOverridePromptPlaceholder}
+                disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
+              />
+            </Space>
+          ) : (
+            <>
+              <Text strong style={{ display: "block", marginBottom: 8 }}>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
+              {mainAgentGuidance?.effectivePrompt ? (
+                <div className="main-prompt-preview">
+                  <pre>{mainAgentGuidance.effectivePrompt}</pre>
+                </div>
+              ) : (
+                <Text type="secondary">{uiText.mainAgentGuidanceNoEffectivePrompt}</Text>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  ) : null;
+
   return (
     <>
       {messageContext}
@@ -3297,147 +3443,6 @@ export function Dashboard() {
                           label: uiText.tabClaw,
                           children: (
                             <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                              <div className="main-prompt-section">
-                                <div className="main-prompt-header">
-                                  <div className="main-prompt-header-title">
-                                    <span className="main-prompt-header-icon"><FileText size={16} /></span>
-                                    {uiText.mainAgentGuidanceTitle}
-                                  </div>
-                                  <Space>
-                                    <Button
-                                      size="small"
-                                      loading={mainAgentGuidanceLoading}
-                                      onClick={() => void loadMainAgentGuidance(selectedInstance.id)}
-                                      icon={<RefreshCw size={12} />}
-                                    >
-                                      {uiText.mainAgentGuidanceRefresh}
-                                    </Button>
-                                    <Button
-                                      size="small"
-                                      disabled={mainAgentGuidanceEditing}
-                                      onClick={() => setMainAgentGuidanceCollapsed((current) => !current)}
-                                      icon={mainAgentGuidanceCollapsed ? <Eye size={12} /> : <ChevronLeft size={12} />}
-                                    >
-                                      {mainAgentGuidanceCollapsed ? uiText.mainAgentGuidanceExpand : uiText.mainAgentGuidanceCollapse}
-                                    </Button>
-                                    {!mainAgentGuidanceCollapsed && mainAgentGuidanceEditing ? (
-                                      <>
-                                        <Button
-                                          type="primary"
-                                          size="small"
-                                          loading={mainAgentGuidanceSaving}
-                                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceDeleting || !mainAgentGuidanceDirty}
-                                          onClick={async () => {
-                                            const saved = await saveMainAgentGuidance();
-                                            if (saved) {
-                                              setMainAgentGuidanceEditing(false);
-                                            }
-                                          }}
-                                        >
-                                          {uiText.mainAgentGuidanceSave}
-                                        </Button>
-                                        <Button
-                                          size="small"
-                                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                                          onClick={cancelMainAgentGuidanceEdit}
-                                        >
-                                          {uiText.mainAgentGuidanceCancel}
-                                        </Button>
-                                      </>
-                                    ) : null}
-                                    {!mainAgentGuidanceCollapsed && !mainAgentGuidanceEditing ? (
-                                      <>
-                                        <Button
-                                          size="small"
-                                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                                          onClick={() => setMainAgentGuidanceEditing(true)}
-                                        >
-                                          {uiText.mainAgentGuidanceEdit}
-                                        </Button>
-                                        <Button
-                                          danger
-                                          size="small"
-                                          loading={mainAgentGuidanceDeleting}
-                                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || !mainAgentGuidance?.overrideExists}
-                                          onClick={() => void removeMainAgentGuidanceOverride()}
-                                        >
-                                          {uiText.mainAgentGuidanceDelete}
-                                        </Button>
-                                      </>
-                                    ) : null}
-                                  </Space>
-                                </div>
-                                {mainAgentGuidanceCollapsed ? (
-                                  <div className="main-prompt-collapsed">
-                                    <FileText size={16} style={{ opacity: 0.4 }} />
-                                    默认收起，展开后可查看或编辑当前主 Agent 提示词。
-                                  </div>
-                                ) : (
-                                  <div className="main-prompt-body">
-                                    {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} style={{ marginBottom: 16 }} /> : null}
-                                    <div className="main-prompt-meta-grid">
-                                      <div className="main-prompt-meta-item">
-                                        <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceSource}</span>
-                                        <span className="main-prompt-meta-value">{mainAgentGuidance?.source ?? "-"}</span>
-                                      </div>
-                                      <div className="main-prompt-meta-item">
-                                        <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceOverwriteOnStart}</span>
-                                        <span className="main-prompt-meta-value">
-                                          {typeof mainAgentGuidance?.overwriteOnStart === "boolean" ? String(mainAgentGuidance.overwriteOnStart) : "-"}
-                                        </span>
-                                      </div>
-                                      <div className="main-prompt-meta-item">
-                                        <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceWorkspacePath}</span>
-                                        <span className="main-prompt-meta-value">
-                                          <Text code copyable={mainAgentGuidance?.workspacePath ? { text: mainAgentGuidance.workspacePath } : false} style={{ fontSize: 12 }}>
-                                            {mainAgentGuidance?.workspacePath ?? "-"}
-                                          </Text>
-                                        </span>
-                                      </div>
-                                      <div className="main-prompt-meta-item">
-                                        <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceGlobalPath}</span>
-                                        <span className="main-prompt-meta-value">
-                                          {mainAgentGuidance?.globalDefaultPath ? (
-                                            <Text code copyable={{ text: mainAgentGuidance.globalDefaultPath }} style={{ fontSize: 12 }}>
-                                              {mainAgentGuidance.globalDefaultPath}
-                                            </Text>
-                                          ) : "-"}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    {mainAgentGuidanceEditing ? (
-                                      <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                                        <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                                          <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
-                                          <Switch
-                                            checked={mainAgentOverrideEnabledDraft}
-                                            onChange={setMainAgentOverrideEnabledDraft}
-                                            disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                                          />
-                                        </Space>
-                                        <Input.TextArea
-                                          rows={8}
-                                          value={mainAgentPromptDraft}
-                                          onChange={(event) => setMainAgentPromptDraft(event.target.value)}
-                                          placeholder={uiText.mainAgentGuidanceOverridePromptPlaceholder}
-                                          disabled={mainAgentGuidanceLoading || mainAgentGuidanceSaving || mainAgentGuidanceDeleting}
-                                        />
-                                      </Space>
-                                    ) : (
-                                      <>
-                                        <Text strong style={{ display: "block", marginBottom: 8 }}>{uiText.mainAgentGuidanceEffectivePrompt}</Text>
-                                        {mainAgentGuidance?.effectivePrompt ? (
-                                          <div className="main-prompt-preview">
-                                            <pre>{mainAgentGuidance.effectivePrompt}</pre>
-                                          </div>
-                                        ) : (
-                                          <Text type="secondary">{uiText.mainAgentGuidanceNoEffectivePrompt}</Text>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
                               <Card
                                 className="sub-glass-card"
                                 size="small"
@@ -3872,7 +3877,7 @@ export function Dashboard() {
                         {
                           key: "config",
                           label: uiText.tabConfig,
-                          children: <InstanceConfigPanel instance={selectedInstance} />,
+                          children: <InstanceConfigPanel instance={selectedInstance} topSection={mainAgentGuidanceSection} />,
                         },
                         {
                           key: "agents",
@@ -3954,7 +3959,15 @@ export function Dashboard() {
                                     <div className="agent-prompt-header">
                                       <span className="agent-prompt-header-title">{uiText.agentSystemPromptTitle}</span>
                                       <Space size="small" wrap>
-                                        {agentSystemPromptEditing ? (
+                                        <Button
+                                          size="small"
+                                          disabled={agentSystemPromptEditing}
+                                          onClick={() => setAgentSystemPromptCollapsed((current) => !current)}
+                                          icon={agentSystemPromptCollapsed ? <Eye size={12} /> : <ChevronLeft size={12} />}
+                                        >
+                                          {agentSystemPromptCollapsed ? uiText.mainAgentGuidanceExpand : uiText.mainAgentGuidanceCollapse}
+                                        </Button>
+                                        {!agentSystemPromptCollapsed && agentSystemPromptEditing ? (
                                           <>
                                             <Button
                                               type="primary"
@@ -3977,7 +3990,8 @@ export function Dashboard() {
                                               {uiText.agentSystemPromptCancel}
                                             </Button>
                                           </>
-                                        ) : (
+                                        ) : null}
+                                        {!agentSystemPromptCollapsed && !agentSystemPromptEditing ? (
                                           <Button
                                             size="small"
                                             disabled={agentSystemPromptSaving}
@@ -3985,27 +3999,31 @@ export function Dashboard() {
                                           >
                                             {uiText.agentSystemPromptEdit}
                                           </Button>
-                                        )}
+                                        ) : null}
                                         {selectedAgent.configPath ? (
                                           <Text code copyable={{ text: selectedAgent.configPath }} style={{ fontSize: 11 }}>{selectedAgent.configPath}</Text>
                                         ) : null}
                                       </Space>
                                     </div>
                                     <div className="agent-prompt-body">
-                                      <Space direction="vertical" style={{ width: "100%" }} size="small">
-                                        <Text type="secondary">{uiText.agentSystemPromptHint}</Text>
-                                        {agentSystemPromptError ? <Alert type="error" showIcon message={agentSystemPromptError} /> : null}
-                                        <Input.TextArea
-                                          rows={10}
-                                          value={agentSystemPromptEditing ? selectedAgentSystemPromptDraft : (selectedAgent.systemPrompt ?? "")}
-                                          onChange={(event) => setSelectedAgentSystemPromptDraft(event.target.value)}
-                                          placeholder={uiText.agentSystemPromptPlaceholder}
-                                          readOnly={!agentSystemPromptEditing}
-                                        />
-                                        {agentSystemPromptEditing ? (
-                                          <Text type="secondary">{uiText.agentSystemPromptClearHint}</Text>
-                                        ) : null}
-                                      </Space>
+                                      {agentSystemPromptCollapsed ? (
+                                        <Text type="secondary">默认折叠，展开后可查看或编辑当前 Agent 的 system_prompt。</Text>
+                                      ) : (
+                                        <Space direction="vertical" style={{ width: "100%" }} size="small">
+                                          <Text type="secondary">{uiText.agentSystemPromptHint}</Text>
+                                          {agentSystemPromptError ? <Alert type="error" showIcon message={agentSystemPromptError} /> : null}
+                                          <Input.TextArea
+                                            rows={10}
+                                            value={agentSystemPromptEditing ? selectedAgentSystemPromptDraft : (selectedAgent.systemPrompt ?? "")}
+                                            onChange={(event) => setSelectedAgentSystemPromptDraft(event.target.value)}
+                                            placeholder={uiText.agentSystemPromptPlaceholder}
+                                            readOnly={!agentSystemPromptEditing}
+                                          />
+                                          {agentSystemPromptEditing ? (
+                                            <Text type="secondary">{uiText.agentSystemPromptClearHint}</Text>
+                                          ) : null}
+                                        </Space>
+                                      )}
                                     </div>
                                   </div>
                                 </motion.div>

@@ -3,7 +3,7 @@
 import { deleteInstanceConfig, getInstanceConfig, upsertInstanceConfig } from "@/lib/control-api";
 import type { ClawInstance, InstanceConfig } from "@/types/contracts";
 import { Alert, Button, Card, Descriptions, Empty, Input, Popconfirm, Skeleton, Space, Tag, Typography, message } from "antd";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 const { Paragraph, Text } = Typography;
 const { TextArea } = Input;
@@ -51,13 +51,14 @@ function getSourceMeta(source?: string) {
   }
 }
 
-export function InstanceConfigPanel({ instance }: { instance: ClawInstance }) {
+export function InstanceConfigPanel({ instance, topSection }: { instance: ClawInstance; topSection?: ReactNode }) {
   const [config, setConfig] = useState<InstanceConfig>();
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string>();
+  const [configTomlCollapsed, setConfigTomlCollapsed] = useState(true);
   const [messageApi, contextHolder] = message.useMessage();
 
   const loadConfig = useCallback(async (showSuccess?: boolean) => {
@@ -82,6 +83,10 @@ export function InstanceConfigPanel({ instance }: { instance: ClawInstance }) {
   useEffect(() => {
     void loadConfig();
   }, [loadConfig]);
+
+  useEffect(() => {
+    setConfigTomlCollapsed(true);
+  }, [instance.id]);
 
   const baselineConfigToml = config?.configToml ?? "";
   const dirty = draft !== baselineConfigToml;
@@ -199,6 +204,8 @@ export function InstanceConfigPanel({ instance }: { instance: ClawInstance }) {
     <>
       {contextHolder}
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        {topSection ?? null}
+
         <Alert
           showIcon
           type={sourceMeta.alertType}
@@ -266,58 +273,69 @@ export function InstanceConfigPanel({ instance }: { instance: ClawInstance }) {
                 {dirty ? "有未保存修改" : "已与服务端同步"}
               </Tag>
               <Text type="secondary">{lineCount} 行 / {draft.length} 字符</Text>
+              <Button
+                size="small"
+                disabled={saving || resetting || loading}
+                onClick={() => setConfigTomlCollapsed((current) => !current)}
+              >
+                {configTomlCollapsed ? "展开" : "收起"}
+              </Button>
             </Space>
           )}
         >
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-            <Text type="secondary">
-              这里显示的是当前实例最终会使用的 TOML 内容。直接保存会写入实例级覆盖；运行中的实例会立即同步到 runtime。正常建议在这里维护，UI Controller 仍保留作兜底。
-            </Text>
+          {configTomlCollapsed ? (
+            <Text type="secondary">默认折叠，展开后可查看或编辑当前实例的 config.toml。</Text>
+          ) : (
+            <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+              <Text type="secondary">
+                这里显示的是当前实例最终会使用的 TOML 内容。直接保存会写入实例级覆盖；运行中的实例会立即同步到 runtime。正常建议在这里维护，UI Controller 仍保留作兜底。
+              </Text>
 
-            <TextArea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              rows={30}
-              spellCheck={false}
-              disabled={loading || saving || resetting}
-              placeholder="配置内容加载中..."
-              style={{
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
-                fontSize: 13,
-                lineHeight: 1.6,
-              }}
-            />
+              <TextArea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                rows={30}
+                spellCheck={false}
+                disabled={loading || saving || resetting}
+                placeholder="配置内容加载中..."
+                style={{
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                }}
+              />
 
-            <Space wrap>
-              <Button onClick={handleResetDraft} disabled={!dirty || saving || resetting || loading}>
-                撤销未保存修改
-              </Button>
-              <Popconfirm
-                title="恢复默认模板"
-                description="这会删除当前实例的 config 覆盖，并回退到系统默认模板。"
-                okText="确认恢复"
-                cancelText="取消"
-                disabled={!config?.overrideExists || saving || resetting || loading}
-                onConfirm={() => void handleRestoreDefault()}
-              >
-                <Button
-                  danger
-                  loading={resetting}
-                  disabled={!config?.overrideExists || saving || resetting || loading}
-                >
-                  恢复默认模板
+              <Space wrap>
+                <Button onClick={handleResetDraft} disabled={!dirty || saving || resetting || loading}>
+                  撤销未保存修改
                 </Button>
-              </Popconfirm>
-              <Button
-                type="primary"
-                loading={saving}
-                disabled={!dirty || loading || saving || resetting}
-                onClick={() => void handleSave()}
-              >
-                保存配置
-              </Button>
+                <Popconfirm
+                  title="恢复默认模板"
+                  description="这会删除当前实例的 config 覆盖，并回退到系统默认模板。"
+                  okText="确认恢复"
+                  cancelText="取消"
+                  disabled={!config?.overrideExists || saving || resetting || loading}
+                  onConfirm={() => void handleRestoreDefault()}
+                >
+                  <Button
+                    danger
+                    loading={resetting}
+                    disabled={!config?.overrideExists || saving || resetting || loading}
+                  >
+                    恢复默认模板
+                  </Button>
+                </Popconfirm>
+                <Button
+                  type="primary"
+                  loading={saving}
+                  disabled={!dirty || loading || saving || resetting}
+                  onClick={() => void handleSave()}
+                >
+                  保存配置
+                </Button>
+              </Space>
             </Space>
-          </Space>
+          )}
         </Card>
       </Space>
     </>

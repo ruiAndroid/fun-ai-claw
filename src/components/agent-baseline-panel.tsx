@@ -18,7 +18,6 @@ import {
   InputNumber,
   Modal,
   Popconfirm,
-  Select,
   Skeleton,
   Space,
   Switch,
@@ -50,7 +49,6 @@ function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
     model: "",
     temperature: null,
     agentic: null,
-    allowedTools: [],
     systemPrompt: "",
     updatedBy: "",
     createdAt: now,
@@ -74,7 +72,6 @@ function snapshotBaseline(value?: AgentBaseline | null): string {
     model: value.model ?? "",
     temperature: value.temperature ?? null,
     agentic: value.agentic ?? null,
-    allowedTools: [...value.allowedTools],
     systemPrompt: value.systemPrompt ?? "",
     updatedBy: value.updatedBy ?? "",
   });
@@ -93,7 +90,6 @@ function toUpsertRequest(value: AgentBaseline): AgentBaselineUpsertRequest {
     model: value.model ?? null,
     temperature: value.temperature ?? null,
     agentic: value.agentic ?? null,
-    allowedTools: value.allowedTools,
     systemPrompt: value.systemPrompt ?? null,
     updatedBy: value.updatedBy ?? null,
   };
@@ -159,10 +155,7 @@ export function AgentBaselinePanel() {
     try {
       const response = await getAgentBaseline(agentKey);
       setSelectedBaseline(response);
-      setDraft({
-        ...response,
-        allowedTools: [...response.allowedTools],
-      });
+      setDraft(response);
     } catch (apiError) {
       setSelectedBaseline(undefined);
       setDraft(undefined);
@@ -208,10 +201,7 @@ export function AgentBaselinePanel() {
     try {
       const saved = await upsertAgentBaseline(draft.agentKey, toUpsertRequest(draft));
       setSelectedBaseline(saved);
-      setDraft({
-        ...saved,
-        allowedTools: [...saved.allowedTools],
-      });
+      setDraft(saved);
       await loadItems(saved.agentKey);
       messageApi.success(`Agent baseline saved: ${saved.agentKey}`);
     } catch (apiError) {
@@ -259,6 +249,8 @@ export function AgentBaselinePanel() {
       setCreating(false);
     }
   }, [createForm, loadItems, messageApi]);
+
+  const systemPrompt = draft?.systemPrompt ?? "";
 
   return (
     <>
@@ -320,7 +312,6 @@ export function AgentBaselinePanel() {
                       <span className="agent-selector-meta">{item.agentKey}</span>
                       <span className="agent-selector-tag-list">
                         <Tag>{item.runtime}</Tag>
-                        <Tag>{`tools ${item.allowedToolCount}`}</Tag>
                         {item.model ? <Tag color="purple">{item.model}</Tag> : null}
                         {item.provider ? <Tag>{item.provider}</Tag> : null}
                       </span>
@@ -336,10 +327,6 @@ export function AgentBaselinePanel() {
               <Skeleton active paragraph={{ rows: 10 }} />
             ) : draft ? (
               <div className="agent-baseline-editor">
-                {(() => {
-                  const systemPrompt = draft.systemPrompt ?? "";
-                  return (
-                    <>
                 <div className="agent-baseline-header">
                   <div>
                     <div className="agent-baseline-title">{draft.displayName || draft.agentKey}</div>
@@ -441,17 +428,6 @@ export function AgentBaselinePanel() {
                             onChange={(event) => updateDraft({ description: event.target.value })}
                           />
                         </div>
-                        <div className="agent-baseline-field is-wide">
-                          <span className="agent-detail-prop-label">Allowed Tools</span>
-                          <Select
-                            mode="tags"
-                            value={draft.allowedTools}
-                            onChange={(value) => updateDraft({ allowedTools: value })}
-                            style={{ width: "100%" }}
-                            tokenSeparators={[",", "\n"]}
-                            placeholder="Add allowed_tools entries"
-                          />
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -472,9 +448,6 @@ export function AgentBaselinePanel() {
                     </div>
                   </div>
                 </div>
-                    </>
-                  );
-                })()}
               </div>
             ) : null
           ) : null}

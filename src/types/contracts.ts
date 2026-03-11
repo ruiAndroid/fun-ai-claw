@@ -59,7 +59,6 @@ export interface AgentBaselineSummary {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
-  allowedToolCount: number;
   updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -77,7 +76,6 @@ export interface AgentBaseline {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
-  allowedTools: string[];
   systemPrompt?: string | null;
   updatedBy?: string | null;
   createdAt: string;
@@ -96,7 +94,6 @@ export interface AgentBaselineUpsertRequest {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
-  allowedTools?: string[];
   systemPrompt?: string | null;
   updatedBy?: string | null;
 }

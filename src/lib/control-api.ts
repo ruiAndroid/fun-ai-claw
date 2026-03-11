@@ -9,6 +9,7 @@ import {
   ImagePreset,
   InstanceConfig,
   InstanceMainAgentGuidance,
+  InstanceRoutingConfig,
   InstanceActionType,
   ListResponse,
   OpenClientApp,
@@ -184,6 +185,32 @@ export async function upsertInstanceConfig(
 export async function deleteInstanceConfig(instanceId: string) {
   return requestJson<InstanceConfig>(`/v1/instances/${instanceId}/config`, {
     method: "DELETE",
+  });
+}
+
+export async function getInstanceRoutingConfig(instanceId: string) {
+  return requestJson<InstanceRoutingConfig>(`/v1/instances/${instanceId}/routing-config`);
+}
+
+export async function upsertInstanceRoutingConfig(
+  instanceId: string,
+  request: {
+    queryClassificationEnabled: boolean;
+    modelRoutes: Array<{ hint: string; provider: string; model: string }>;
+    queryClassificationRules: Array<{
+      hint: string;
+      keywords: string[];
+      literals: string[];
+      priority?: number | null;
+      minLength?: number | null;
+      maxLength?: number | null;
+    }>;
+    updatedBy?: string;
+  }
+) {
+  return requestJson<InstanceRoutingConfig>(`/v1/instances/${instanceId}/routing-config`, {
+    method: "PUT",
+    body: JSON.stringify(request),
   });
 }
 

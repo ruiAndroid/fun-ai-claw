@@ -183,6 +183,34 @@ export interface InstanceConfig {
   overrideUpdatedBy?: string | null;
 }
 
+export interface ModelRouteConfigItem {
+  hint: string;
+  provider: string;
+  model: string;
+}
+
+export interface QueryClassificationRuleConfigItem {
+  hint: string;
+  keywords: string[];
+  literals: string[];
+  priority?: number | null;
+  minLength?: number | null;
+  maxLength?: number | null;
+}
+
+export interface InstanceRoutingConfig {
+  instanceId: string;
+  runtimeConfigPath: string;
+  source: "INSTANCE_OVERRIDE" | "DEFAULT_TEMPLATE" | string;
+  overwriteOnStart: boolean;
+  overrideExists: boolean;
+  queryClassificationEnabled: boolean;
+  modelRoutes: ModelRouteConfigItem[];
+  queryClassificationRules: QueryClassificationRuleConfigItem[];
+  overrideUpdatedAt?: string | null;
+  overrideUpdatedBy?: string | null;
+}
+
 export interface OpenClientApp {
   appId: string;
   name: string;

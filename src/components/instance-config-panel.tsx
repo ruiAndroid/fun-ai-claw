@@ -1,11 +1,25 @@
 "use client";
 
+import { InstanceRoutingConfigPanel } from "@/components/instance-routing-config-panel";
 import { deleteInstanceConfig, getInstanceConfig, upsertInstanceConfig } from "@/lib/control-api";
 import type { ClawInstance, InstanceConfig } from "@/types/contracts";
-import { Alert, Button, Card, Descriptions, Empty, Input, Popconfirm, Skeleton, Space, Tag, Typography, message } from "antd";
+import {
+  Alert,
+  Button,
+  Card,
+  Descriptions,
+  Empty,
+  Input,
+  Popconfirm,
+  Skeleton,
+  Space,
+  Tag,
+  Typography,
+  message,
+} from "antd";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
 
 function formatTimestamp(value?: string | null): string {
@@ -28,25 +42,16 @@ function getSourceMeta(source?: string) {
       return {
         label: "实例覆盖",
         color: "green" as const,
-        alertType: "success" as const,
-        title: "当前正在使用实例级 config 覆盖",
-        description: "推荐优先在这里维护 config.toml。保存会更新当前实例覆盖；实例运行中会直接同步到 runtime，恢复默认模板后会回退到系统默认模板。",
       };
     case "DEFAULT_TEMPLATE":
       return {
         label: "默认模板",
         color: "blue" as const,
-        alertType: "info" as const,
-        title: "当前显示的是系统默认 config 模板",
-        description: "推荐优先在这里维护 config.toml。保存后会为当前实例创建独立的 config 覆盖；如果实例正在运行，会立即同步到 runtime。",
       };
     default:
       return {
         label: source || "未知来源",
         color: "default" as const,
-        alertType: "warning" as const,
-        title: "当前配置来源未识别",
-        description: "建议先检查返回的 source 字段，再决定是否保存实例覆盖。",
       };
   }
 }
@@ -90,25 +95,8 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
 
   const baselineConfigToml = config?.configToml ?? "";
   const dirty = draft !== baselineConfigToml;
-  const sourceMeta = config ? getSourceMeta(config.source) : error ? {
-    label: "加载失败",
-    color: "error" as const,
-    alertType: "error" as const,
-    title: "实例配置暂时不可用",
-    description: "服务端没有成功返回当前实例的 config.toml，请先查看下方错误信息并重试。",
-  } : {
-    label: "加载中",
-    color: "default" as const,
-    alertType: "info" as const,
-    title: "正在加载实例配置",
-    description: "正在从服务端获取当前实例的 config.toml。",
-  };
-  const lineCount = useMemo(() => {
-    if (!draft) {
-      return 0;
-    }
-    return draft.split("\n").length;
-  }, [draft]);
+  const sourceMeta = getSourceMeta(config?.source);
+  const lineCount = useMemo(() => (draft ? draft.split("\n").length : 0), [draft]);
 
   const handleSave = useCallback(async () => {
     if (!draft.trim()) {
@@ -128,15 +116,11 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error(`保存失败: ${messageText}`);
+      messageApi.error("保存实例配置失败");
     } finally {
       setSaving(false);
     }
   }, [draft, instance.id, messageApi]);
-
-  const handleResetDraft = useCallback(() => {
-    setDraft(baselineConfigToml);
-  }, [baselineConfigToml]);
 
   const handleRestoreDefault = useCallback(async () => {
     setResetting(true);
@@ -145,48 +129,45 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
       const response = await deleteInstanceConfig(instance.id);
       setConfig(response);
       setDraft(response.configToml ?? "");
-      messageApi.success("已恢复为默认模板");
+      messageApi.success("已恢复默认模板");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error(`恢复失败: ${messageText}`);
+      messageApi.error("恢复默认模板失败");
     } finally {
       setResetting(false);
     }
   }, [instance.id, messageApi]);
 
+  const handleResetDraft = useCallback(() => {
+    setDraft(baselineConfigToml);
+  }, [baselineConfigToml]);
+
   const descriptionItems = config ? [
     {
-      key: "instanceName",
-      label: "实例名称",
-      children: instance.name,
+      key: "runtimeConfigPath",
+      label: "Runtime 路径",
+      children: <Text code>{config.runtimeConfigPath}</Text>,
     },
     {
       key: "source",
-      label: "当前来源",
+      label: "配置来源",
       children: <Tag color={sourceMeta.color}>{sourceMeta.label}</Tag>,
     },
     {
-      key: "runtimeConfigPath",
-      label: "运行时路径",
-      children: <Paragraph copyable={{ text: config.runtimeConfigPath }} style={{ marginBottom: 0 }}>{config.runtimeConfigPath}</Paragraph>,
+      key: "overwriteOnStart",
+      label: "启动时覆盖 runtime",
+      children: config.overwriteOnStart ? "是" : "否",
+    },
+    {
+      key: "overrideExists",
+      label: "是否存在实例覆盖",
+      children: config.overrideExists ? "是" : "否",
     },
     {
       key: "defaultTemplatePath",
       label: "默认模板路径",
-      children: config.defaultTemplatePath
-        ? <Paragraph copyable={{ text: config.defaultTemplatePath }} style={{ marginBottom: 0 }}>{config.defaultTemplatePath}</Paragraph>
-        : "-",
-    },
-    {
-      key: "overwriteOnStart",
-      label: "启动时覆盖写入",
-      children: <Tag color={config.overwriteOnStart ? "green" : "default"}>{config.overwriteOnStart ? "开启" : "关闭"}</Tag>,
-    },
-    {
-      key: "overrideExists",
-      label: "实例覆盖状态",
-      children: <Tag color={config.overrideExists ? "gold" : "default"}>{config.overrideExists ? "已存在" : "未创建"}</Tag>,
+      children: config.defaultTemplatePath ? <Text code>{config.defaultTemplatePath}</Text> : "未配置",
     },
     {
       key: "updatedAt",
@@ -210,13 +191,13 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
           <Alert
             showIcon
             type="error"
-            message="配置加载或保存失败"
+            message="实例配置加载或保存失败"
             description={error}
-            action={
+            action={(
               <Button size="small" onClick={() => void loadConfig()}>
                 重试
               </Button>
-            }
+            )}
           />
         ) : null}
 
@@ -237,15 +218,17 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
           {(loading && !config) ? (
             <Skeleton active paragraph={{ rows: 6 }} />
           ) : config ? (
-            <Descriptions
-              column={1}
-              size="small"
-              items={descriptionItems}
-            />
+            <Descriptions column={1} size="small" items={descriptionItems} />
           ) : (
             <Empty description="暂无配置数据" />
           )}
         </Card>
+
+        <InstanceRoutingConfigPanel
+          instanceId={instance.id}
+          disabled={dirty || loading || saving || resetting}
+          onSaved={() => loadConfig()}
+        />
 
         <Card
           className="sub-glass-card"
@@ -268,11 +251,13 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
           )}
         >
           {configTomlCollapsed ? (
-            <Text type="secondary">默认折叠，展开后可查看或编辑当前实例的 config.toml。</Text>
+            <Text type="secondary">
+              默认折叠。展开后可以直接查看或编辑当前实例最终会使用的 `config.toml`。
+            </Text>
           ) : (
             <Space direction="vertical" size="middle" style={{ width: "100%" }}>
               <Text type="secondary">
-                这里显示的是当前实例最终会使用的 TOML 内容。直接保存会写入实例级覆盖；运行中的实例会立即同步到 runtime。正常建议在这里维护，UI Controller 仍保留作兜底。
+                这里展示的是当前实例最终会使用的 TOML 内容。直接保存会写入实例级覆盖；运行中的实例会沿用现有链路同步到 runtime。
               </Text>
 
               <TextArea

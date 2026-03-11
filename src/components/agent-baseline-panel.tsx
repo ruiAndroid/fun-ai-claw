@@ -8,7 +8,24 @@ import {
   upsertAgentBaseline,
 } from "@/lib/control-api";
 import type { AgentBaseline, AgentBaselineSummary, AgentBaselineUpsertRequest } from "@/types/contracts";
-import { Alert, Button, Card, Empty, Form, Input, InputNumber, Modal, Popconfirm, Select, Skeleton, Space, Switch, Tag, Typography, message } from "antd";
+import {
+  Alert,
+  Button,
+  Card,
+  Empty,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Select,
+  Skeleton,
+  Space,
+  Switch,
+  Tag,
+  Typography,
+  message,
+} from "antd";
 import { Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -405,7 +422,11 @@ export function AgentBaselinePanel() {
                         </div>
                         <div className="agent-baseline-field">
                           <span className="agent-detail-prop-label">Updated By</span>
-                          <Input value={draft.updatedBy ?? ""} onChange={(event) => updateDraft({ updatedBy: event.target.value })} placeholder="可选，记录本次维护人" />
+                          <Input
+                            value={draft.updatedBy ?? ""}
+                            onChange={(event) => updateDraft({ updatedBy: event.target.value })}
+                            placeholder="可选，记录本次维护人"
+                          />
                         </div>
                       </div>
                     </div>
@@ -499,7 +520,7 @@ export function AgentBaselinePanel() {
                       rows={16}
                       value={draft.manifestJson ?? ""}
                       onChange={(event) => updateDraft({ manifestJson: event.target.value })}
-                      placeholder="zeroclaw-agent.manifest.json"
+                      placeholder="agent.minifest.json"
                     />
                   </div>
                 </div>

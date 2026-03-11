@@ -18,11 +18,6 @@ export interface ClawInstance {
   updatedAt: string;
 }
 
-export interface AcceptedActionResponse {
-  taskId: string;
-  acceptedAt: string;
-}
-
 export interface PairingCodeResponse {
   instanceId: string;
   pairingCode?: string | null;

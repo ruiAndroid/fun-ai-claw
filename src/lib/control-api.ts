@@ -4,7 +4,6 @@ import {
   AgentBaselineUpsertRequest,
   AgentDescriptor,
   AgentSystemPrompt,
-  AcceptedActionResponse,
   ClawInstance,
   CreateInstanceRequest,
   ImagePreset,
@@ -98,7 +97,7 @@ export async function createInstance(request: CreateInstanceRequest) {
 }
 
 export async function submitInstanceAction(instanceId: string, action: InstanceActionType) {
-  return requestJson<AcceptedActionResponse>(`/v1/instances/${instanceId}/actions`, {
+  return requestVoid(`/v1/instances/${instanceId}/actions`, {
     method: "POST",
     body: JSON.stringify({ action }),
   });

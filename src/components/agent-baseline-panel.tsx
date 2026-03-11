@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   createAgentBaseline,
@@ -196,7 +196,7 @@ export function AgentBaselinePanel() {
   );
 
   const updateDraft = useCallback((patch: Partial<AgentBaseline>) => {
-    setDraft((current) => current ? { ...current, ...patch } : current);
+    setDraft((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -213,7 +213,7 @@ export function AgentBaselinePanel() {
         allowedTools: [...saved.allowedTools],
       });
       await loadItems(saved.agentKey);
-      messageApi.success(`Agent baseline 閻庤鐡曞鎾舵崲濮樻墎鍋撳☉娆欏叕缂?{saved.agentKey}`);
+      messageApi.success(`Agent baseline saved: ${saved.agentKey}`);
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
     } finally {
@@ -229,7 +229,7 @@ export function AgentBaselinePanel() {
     setError(undefined);
     try {
       await deleteAgentBaseline(selectedAgentKey);
-      messageApi.success(`Agent baseline 閻庣懓鎲¤ぐ鍐垂瑜版帗鈷旈柕鍫濈箳缁?{selectedAgentKey}`);
+      messageApi.success(`Agent baseline deleted: ${selectedAgentKey}`);
       await loadItems();
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
@@ -249,7 +249,7 @@ export function AgentBaselinePanel() {
       createForm.resetFields();
       await loadItems(created.agentKey);
       setSelectedAgentKey(created.agentKey);
-      messageApi.success(`Agent baseline 閻庣懓鎲¤ぐ鍐垂閸楃儐鍤堥柣姘嚟缁?{created.agentKey}`);
+      messageApi.success(`Agent baseline created: ${created.agentKey}`);
     } catch (apiError) {
       if ((apiError as { errorFields?: unknown }).errorFields) {
         return;
@@ -269,10 +269,10 @@ export function AgentBaselinePanel() {
         extra={(
           <Space size="small" wrap>
             <Button size="small" onClick={() => void loadItems(selectedAgentKey)} loading={loading} icon={<RefreshCw size={12} />}>
-              闂佸憡甯￠弨閬嶅蓟?Agent baseline
+              Refresh Agent baseline
             </Button>
             <Button size="small" type="primary" onClick={() => setCreateModalOpen(true)} icon={<Plus size={12} />}>
-              闂佸搫鍊瑰姗€路?Agent
+              Create Agent
             </Button>
           </Space>
         )}
@@ -282,7 +282,7 @@ export function AgentBaselinePanel() {
             <Alert
               showIcon
               type="error"
-              message="Agent baseline 婵犮垼娉涚€氼噣骞冩繝鍐ㄧ窞閺夊牜鍋夎"
+              message="Agent baseline request failed"
               description={error}
             />
           ) : null}
@@ -293,7 +293,7 @@ export function AgentBaselinePanel() {
 
           {(!loading && items.length === 0) ? (
             <Empty
-              description={"No Agent baseline yet. Create one to get started."}
+              description="No Agent baseline yet. Create one to get started."
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             >
               <Button type="primary" onClick={() => setCreateModalOpen(true)}>Create Agent</Button>
@@ -310,21 +310,20 @@ export function AgentBaselinePanel() {
                     <button
                       key={item.agentKey}
                       type="button"
-                      className={`agent-selector-card ${selected ? "is-selected" : ""}`}
+                      className={`agent-selector-card${selected ? " is-active" : ""}`}
                       onClick={() => setSelectedAgentKey(item.agentKey)}
                     >
-                      <div className={`agent-selector-card-icon ${item.agentic ? "is-agentic" : "is-standard"}`}>
-                        {item.enabled ? "A" : "P"}
-                      </div>
-                      <strong className="agent-selector-card-title">{item.displayName || item.agentKey}</strong>
-                      <p className="agent-selector-card-subline">{item.agentKey}</p>
-                      <div className="agent-selector-card-meta">
-                        <span className="agent-selector-card-chip is-model">{item.model || "-"}</span>
-                        <span className={`agent-selector-card-chip ${item.agentic ? "is-agentic" : "is-neutral"}`}>
-                          {typeof item.agentic === "boolean" ? (item.agentic ? "Agentic" : "Non-agentic") : item.runtime}
-                        </span>
-                        {!item.enabled ? <span className="agent-selector-card-chip is-neutral">Paused</span> : null}
-                      </div>
+                      <span className="agent-selector-title-row">
+                        <span className="agent-selector-title">{item.displayName}</span>
+                        <Tag color={item.enabled ? "green" : "default"}>{item.enabled ? "Enabled" : "Disabled"}</Tag>
+                      </span>
+                      <span className="agent-selector-meta">{item.agentKey}</span>
+                      <span className="agent-selector-tag-list">
+                        <Tag>{item.runtime}</Tag>
+                        <Tag>{`tools ${item.allowedToolCount}`}</Tag>
+                        {item.model ? <Tag color="purple">{item.model}</Tag> : null}
+                        {item.provider ? <Tag>{item.provider}</Tag> : null}
+                      </span>
                     </button>
                   );
                 })}
@@ -337,32 +336,38 @@ export function AgentBaselinePanel() {
               <Skeleton active paragraph={{ rows: 10 }} />
             ) : draft ? (
               <div className="agent-baseline-editor">
+                {(() => {
+                  const systemPrompt = draft.systemPrompt ?? "";
+                  return (
+                    <>
                 <div className="agent-baseline-header">
                   <div>
                     <div className="agent-baseline-title">{draft.displayName || draft.agentKey}</div>
                     <Space size={[8, 8]} wrap>
                       <Tag color="blue">{draft.agentKey}</Tag>
                       <Tag>{draft.runtime}</Tag>
-                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "閻庣懓鎲¤ぐ鍐箚鎼淬劍鍋? : "閻庣懓鎲¤ぐ鍐╃閻樼粯鍋?}</Tag>
+                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "Enabled" : "Disabled"}</Tag>
                       {draft.model ? <Tag color="purple">{draft.model}</Tag> : null}
                       {draft.provider ? <Tag>{draft.provider}</Tag> : null}
+                      {draft.temperature != null ? <Tag>{`temp ${draft.temperature}`}</Tag> : null}
+                      {draft.agentic === true ? <Tag color="gold">agentic</Tag> : null}
                     </Space>
                   </div>
                   <Space size="small" wrap>
-                    <Text type="secondary">闂佸搫鐗冮崑鎾诲级閳哄倸鐏︽繛鎻掓健瀵剛鏁鍓х崶{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
+                    <Text type="secondary">{`Updated ${formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}`}</Text>
                     <Popconfirm
-                      title="闂佸憡甯炴繛鈧繛?Agent baseline"
-                      description={`缂佺虎鍙庨崰娑㈩敇婵犳艾绀嗛柣妯肩帛閻?${draft.agentKey} 闂佸憡纰嶉〃鎰闂堟侗娼伴柕鍫濇閹瑥霉閿濆棛鐭婄憸鎶婂棎浜归柛妤冨仦閹瑩鏌涘▎鎰€滃璺哄閺佸秶浠﹂懖鈺冩喒閻熸粍婢樺畷顒勫箹閻戣姤鍋濋柣妤€鐗婄粻鎺楁倵閸︻厼浠掔紒韬插劦婵″瓨绌卞?
-                      okText="缂佺虎鍙庨崰娑㈩敇婵犳艾绀嗛柣妯肩帛閻?
-                      cancelText="闂佸憡鐟﹂悧妤冪矓?
+                      title="Delete Agent baseline?"
+                      description={`This will remove ${draft.agentKey} from the baseline table.`}
+                      okText="Delete"
+                      cancelText="Cancel"
                       onConfirm={() => void handleDelete()}
                     >
                       <Button danger loading={deleting} icon={<Trash2 size={12} />}>
-                        闂佸憡甯炴繛鈧繛?
+                        Delete
                       </Button>
                     </Popconfirm>
                     <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void handleSave()}>
-                      婵烇絽娲︾换鍌炴偤?
+                      Save
                     </Button>
                   </Space>
                 </div>
@@ -370,7 +375,7 @@ export function AgentBaselinePanel() {
                 <div className="agent-baseline-grid">
                   <div className="agent-prompt-card">
                     <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">闂佺硶鏅炲▍锝夈€侀崨顔锯攳闁斥晛鍟╃槐?/span>
+                      <span className="agent-prompt-header-title">Basic Info</span>
                     </div>
                     <div className="agent-prompt-body is-spacious">
                       <div className="agent-baseline-fields">
@@ -390,36 +395,17 @@ export function AgentBaselinePanel() {
                           <span className="agent-detail-prop-label">Source Type</span>
                           <Input value={draft.sourceType} onChange={(event) => updateDraft({ sourceType: event.target.value })} />
                         </div>
-                        <div className="agent-baseline-field is-wide">
-                          <span className="agent-detail-prop-label">Source Ref</span>
-                          <Input value={draft.sourceRef ?? ""} onChange={(event) => updateDraft({ sourceRef: event.target.value })} />
-                        </div>
-                        <div className="agent-baseline-field is-wide">
-                          <span className="agent-detail-prop-label">Description</span>
-                          <Input.TextArea rows={3} value={draft.description ?? ""} onChange={(event) => updateDraft({ description: event.target.value })} />
-                        </div>
                         <div className="agent-baseline-field is-switch">
                           <span className="agent-detail-prop-label">Enabled</span>
                           <Switch checked={draft.enabled} onChange={(checked) => updateDraft({ enabled: checked })} />
                         </div>
-                        <div className="agent-baseline-field">
-                          <span className="agent-detail-prop-label">Updated By</span>
-                          <Input
-                            value={draft.updatedBy ?? ""}
-                            onChange={(event) => updateDraft({ updatedBy: event.target.value })}
-                            placeholder="闂佸憡鐟崹鍫曞焵椤掆偓椤р偓缂佽鲸绻勯幏瀣级鐠恒劎协闂佸搫鐗滈崜姘额敃閼测晝纾奸悗娑櫭婵?
+                        <div className="agent-baseline-field is-switch">
+                          <span className="agent-detail-prop-label">Agentic</span>
+                          <Switch
+                            checked={draft.agentic === true}
+                            onChange={(checked) => updateDraft({ agentic: checked })}
                           />
                         </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="agent-prompt-card">
-                    <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">Agent Profile</span>
-                    </div>
-                    <div className="agent-prompt-body is-spacious">
-                      <div className="agent-baseline-fields">
                         <div className="agent-baseline-field">
                           <span className="agent-detail-prop-label">Provider</span>
                           <Input value={draft.provider ?? ""} onChange={(event) => updateDraft({ provider: event.target.value })} />
@@ -439,11 +425,20 @@ export function AgentBaselinePanel() {
                             onChange={(value) => updateDraft({ temperature: typeof value === "number" ? value : null })}
                           />
                         </div>
-                        <div className="agent-baseline-field is-switch">
-                          <span className="agent-detail-prop-label">Agentic</span>
-                          <Switch
-                            checked={draft.agentic === true}
-                            onChange={(checked) => updateDraft({ agentic: checked })}
+                        <div className="agent-baseline-field">
+                          <span className="agent-detail-prop-label">Updated By</span>
+                          <Input value={draft.updatedBy ?? ""} onChange={(event) => updateDraft({ updatedBy: event.target.value })} />
+                        </div>
+                        <div className="agent-baseline-field is-wide">
+                          <span className="agent-detail-prop-label">Source Ref</span>
+                          <Input value={draft.sourceRef ?? ""} onChange={(event) => updateDraft({ sourceRef: event.target.value })} />
+                        </div>
+                        <div className="agent-baseline-field is-wide">
+                          <span className="agent-detail-prop-label">Description</span>
+                          <Input.TextArea
+                            rows={3}
+                            value={draft.description ?? ""}
+                            onChange={(event) => updateDraft({ description: event.target.value })}
                           />
                         </div>
                         <div className="agent-baseline-field is-wide">
@@ -454,28 +449,32 @@ export function AgentBaselinePanel() {
                             onChange={(value) => updateDraft({ allowedTools: value })}
                             style={{ width: "100%" }}
                             tokenSeparators={[",", "\n"]}
-                            placeholder="閻熸粎澧楀ú鏍矗?allowed_tools"
+                            placeholder="Add allowed_tools entries"
                           />
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="agent-prompt-card">
-                  <div className="agent-prompt-header">
-                    <span className="agent-prompt-header-title">system_prompt</span>
-                  </div>
-                  <div className="agent-prompt-body is-spacious">
-                    <Input.TextArea
-                      className="prompt-textarea prompt-textarea-agent"
-                      rows={18}
-                      value={draft.systemPrompt ?? ""}
-                      onChange={(event) => updateDraft({ systemPrompt: event.target.value })}
-                      placeholder="Agent system_prompt"
-                    />
+                  <div className="agent-prompt-card">
+                    <div className="agent-prompt-header">
+                      <span className="agent-prompt-header-title">system_prompt</span>
+                      <Text type="secondary">{`${systemPrompt.split("\n").length} lines / ${systemPrompt.length} chars`}</Text>
+                    </div>
+                    <div className="agent-prompt-body is-spacious">
+                      <Input.TextArea
+                        className="prompt-textarea prompt-textarea-system"
+                        rows={24}
+                        value={systemPrompt}
+                        onChange={(event) => updateDraft({ systemPrompt: event.target.value })}
+                        placeholder="Paste the agent system_prompt here"
+                      />
+                    </div>
                   </div>
                 </div>
+                    </>
+                  );
+                })()}
               </div>
             ) : null
           ) : null}
@@ -483,14 +482,14 @@ export function AgentBaselinePanel() {
       </Card>
 
       <Modal
-        title="闂佸搫鍊瑰姗€路?Agent baseline"
+        title="Create Agent baseline"
         open={createModalOpen}
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
         }}
         onOk={() => void handleCreate()}
-        okText="闂佸憡甯楃粙鎴犵磽?
+        okText="Create"
         confirmLoading={creating}
       >
         <Form<CreateBaselineForm> form={createForm} layout="vertical">
@@ -498,14 +497,14 @@ export function AgentBaselinePanel() {
             name="agentKey"
             label="Agent Key"
             rules={[
-              { required: true, message: "闁荤姴娲ㄩ弻澶屾椤撱垹绀?Agent Key" },
-              { pattern: /^[A-Za-z0-9._-]+$/, message: "婵炲濮撮幊蹇涘极椤曗偓楠炴劖鎷呴崫銉︽喕濠殿噯绲界粔鏌ュ焵椤戣法鍔嶉柡鍡欏枔閳ь剚绋掗妵婊堝焵椤戣儻鍏岄柛瀣剁秮婵″瓨鎷呮搴ｆ啴闂佸憡甯楃敮鐐哄吹鎼淬劌妞介悘鐐跺閸橆剟鏌涢幒鎾崇闁? },
+              { required: true, message: "Please enter Agent Key" },
+              { pattern: /^[A-Za-z0-9._-]+$/, message: "Only letters, numbers, dot, underscore and hyphen are allowed" },
             ]}
           >
-            <Input placeholder="婵炴挻鑹鹃鍛淬€呰閺佸秴顫㈤悽鐢?novel-to-script" />
+            <Input placeholder="For example: mgc-novel-to-script" />
           </Form.Item>
           <Form.Item name="displayName" label="Display Name">
-            <Input placeholder="闂佸憡鐟崹鍫曞焵椤掆偓椤р偓缂佽鲸绻冪粙澶婎吋閸滃啰绋忛梺鍝勫暙閻栬偐鍒掗婊勫闁靛牆瀚悷?Agent Key 闂佺儵鏅濋…鍫ュ箖? />
+            <Input placeholder="Optional. Defaults to Agent Key." />
           </Form.Item>
         </Form>
       </Modal>

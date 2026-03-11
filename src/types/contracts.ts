@@ -81,7 +81,6 @@ export interface AgentBaseline {
   sourceRef?: string | null;
   enabled: boolean;
   manifestJson?: string | null;
-  mainAgentsMd?: string | null;
   provider?: string | null;
   model?: string | null;
   temperature?: number | null;
@@ -104,7 +103,6 @@ export interface AgentBaselineUpsertRequest {
   sourceRef?: string | null;
   enabled?: boolean | null;
   manifestJson?: string | null;
-  mainAgentsMd?: string | null;
   provider?: string | null;
   model?: string | null;
   temperature?: number | null;

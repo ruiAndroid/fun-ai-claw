@@ -30,7 +30,6 @@ function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
     sourceRef: "",
     enabled: true,
     manifestJson: "",
-    mainAgentsMd: "",
     provider: "",
     model: "",
     temperature: null,
@@ -58,7 +57,6 @@ function snapshotBaseline(value?: AgentBaseline | null): string {
     sourceRef: value.sourceRef ?? "",
     enabled: value.enabled,
     manifestJson: value.manifestJson ?? "",
-    mainAgentsMd: value.mainAgentsMd ?? "",
     provider: value.provider ?? "",
     model: value.model ?? "",
     temperature: value.temperature ?? null,
@@ -81,7 +79,6 @@ function toUpsertRequest(value: AgentBaseline): AgentBaselineUpsertRequest {
     sourceRef: value.sourceRef ?? null,
     enabled: value.enabled,
     manifestJson: value.manifestJson ?? null,
-    mainAgentsMd: value.mainAgentsMd ?? null,
     provider: value.provider ?? null,
     model: value.model ?? null,
     temperature: value.temperature ?? null,
@@ -492,35 +489,18 @@ export function AgentBaselinePanel() {
                   </div>
                 </div>
 
-                <div className="agent-baseline-grid">
-                  <div className="agent-prompt-card">
-                    <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">Manifest JSON</span>
-                    </div>
-                    <div className="agent-prompt-body is-spacious">
-                      <Input.TextArea
-                        className="prompt-textarea prompt-textarea-manifest"
-                        rows={16}
-                        value={draft.manifestJson ?? ""}
-                        onChange={(event) => updateDraft({ manifestJson: event.target.value })}
-                        placeholder="zeroclaw-agent.manifest.json"
-                      />
-                    </div>
+                <div className="agent-prompt-card">
+                  <div className="agent-prompt-header">
+                    <span className="agent-prompt-header-title">Manifest JSON</span>
                   </div>
-
-                  <div className="agent-prompt-card">
-                    <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">Main AGENTS.md</span>
-                    </div>
-                    <div className="agent-prompt-body is-spacious">
-                      <Input.TextArea
-                        className="prompt-textarea prompt-textarea-main-agents"
-                        rows={16}
-                        value={draft.mainAgentsMd ?? ""}
-                        onChange={(event) => updateDraft({ mainAgentsMd: event.target.value })}
-                        placeholder="可选：与该 Agent baseline 关联的主路由提示词或骨架"
-                      />
-                    </div>
+                  <div className="agent-prompt-body is-spacious">
+                    <Input.TextArea
+                      className="prompt-textarea prompt-textarea-manifest"
+                      rows={16}
+                      value={draft.manifestJson ?? ""}
+                      onChange={(event) => updateDraft({ manifestJson: event.target.value })}
+                      placeholder="zeroclaw-agent.manifest.json"
+                    />
                   </div>
                 </div>
               </div>

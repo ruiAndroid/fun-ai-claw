@@ -1048,10 +1048,6 @@ body {
   min-height: 360px !important;
 }
 
-.prompt-textarea-main-agents {
-  min-height: 360px !important;
-}
-
 .agent-baseline-editor {
   display: flex;
   flex-direction: column;
@@ -2127,8 +2123,7 @@ body {
     min-height: 340px !important;
   }
 
-  .prompt-textarea-manifest,
-  .prompt-textarea-main-agents {
+  .prompt-textarea-manifest {
     min-height: 280px !important;
   }
 

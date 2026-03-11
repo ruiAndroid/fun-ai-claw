@@ -3942,9 +3942,17 @@ export function Dashboard() {
                                       <span className="agent-detail-prop-label">Agentic Mode</span>
                                       <span className="agent-detail-prop-value">{typeof selectedAgent.agentic === "boolean" ? String(selectedAgent.agentic) : "-"}</span>
                                     </div>
-                                    <div className="agent-detail-prop">
+                                    <div className="agent-detail-prop is-wide">
                                       <span className="agent-detail-prop-label">Allowed Tools</span>
-                                      <span className="agent-detail-prop-value">{selectedAgentAllowedTools.length > 0 ? selectedAgentAllowedTools.join(", ") : "-"}</span>
+                                      {selectedAgentAllowedTools.length > 0 ? (
+                                        <div className="agent-tool-list">
+                                          {selectedAgentAllowedTools.map((toolId) => (
+                                            <span key={toolId} className="agent-tool-chip">{toolId}</span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="agent-detail-prop-value">-</span>
+                                      )}
                                     </div>
                                   </div>
                                 </motion.div>

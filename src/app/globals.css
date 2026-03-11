@@ -926,6 +926,10 @@ body {
   border: 1px solid rgba(203,213,225,0.15);
 }
 
+.agent-detail-prop.is-wide {
+  grid-column: 1 / -1;
+}
+
 .agent-detail-prop-label {
   display: block;
   font-size: 11px;
@@ -940,6 +944,28 @@ body {
   font-size: 13px;
   font-weight: 500;
   color: #1e293b;
+  word-break: break-all;
+}
+
+.agent-tool-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.agent-tool-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(14, 116, 144, 0.08);
+  border: 1px solid rgba(14, 116, 144, 0.12);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
   word-break: break-all;
 }
 

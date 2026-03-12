@@ -242,6 +242,20 @@ export interface InstanceRoutingConfig {
   overrideUpdatedBy?: string | null;
 }
 
+export interface InstanceDefaultModelConfig {
+  instanceId: string;
+  runtimeConfigPath: string;
+  source: "INSTANCE_OVERRIDE" | "DEFAULT_TEMPLATE" | string;
+  overwriteOnStart: boolean;
+  overrideExists: boolean;
+  apiKey: string;
+  defaultProvider: string;
+  defaultModel: string;
+  defaultTemperature: number;
+  overrideUpdatedAt?: string | null;
+  overrideUpdatedBy?: string | null;
+}
+
 export interface OpenClientApp {
   appId: string;
   name: string;

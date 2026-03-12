@@ -9,6 +9,7 @@ import {
   ImagePreset,
   InstanceAgentBinding,
   InstanceConfig,
+  InstanceDefaultModelConfig,
   InstanceMainAgentGuidance,
   InstanceRoutingConfig,
   InstanceSkillBinding,
@@ -233,6 +234,26 @@ export async function upsertInstanceConfig(
 export async function deleteInstanceConfig(instanceId: string) {
   return requestJson<InstanceConfig>(`/v1/instances/${instanceId}/config`, {
     method: "DELETE",
+  });
+}
+
+export async function getInstanceDefaultModelConfig(instanceId: string) {
+  return requestJson<InstanceDefaultModelConfig>(`/v1/instances/${instanceId}/default-model-config`);
+}
+
+export async function upsertInstanceDefaultModelConfig(
+  instanceId: string,
+  request: {
+    apiKey: string;
+    defaultProvider: string;
+    defaultModel: string;
+    defaultTemperature: number;
+    updatedBy?: string;
+  }
+) {
+  return requestJson<InstanceDefaultModelConfig>(`/v1/instances/${instanceId}/default-model-config`, {
+    method: "PUT",
+    body: JSON.stringify(request),
   });
 }
 

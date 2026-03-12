@@ -1,5 +1,6 @@
 "use client";
 
+import { InstanceDefaultModelConfigPanel } from "@/components/instance-default-model-config-panel";
 import { InstanceRoutingConfigPanel } from "@/components/instance-routing-config-panel";
 import { deleteInstanceConfig, getInstanceConfig, upsertInstanceConfig } from "@/lib/control-api";
 import type { ClawInstance, InstanceConfig } from "@/types/contracts";
@@ -223,6 +224,12 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
             <Empty description="暂无配置数据" />
           )}
         </Card>
+
+        <InstanceDefaultModelConfigPanel
+          instanceId={instance.id}
+          disabled={dirty || loading || saving || resetting}
+          onSaved={() => loadConfig()}
+        />
 
         <InstanceRoutingConfigPanel
           instanceId={instance.id}

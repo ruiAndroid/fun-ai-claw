@@ -41,7 +41,7 @@ function createEmptyRule(): QueryClassificationRuleConfigItem {
   return {
     hint: "",
     keywords: [],
-    literals: [],
+    patterns: [],
     priority: DEFAULT_RULE_PRIORITY,
     minLength: DEFAULT_RULE_MIN_LENGTH,
     maxLength: DEFAULT_RULE_MAX_LENGTH,
@@ -60,7 +60,7 @@ function normalizeRule(rule: QueryClassificationRuleConfigItem): QueryClassifica
   return {
     hint: rule.hint.trim(),
     keywords: (rule.keywords ?? []).map((item) => item.trim()).filter(Boolean),
-    literals: (rule.literals ?? []).map((item) => item.trim()).filter(Boolean),
+    patterns: (rule.patterns ?? []).map((item) => item.trim()).filter(Boolean),
     priority: rule.priority ?? DEFAULT_RULE_PRIORITY,
     minLength: rule.minLength ?? DEFAULT_RULE_MIN_LENGTH,
     maxLength: rule.maxLength ?? DEFAULT_RULE_MAX_LENGTH,
@@ -369,11 +369,11 @@ export function InstanceRoutingConfigPanel({
 
                               <Select
                                 mode="tags"
-                                value={rule.literals ?? []}
+                                value={rule.patterns ?? []}
                                 disabled={disabled || loading || saving}
-                                onChange={(value) => updateRule(index, { literals: value })}
+                                onChange={(value) => updateRule(index, { patterns: value })}
                                 tokenSeparators={[",", "，", "\n"]}
-                                placeholder="literals，按回车或逗号分隔"
+                                placeholder="patterns, split by Enter or comma"
                                 style={{ width: "100%" }}
                               />
 

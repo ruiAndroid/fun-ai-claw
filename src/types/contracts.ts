@@ -223,7 +223,7 @@ export interface ModelRouteConfigItem {
 export interface QueryClassificationRuleConfigItem {
   hint: string;
   keywords: string[];
-  literals: string[];
+  patterns: string[];
   priority?: number | null;
   minLength?: number | null;
   maxLength?: number | null;

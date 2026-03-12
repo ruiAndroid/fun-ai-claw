@@ -14,9 +14,9 @@ import type {
   SkillBaselineSummary,
   SkillDescriptor,
 } from "@/types/contracts";
-import { Alert, Button, Empty, Input, Select, Space, Tag, Typography, message } from "antd";
+import { Alert, Button, Empty, Input, Space, Tag, Typography, message } from "antd";
 import { motion } from "framer-motion";
-import { Plus, RefreshCw, Wrench, Zap } from "lucide-react";
+import { Download, RefreshCw, Search, Wrench, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Text } = Typography;
@@ -45,7 +45,7 @@ export function InstanceSkillPanel({
   const [runtimeSkills, setRuntimeSkills] = useState<SkillDescriptor[]>([]);
   const [selectedSkillKey, setSelectedSkillKey] = useState<string>();
   const [selectedSkillDetail, setSelectedSkillDetail] = useState<SkillBaseline>();
-  const [candidateSkillKey, setCandidateSkillKey] = useState<string>();
+  const [skillSearch, setSkillSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [runtimeLoading, setRuntimeLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -84,12 +84,6 @@ export function InstanceSkillPanel({
 
       setAvailableSkills(allSkills);
       setBindings(currentBindings);
-      setCandidateSkillKey((current) => {
-        if (current && candidateList.some((item) => item.skillKey === current)) {
-          return current;
-        }
-        return candidateList[0]?.skillKey;
-      });
       setSelectedSkillKey((current) => {
         if (current && allSkills.some((item) => item.skillKey === current)) {
           return current;
@@ -97,7 +91,7 @@ export function InstanceSkillPanel({
         if (installedSkills.length > 0) {
           return installedSkills[0].skillKey;
         }
-        return candidateList[0]?.skillKey;
+        return undefined;
       });
       if (showSuccess) {
         messageApi.success("已刷新实例 Skill");
@@ -106,7 +100,6 @@ export function InstanceSkillPanel({
       setAvailableSkills([]);
       setBindings([]);
       setSelectedSkillKey(undefined);
-      setCandidateSkillKey(undefined);
       setSelectedSkillDetail(undefined);
       setError(apiError instanceof Error ? apiError.message : String(apiError));
     } finally {
@@ -150,6 +143,15 @@ export function InstanceSkillPanel({
     () => availableSkills.filter((item) => !bindingMap.has(item.skillKey) && item.enabled),
     [availableSkills, bindingMap],
   );
+  const filteredCandidateSkills = useMemo(() => {
+    if (!skillSearch.trim()) return candidateSkills;
+    const keyword = skillSearch.trim().toLowerCase();
+    return candidateSkills.filter(
+      (item) =>
+        item.skillKey.toLowerCase().includes(keyword) ||
+        (item.displayName || "").toLowerCase().includes(keyword),
+    );
+  }, [candidateSkills, skillSearch]);
 
   const selectedBinding = selectedSkillKey ? bindingMap.get(selectedSkillKey) : undefined;
   const selectedRuntimeSkill = selectedSkillKey ? runtimeSkillMap.get(selectedSkillKey) : undefined;
@@ -210,17 +212,22 @@ export function InstanceSkillPanel({
             <span className="tab-section-icon is-skill"><Wrench size={16} /></span>
             Skill
           </div>
-          <Button
-            size="small"
-            loading={loading || runtimeLoading}
-            onClick={() => {
-              void loadData(true);
-              void loadRuntimeSkills();
-            }}
-            icon={<RefreshCw size={12} />}
-          >
-            刷新
-          </Button>
+          <Space size="small">
+            <Tag color="green">已装载 {installedSkills.length}</Tag>
+            <Tag color="blue">可添加 {candidateSkills.length}</Tag>
+            <Tag color="gold">运行时已加载 {runtimeSkills.length}</Tag>
+            <Button
+              size="small"
+              loading={loading || runtimeLoading}
+              onClick={() => {
+                void loadData(true);
+                void loadRuntimeSkills();
+              }}
+              icon={<RefreshCw size={12} />}
+            >
+              刷新
+            </Button>
+          </Space>
         </div>
 
         {error ? <Alert type="error" showIcon message={error} /> : null}
@@ -233,77 +240,86 @@ export function InstanceSkillPanel({
           />
         ) : null}
 
-        <div className="agent-prompt-card">
-          <div className="agent-prompt-header">
-            <span className="agent-prompt-header-title">添加 Skill</span>
-            <Space size="small" wrap>
-              <Select
-                style={{ minWidth: 320 }}
-                placeholder={candidateSkills.length > 0 ? "选择一个未装载的 Skill" : "没有可添加的 Skill"}
-                value={candidateSkillKey}
-                onChange={(value) => {
-                  setCandidateSkillKey(value);
-                  setSelectedSkillKey(value);
-                }}
-                options={candidateSkills.map((item) => ({
-                  value: item.skillKey,
-                  label: `${item.displayName || item.skillKey} (${item.skillKey})`,
-                }))}
-                disabled={candidateSkills.length === 0 || saving}
-                showSearch
-                optionFilterProp="label"
-              />
-              <Button
-                type="primary"
-                icon={<Plus size={14} />}
-                disabled={!candidateSkillKey || saving}
-                loading={saving}
-                onClick={() => void handleInstall(candidateSkillKey)}
-              >
-                添加并装载
-              </Button>
-            </Space>
-          </div>
-          <div className="agent-prompt-body">
-            <Space size="small" wrap>
-              <Tag color="green">已装载 {installedSkills.length}</Tag>
-              <Tag color="blue">可添加 {candidateSkills.length}</Tag>
-              <Tag color="gold">运行时已加载 {runtimeSkills.length}</Tag>
-            </Space>
-          </div>
-        </div>
-
         {installedSkills.length > 0 ? (
-          <div className="skill-card-grid-v2">
-            {installedSkills.map((item) => {
-              const selected = selectedSkillKey === item.skillKey;
-              const loaded = runtimeSkillMap.has(item.skillKey);
-              return (
-                <button
-                  key={item.skillKey}
-                  type="button"
-                  className={`skill-card-v2 ${selected ? "is-selected" : ""}`}
-                  onClick={() => setSelectedSkillKey(item.skillKey)}
-                >
-                  <div className="skill-card-v2-icon is-allowed">
-                    <Zap size={18} />
-                  </div>
-                  <strong className="skill-card-v2-title">{item.displayName || item.skillKey}</strong>
-                  <p className="skill-card-v2-path">{item.skillKey}</p>
-                  <Space size={4} wrap>
-                    <Tag color="green">已装载</Tag>
-                    {loaded ? <Tag color="gold">运行中已加载</Tag> : <Tag>待运行时生效</Tag>}
-                    {!item.enabled ? <Tag color="red">已全局禁用</Tag> : null}
-                  </Space>
-                </button>
-              );
-            })}
+          <div className="agent-prompt-card">
+            <div className="agent-prompt-header">
+              <span className="agent-prompt-header-title">已装载</span>
+            </div>
+            <div className="agent-prompt-body">
+              <div className="skill-card-grid-v2">
+                {installedSkills.map((item) => {
+                  const selected = selectedSkillKey === item.skillKey;
+                  const loaded = runtimeSkillMap.has(item.skillKey);
+                  return (
+                    <button
+                      key={item.skillKey}
+                      type="button"
+                      className={`skill-card-v2 ${selected ? "is-selected" : ""}`}
+                      onClick={() => setSelectedSkillKey(item.skillKey)}
+                    >
+                      <div className="skill-card-v2-icon is-allowed">
+                        <Zap size={18} />
+                      </div>
+                      <strong className="skill-card-v2-title">{item.displayName || item.skillKey}</strong>
+                      <p className="skill-card-v2-path">{item.skillKey}</p>
+                      <Space size={4} wrap>
+                        <Tag color="green">已装载</Tag>
+                        {loaded ? <Tag color="gold">运行中已加载</Tag> : <Tag>待运行时生效</Tag>}
+                        {!item.enabled ? <Tag color="red">已全局禁用</Tag> : null}
+                      </Space>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         ) : (
           !loading ? (
             <Empty description="当前实例还没有装载 Skill" />
           ) : null
         )}
+
+        {candidateSkills.length > 0 ? (
+          <div className="agent-prompt-card">
+            <div className="agent-prompt-header">
+              <span className="agent-prompt-header-title">可添加</span>
+              <Input
+                placeholder="搜索 Skill..."
+                prefix={<Search size={14} style={{ opacity: 0.45 }} />}
+                allowClear
+                style={{ width: 240 }}
+                value={skillSearch}
+                onChange={(e) => setSkillSearch(e.target.value)}
+              />
+            </div>
+            <div className="agent-prompt-body">
+              {filteredCandidateSkills.length > 0 ? (
+                <div className="skill-card-grid-v2">
+                  {filteredCandidateSkills.map((item) => {
+                    const selected = selectedSkillKey === item.skillKey;
+                    return (
+                      <button
+                        key={item.skillKey}
+                        type="button"
+                        className={`skill-card-v2 ${selected ? "is-selected" : ""}`}
+                        onClick={() => setSelectedSkillKey(item.skillKey)}
+                      >
+                        <div className="skill-card-v2-icon">
+                          <Download size={18} />
+                        </div>
+                        <strong className="skill-card-v2-title">{item.displayName || item.skillKey}</strong>
+                        <p className="skill-card-v2-path">{item.skillKey}</p>
+                        <Tag color="blue">未装载</Tag>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Empty description={skillSearch ? "没有匹配的 Skill" : "没有可添加的 Skill"} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {selectedSkillDetail ? (
           <motion.div
@@ -329,7 +345,7 @@ export function InstanceSkillPanel({
                       disabled={!selectedSkillDetail.enabled}
                       onClick={() => void handleInstall(selectedSkillDetail.skillKey)}
                     >
-                      装载到当前 Claw
+                      装载到当前实例
                     </Button>
                   )}
                 </Space>

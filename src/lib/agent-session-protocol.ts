@@ -332,7 +332,7 @@ export function isAgentSessionPlaceholderValue(value?: string): boolean {
   return /^<[^>]+>$/.test(value.trim());
 }
 
-export function formatAgentInteractionPayloadForDisplay(rawInput: string, uiText: { agentSessionInteractionConfirmed: string; agentSessionInteractionRevised: string; agentSessionInteractionSubmitted: string }): string | undefined {
+export function formatAgentInteractionPayloadForDisplay(rawInput: string): string | undefined {
   const parsed = parseAgentInteractionPayload(rawInput);
   if (!parsed?.interactionAction) {
     return undefined;

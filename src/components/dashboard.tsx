@@ -26,7 +26,6 @@ import {
   type AgentChatRole,
   type AgentChatTiming,
   type AgentComposerInteractionDraft,
-  type AgentInteraction,
   type AgentInteractionAction,
   type AgentSessionCoreFields,
   type AgentSessionDebugEntry,
@@ -35,9 +34,6 @@ import {
   type AgentSessionStarterDraft,
   type AgentSessionStreamMessage,
   type AgentTurnTracker,
-  type ParsedAgentInteractionPayload,
-  AGENT_INTERACTION_STATE_LABELS,
-  extractStructuredAgentInteraction,
   formatAgentInteractionPayloadForDisplay,
   formatAgentSessionDebugTimestamp,
   formatAgentTimingDuration,
@@ -50,12 +46,11 @@ import {
   normalizeAgentChatMessage,
   normalizeStructuredAgentChatMessage,
   parseAgentInteractionPayload,
-  parseAgentMessageContent,
   parseAgentSessionCoreFields,
   parseAgentSessionFrame,
 } from "@/lib/agent-session-protocol";
 import { uiText } from "@/constants/ui-text";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Copy, Plug } from "lucide-react";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Trash2, Terminal, Eye, MonitorPlay, RefreshCw, FileText, Copy, Plug } from "lucide-react";
 import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion, useSpring, useTransform, useMotionValue } from "framer-motion";
@@ -218,7 +213,6 @@ export function Dashboard() {
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
   const disableStop = !selectedInstance || actionBusy || selectedStatus === "STOPPED" || selectedStatus === "CREATING";
   const disableRestartInstance = !selectedInstance || actionBusy || selectedStatus === "CREATING";
-  const disableRollback = !selectedInstance || actionBusy || selectedStatus === "CREATING";
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
   const disableSendAgentMessage = !selectedInstance || !agentSessionConnected || !agentMessageInput.trim();
@@ -816,7 +810,7 @@ export function Dashboard() {
   }, []);
 
   const formatAgentMessageForDisplay = useCallback((normalizedMessage: string) => {
-    const interactionDisplay = formatAgentInteractionPayloadForDisplay(normalizedMessage, uiText);
+    const interactionDisplay = formatAgentInteractionPayloadForDisplay(normalizedMessage);
     if (interactionDisplay) {
       return interactionDisplay;
     }
@@ -1851,7 +1845,7 @@ export function Dashboard() {
         `step_feedback=${feedback}`,
       ].filter((line) => line.length > 0);
       normalizedMessage = enrichAgentInteractionMessage(payloadLines.join("\n"));
-      displayText = formatAgentInteractionPayloadForDisplay(normalizedMessage, uiText);
+      displayText = formatAgentInteractionPayloadForDisplay(normalizedMessage);
       resolveInteractionMessageId = agentComposerInteractionDraft.sourceMessageId;
     }
 

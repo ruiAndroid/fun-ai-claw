@@ -120,7 +120,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
         return undefined;
       });
       if (showSuccess) {
-        messageApi.success("Agent list refreshed");
+        messageApi.success("Agent 列表已刷新");
       }
     } catch (apiError) {
       setBaselines([]);
@@ -218,11 +218,11 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
     try {
       await upsertInstanceAgentBinding(instanceId, targetAgentKey, { updatedBy: "ui-dashboard" });
       await loadAll();
-      messageApi.success("Agent installed to this instance");
+      messageApi.success("Agent 已装载到当前实例");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error("Failed to install agent");
+      messageApi.error("装载 Agent 失败");
     } finally {
       setSaving(false);
     }
@@ -246,11 +246,11 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
       });
       setBindings((current) => current.map((item) => (item.agentKey === saved.agentKey ? saved : item)));
       setDraft(toDraft(saved));
-      messageApi.success("Instance agent config saved");
+      messageApi.success("实例 Agent 配置已保存");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error("Failed to save agent config");
+      messageApi.error("保存 Agent 配置失败");
     } finally {
       setSaving(false);
     }
@@ -267,11 +267,11 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
     try {
       await uninstallInstanceAgentBinding(instanceId, targetAgentKey);
       await loadAll();
-      messageApi.success("Agent removed from this instance");
+      messageApi.success("Agent 已从当前实例卸载");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error("Failed to uninstall agent");
+      messageApi.error("卸载 Agent 失败");
     } finally {
       setSaving(false);
     }
@@ -292,9 +292,9 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
             Agent
           </div>
           <Space size="small" wrap>
-            <Tag color="green">Installed {installedAgents.length}</Tag>
-            <Tag color="blue">Available {candidateAgents.length}</Tag>
-            <Tag color="gold">Mounted skills {skillBindings.length}</Tag>
+            <Tag color="green">已装载 {installedAgents.length}</Tag>
+            <Tag color="blue">可装载 {candidateAgents.length}</Tag>
+            <Tag color="gold">已挂载 Skill {skillBindings.length}</Tag>
             <Button
               size="small"
               loading={loading}
@@ -303,7 +303,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
               }}
               icon={<RefreshCw size={12} />}
             >
-              Refresh
+              刷新
             </Button>
           </Space>
         </div>
@@ -313,7 +313,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
         {installedAgents.length > 0 ? (
           <div className="agent-prompt-card">
             <div className="agent-prompt-header">
-              <span className="agent-prompt-header-title">Installed</span>
+              <span className="agent-prompt-header-title">已装载</span>
             </div>
             <div className="agent-prompt-body">
               <div className="agent-selector-grid">
@@ -334,7 +334,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         <div className="agent-selector-card-meta">
                           <span className="agent-selector-card-chip is-neutral">{item.runtime}</span>
                           <span className={`agent-selector-card-chip ${item.enabled ? "is-agentic" : "is-neutral"}`}>
-                            {item.enabled ? "Enabled" : "Disabled"}
+                            {item.enabled ? "已启用" : "已禁用"}
                           </span>
                           {item.model ? <span className="agent-selector-card-chip is-model">{item.model}</span> : null}
                         </div>
@@ -351,7 +351,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                           void handleUninstall(item.agentKey);
                         }}
                       >
-                        Uninstall
+                        卸载
                       </Button>
                     </div>
                   );
@@ -360,14 +360,14 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
             </div>
           </div>
         ) : (
-          !loading ? <Empty description="No installed agents" /> : null
+          !loading ? <Empty description="暂无已装载 Agent" /> : null
         )}
 
         <div className="agent-prompt-card">
           <div className="agent-prompt-header">
-            <span className="agent-prompt-header-title">Available</span>
+            <span className="agent-prompt-header-title">可装载</span>
             <Input
-              placeholder="Search available agents"
+              placeholder="搜索可装载 Agent"
               prefix={<Search size={14} style={{ opacity: 0.45 }} />}
               allowClear
               style={{ width: 240 }}
@@ -409,7 +409,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                           void handleInstall(item.agentKey);
                         }}
                       >
-                        Install
+                        装载
                       </Button>
                     </div>
                   );
@@ -417,7 +417,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
               </div>
             ) : (
               <Empty
-                description={agentSearch ? "No matching available agents" : "No available agents"}
+                description={agentSearch ? "没有匹配的可装载 Agent" : "暂无可装载 Agent"}
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
               />
             )}
@@ -443,7 +443,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                       loading={saving}
                       onClick={() => void handleSave()}
                     >
-                      Save config
+                      保存配置
                     </Button>
                     <Button
                       danger
@@ -452,7 +452,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                       loading={saving}
                       onClick={() => void handleUninstall()}
                     >
-                      Uninstall
+                      卸载
                     </Button>
                   </Space>
                 </div>
@@ -461,23 +461,23 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                   <Space direction="vertical" style={{ width: "100%" }} size="middle">
                     <div className="agent-detail-grid">
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Agent Key</span>
+                        <span className="agent-detail-prop-label">Agent 标识</span>
                         <span className="agent-detail-prop-value">{selectedBinding.agentKey}</span>
                       </div>
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Runtime</span>
+                        <span className="agent-detail-prop-label">运行时</span>
                         <span className="agent-detail-prop-value">{selectedBinding.runtime}</span>
                       </div>
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Source Type</span>
+                        <span className="agent-detail-prop-label">来源类型</span>
                         <span className="agent-detail-prop-value">{selectedBinding.sourceType}</span>
                       </div>
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Updated At</span>
+                        <span className="agent-detail-prop-label">更新时间</span>
                         <span className="agent-detail-prop-value">{formatTimestamp(selectedBinding.updatedAt)}</span>
                       </div>
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Provider</span>
+                        <span className="agent-detail-prop-label">服务提供方</span>
                         <Input
                           value={draft?.provider ?? ""}
                           onChange={(event) => {
@@ -487,7 +487,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         />
                       </div>
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Model</span>
+                        <span className="agent-detail-prop-label">模型</span>
                         <Input
                           value={draft?.model ?? ""}
                           onChange={(event) => {
@@ -497,7 +497,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         />
                       </div>
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Temperature</span>
+                        <span className="agent-detail-prop-label">温度</span>
                         <InputNumber
                           style={{ width: "100%" }}
                           value={draft?.temperature ?? null}
@@ -514,7 +514,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         />
                       </div>
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Agentic</span>
+                        <span className="agent-detail-prop-label">自主模式</span>
                         <Switch
                           checked={draft?.agentic ?? false}
                           onChange={(checked) => {
@@ -523,11 +523,11 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         />
                       </div>
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Allowed Tools</span>
+                        <span className="agent-detail-prop-label">可用工具</span>
                         <Select
                           mode="multiple"
                           allowClear
-                          placeholder="Select mounted skills"
+                          placeholder="选择已挂载的 Skill"
                           options={skillOptions}
                           value={draft?.allowedTools ?? []}
                           onChange={(value) => {
@@ -536,11 +536,11 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         />
                       </div>
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Description</span>
+                        <span className="agent-detail-prop-label">描述</span>
                         <span className="agent-detail-prop-value">{selectedBinding.description || "-"}</span>
                       </div>
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Source Ref</span>
+                        <span className="agent-detail-prop-label">来源引用</span>
                         <span className="agent-detail-prop-value">{selectedBinding.sourceRef || "-"}</span>
                       </div>
                     </div>
@@ -550,18 +550,18 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
 
               <div className="agent-prompt-card">
                 <div className="agent-prompt-header">
-                  <span className="agent-prompt-header-title">System Prompt</span>
+                  <span className="agent-prompt-header-title">系统提示词</span>
                   <Button
                     size="small"
                     icon={<Eye size={12} />}
                     onClick={() => setSystemPromptCollapsed((current) => !current)}
                   >
-                    {systemPromptCollapsed ? "Show prompt" : "Hide prompt"}
+                    {systemPromptCollapsed ? "展开提示词" : "收起提示词"}
                   </Button>
                 </div>
                 <div className="agent-prompt-body">
                   {systemPromptCollapsed ? (
-                    <Text type="secondary">Prompt is collapsed</Text>
+                    <Text type="secondary">提示词已收起</Text>
                   ) : (
                     <Input.TextArea
                       className="prompt-textarea prompt-textarea-agent"
@@ -592,37 +592,37 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                   disabled={!selectedBaselineSummary}
                   onClick={() => void handleInstall(selectedAgentKey)}
                 >
-                  Install
+                  装载
                 </Button>
               </div>
               <div className="agent-prompt-body is-spacious">
                 {detailLoading ? (
-                  <Text type="secondary">Loading agent detail...</Text>
+                  <Text type="secondary">正在加载 Agent 详情...</Text>
                 ) : selectedBaselineDetail ? (
                   <Space direction="vertical" style={{ width: "100%" }} size="middle">
                     <div className="agent-detail-grid">
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Agent Key</span>
+                        <span className="agent-detail-prop-label">Agent 标识</span>
                         <span className="agent-detail-prop-value">{selectedBaselineDetail.agentKey}</span>
                       </div>
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Runtime</span>
+                        <span className="agent-detail-prop-label">运行时</span>
                         <span className="agent-detail-prop-value">{selectedBaselineDetail.runtime}</span>
                       </div>
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Provider</span>
+                        <span className="agent-detail-prop-label">服务提供方</span>
                         <span className="agent-detail-prop-value">{selectedBaselineDetail.provider || "-"}</span>
                       </div>
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Model</span>
+                        <span className="agent-detail-prop-label">模型</span>
                         <span className="agent-detail-prop-value">{selectedBaselineDetail.model || "-"}</span>
                       </div>
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Temperature</span>
+                        <span className="agent-detail-prop-label">温度</span>
                         <span className="agent-detail-prop-value">{selectedBaselineDetail.temperature ?? "-"}</span>
                       </div>
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Agentic</span>
+                        <span className="agent-detail-prop-label">自主模式</span>
                         <span className="agent-detail-prop-value">{selectedBaselineDetail.agentic ? "true" : "false"}</span>
                       </div>
                       <div className="agent-detail-prop is-wide">
@@ -642,13 +642,13 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                     />
                   </Space>
                 ) : (
-                  <Empty description="Select an agent to view details" />
+                  <Empty description="请选择一个 Agent 查看详情" />
                 )}
               </div>
             </div>
           </motion.div>
         ) : (
-          !loading ? <Empty description="Select an agent to view details" /> : null
+          !loading ? <Empty description="请选择一个 Agent 查看详情" /> : null
         )}
       </Space>
     </>

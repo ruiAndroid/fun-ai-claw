@@ -93,7 +93,7 @@ export function InstanceSkillPanel({
         return undefined;
       });
       if (showSuccess) {
-        messageApi.success("Skill list refreshed");
+        messageApi.success("Skill 列表已刷新");
       }
     } catch (apiError) {
       setAvailableSkills([]);
@@ -172,11 +172,11 @@ export function InstanceSkillPanel({
         loadRuntimeSkills(),
         loadSelectedSkillDetail(targetSkillKey),
       ]);
-      messageApi.success("Skill installed to this instance");
+      messageApi.success("Skill 已装载到当前实例");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error("Failed to install skill");
+      messageApi.error("装载 Skill 失败");
     } finally {
       setSaving(false);
     }
@@ -197,11 +197,11 @@ export function InstanceSkillPanel({
         loadRuntimeSkills(),
         loadSelectedSkillDetail(targetSkillKey),
       ]);
-      messageApi.success("Skill removed from this instance");
+      messageApi.success("Skill 已从当前实例卸载");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error("Failed to uninstall skill");
+      messageApi.error("卸载 Skill 失败");
     } finally {
       setSaving(false);
     }
@@ -217,10 +217,10 @@ export function InstanceSkillPanel({
             Skill
           </div>
           <Space size="small" wrap>
-            <Tag color="green">Installed {installedSkills.length}</Tag>
-            <Tag color="blue">Available {candidateSkills.length}</Tag>
+            <Tag color="green">已装载 {installedSkills.length}</Tag>
+            <Tag color="blue">可装载 {candidateSkills.length}</Tag>
             <Tag color={runtimeError ? "red" : runtimeLoading ? "processing" : "gold"}>
-              {runtimeError ? "Runtime unavailable" : runtimeLoading ? "Loading runtime" : `Runtime loaded ${runtimeSkills.length}`}
+              {runtimeError ? "运行时不可用" : runtimeLoading ? "正在读取运行时" : `运行时已加载 ${runtimeSkills.length}`}
             </Tag>
             <Button
               size="small"
@@ -231,7 +231,7 @@ export function InstanceSkillPanel({
               }}
               icon={<RefreshCw size={12} />}
             >
-              Refresh
+              刷新
             </Button>
           </Space>
         </div>
@@ -241,7 +241,7 @@ export function InstanceSkillPanel({
           <Alert
             type="warning"
             showIcon
-            message="Runtime skill status is temporarily unavailable"
+            message="运行时 Skill 状态暂时不可用"
             description={runtimeError}
           />
         ) : null}
@@ -249,7 +249,7 @@ export function InstanceSkillPanel({
         {installedSkills.length > 0 ? (
           <div className="agent-prompt-card">
             <div className="agent-prompt-header">
-              <span className="agent-prompt-header-title">Installed</span>
+              <span className="agent-prompt-header-title">已装载</span>
             </div>
             <div className="agent-prompt-body">
               <div className="skill-card-grid-v2">
@@ -269,9 +269,9 @@ export function InstanceSkillPanel({
                         <strong className="skill-card-v2-title">{item.displayName || item.skillKey}</strong>
                         <p className="skill-card-v2-path">{item.skillKey}</p>
                         <Space size={4} wrap>
-                          <Tag color="green">Installed</Tag>
-                          {loaded ? <Tag color="gold">Loaded in runtime</Tag> : <Tag>Pending runtime sync</Tag>}
-                          {!item.enabled ? <Tag color="red">Globally disabled</Tag> : null}
+                          <Tag color="green">已装载</Tag>
+                          {loaded ? <Tag color="gold">运行时已加载</Tag> : <Tag>等待运行时同步</Tag>}
+                          {!item.enabled ? <Tag color="red">全局已禁用</Tag> : null}
                         </Space>
                       </button>
                       <Button
@@ -286,7 +286,7 @@ export function InstanceSkillPanel({
                           void handleUninstall(item.skillKey);
                         }}
                       >
-                        Uninstall
+                        卸载
                       </Button>
                     </div>
                   );
@@ -295,14 +295,14 @@ export function InstanceSkillPanel({
             </div>
           </div>
         ) : (
-          !loading ? <Empty description="No installed skills" /> : null
+          !loading ? <Empty description="暂无已装载 Skill" /> : null
         )}
 
         <div className="agent-prompt-card">
           <div className="agent-prompt-header">
-            <span className="agent-prompt-header-title">Available</span>
+            <span className="agent-prompt-header-title">可装载</span>
             <Input
-              placeholder="Search available skills"
+              placeholder="搜索可装载 Skill"
               prefix={<Search size={14} style={{ opacity: 0.45 }} />}
               allowClear
               style={{ width: 240 }}
@@ -327,7 +327,7 @@ export function InstanceSkillPanel({
                         </div>
                         <strong className="skill-card-v2-title">{item.displayName || item.skillKey}</strong>
                         <p className="skill-card-v2-path">{item.skillKey}</p>
-                        <Tag color="blue">Not installed</Tag>
+                        <Tag color="blue">未装载</Tag>
                       </button>
                       <Button
                         size="small"
@@ -341,7 +341,7 @@ export function InstanceSkillPanel({
                           void handleInstall(item.skillKey);
                         }}
                       >
-                        Install
+                        装载
                       </Button>
                     </div>
                   );
@@ -349,7 +349,7 @@ export function InstanceSkillPanel({
               </div>
             ) : (
               <Empty
-                description={skillSearch ? "No matching available skills" : "No available skills"}
+                description={skillSearch ? "没有匹配的可装载 Skill" : "暂无可装载 Skill"}
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
               />
             )}
@@ -370,7 +370,7 @@ export function InstanceSkillPanel({
                 <Space size="small" wrap>
                   {selectedBinding ? (
                     <Button danger size="small" loading={saving} onClick={() => void handleUninstall()}>
-                      Uninstall
+                      卸载
                     </Button>
                   ) : (
                     <Button
@@ -380,7 +380,7 @@ export function InstanceSkillPanel({
                       disabled={!selectedSkillDetail.enabled}
                       onClick={() => void handleInstall(selectedSkillDetail.skillKey)}
                     >
-                      Install
+                      装载
                     </Button>
                   )}
                 </Space>
@@ -390,47 +390,47 @@ export function InstanceSkillPanel({
                 <Space direction="vertical" style={{ width: "100%" }} size="middle">
                   <div className="agent-detail-grid">
                     <div className="agent-detail-prop">
-                      <span className="agent-detail-prop-label">Skill Key</span>
+                      <span className="agent-detail-prop-label">Skill 标识</span>
                       <span className="agent-detail-prop-value">{selectedSkillDetail.skillKey}</span>
                     </div>
                     <div className="agent-detail-prop">
-                      <span className="agent-detail-prop-label">Status</span>
-                      <span className="agent-detail-prop-value">{selectedBinding ? "Installed" : "Not installed"}</span>
+                      <span className="agent-detail-prop-label">状态</span>
+                      <span className="agent-detail-prop-value">{selectedBinding ? "已装载" : "未装载"}</span>
                     </div>
                     <div className="agent-detail-prop">
-                      <span className="agent-detail-prop-label">Runtime Loaded</span>
+                      <span className="agent-detail-prop-label">运行时状态</span>
                       <span className="agent-detail-prop-value">
-                        {selectedRuntimeSkill ? "Loaded" : "Pending until next runtime sync"}
+                        {selectedRuntimeSkill ? "已加载" : "等待下一次运行时同步"}
                       </span>
                     </div>
                     <div className="agent-detail-prop">
-                      <span className="agent-detail-prop-label">Enabled</span>
+                      <span className="agent-detail-prop-label">是否启用</span>
                       <span className="agent-detail-prop-value">{selectedSkillDetail.enabled ? "true" : "false"}</span>
                     </div>
                     <div className="agent-detail-prop is-wide">
-                      <span className="agent-detail-prop-label">Description</span>
+                      <span className="agent-detail-prop-label">描述</span>
                       <span className="agent-detail-prop-value">{selectedSkillDetail.description || "-"}</span>
                     </div>
                     <div className="agent-detail-prop is-wide">
-                      <span className="agent-detail-prop-label">Source Ref</span>
+                      <span className="agent-detail-prop-label">来源引用</span>
                       <span className="agent-detail-prop-value">{selectedSkillDetail.sourceRef || "-"}</span>
                     </div>
                     {selectedBinding ? (
                       <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Installed At</span>
+                        <span className="agent-detail-prop-label">装载时间</span>
                         <span className="agent-detail-prop-value">{formatTimestamp(selectedBinding.updatedAt)}</span>
                       </div>
                     ) : null}
                     {selectedRuntimeSkill ? (
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Runtime Path</span>
+                        <span className="agent-detail-prop-label">运行时路径</span>
                         <span className="agent-detail-prop-value">{selectedRuntimeSkill.path}</span>
                       </div>
                     ) : null}
                   </div>
 
                   {detailLoading ? (
-                    <Text type="secondary">Loading skill detail...</Text>
+                    <Text type="secondary">正在加载 Skill 详情...</Text>
                   ) : (
                     <Input.TextArea
                       className="prompt-textarea prompt-textarea-skill"
@@ -444,7 +444,7 @@ export function InstanceSkillPanel({
             </div>
           </motion.div>
         ) : (
-          !loading ? <Empty description="Select a skill to view details" /> : null
+          !loading ? <Empty description="请选择一个 Skill 查看详情" /> : null
         )}
       </Space>
     </>

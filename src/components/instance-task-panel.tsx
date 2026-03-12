@@ -30,6 +30,7 @@ export function InstanceTaskPanel({ instanceId }: { instanceId: string }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string>();
   const [messageApi, contextHolder] = message.useMessage();
+  const [modal, modalContextHolder] = Modal.useModal();
 
   // create form
   const [formName, setFormName] = useState("");
@@ -95,8 +96,11 @@ export function InstanceTaskPanel({ instanceId }: { instanceId: string }) {
   }, [instanceId, formName, formSchedule, formCommand, loadJobs, messageApi]);
 
   const handleDelete = useCallback(async (jobId: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: uiText.confirmDeleteTask,
+      okText: "确定",
+      cancelText: "取消",
+      okButtonProps: { danger: true },
       onOk: async () => {
         setDeleting(true);
         setError(undefined);
@@ -114,11 +118,12 @@ export function InstanceTaskPanel({ instanceId }: { instanceId: string }) {
         }
       },
     });
-  }, [instanceId, selectedJobId, loadJobs, messageApi]);
+  }, [instanceId, selectedJobId, loadJobs, messageApi, modal]);
 
   return (
     <>
       {contextHolder}
+      {modalContextHolder}
       <Space direction="vertical" style={{ width: "100%" }} size="middle">
         {/* header */}
         <div className="tab-section-header">

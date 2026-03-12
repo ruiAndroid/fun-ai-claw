@@ -295,12 +295,6 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
         </div>
 
         {error ? <Alert type="error" showIcon message={error} /> : null}
-        <Alert
-          type="info"
-          showIcon
-          message="这里维护实例级 Agent 配置，并会同步回写到运行时 config.toml"
-          description={"首次打开时，会把当前实例已有的 [agents.\"...\"] 配置自动回填进数据库。后续以实例 Agent 配置为准。"}
-        />
 
         {installedAgents.length > 0 ? (
           <div className="agent-prompt-card">

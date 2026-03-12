@@ -69,7 +69,12 @@ function formatTimestamp(value?: string | null): string {
   }).format(date);
 }
 
-export function InstanceAgentPanel({ instanceId }: { instanceId: string }) {
+type InstanceAgentPanelProps = {
+  instanceId: string;
+  onInstalledAgentsChange?: (bindings: InstanceAgentBinding[]) => void;
+};
+
+export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: InstanceAgentPanelProps) {
   const [baselines, setBaselines] = useState<AgentBaselineSummary[]>([]);
   const [bindings, setBindings] = useState<InstanceAgentBinding[]>([]);
   const [skillBindings, setSkillBindings] = useState<InstanceSkillBinding[]>([]);
@@ -137,6 +142,10 @@ export function InstanceAgentPanel({ instanceId }: { instanceId: string }) {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    onInstalledAgentsChange?.(bindings);
+  }, [bindings, onInstalledAgentsChange]);
 
   const bindingMap = useMemo(() => new Map(bindings.map((item) => [item.agentKey, item])), [bindings]);
   const selectedBinding = selectedAgentKey ? bindingMap.get(selectedAgentKey) : undefined;

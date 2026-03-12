@@ -7,10 +7,9 @@ import {
   getInstanceMainAgentGuidance,
   getInstancePairingCode,
   listImages,
-  listInstanceAgents,
+  listInstanceAgentBindings,
   listInstances,
   submitInstanceAction,
-  upsertAgentSystemPrompt,
   upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
 import { AgentBaselinePanel } from "@/components/agent-baseline-panel";
@@ -20,7 +19,7 @@ import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
 import { SkillBaselinePanel } from "@/components/skill-baseline-panel";
 import { appConfig } from "@/config/app-config";
-import { AgentDescriptor, ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceMainAgentGuidance, PairingCodeResponse } from "@/types/contracts";
+import { ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceAgentBinding, InstanceMainAgentGuidance, PairingCodeResponse } from "@/types/contracts";
 import {
   type AgentChatMessage,
   type AgentChatRole,
@@ -129,15 +128,10 @@ export function Dashboard() {
   const [pairingCodeLoading, setPairingCodeLoading] = useState(false);
   const [pairingCodeData, setPairingCodeData] = useState<PairingCodeResponse>();
   const [pairingCodeInstanceName, setPairingCodeInstanceName] = useState<string>();
-  const [agents, setAgents] = useState<AgentDescriptor[]>([]);
+  const [agents, setAgents] = useState<InstanceAgentBinding[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState<string>();
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
-  const [selectedAgentSystemPromptDraft, setSelectedAgentSystemPromptDraft] = useState("");
-  const [agentSystemPromptEditing, setAgentSystemPromptEditing] = useState(false);
-  const [agentSystemPromptSaving, setAgentSystemPromptSaving] = useState(false);
-  const [agentSystemPromptError, setAgentSystemPromptError] = useState<string>();
-  const [agentSystemPromptCollapsed, setAgentSystemPromptCollapsed] = useState(true);
   const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("direct");
   const [agentMessageInput, setAgentMessageInput] = useState("");
   const [agentComposerInteractionDraft, setAgentComposerInteractionDraft] = useState<AgentComposerInteractionDraft>();
@@ -194,24 +188,12 @@ export function Dashboard() {
     [instances, selectedInstanceId]
   );
   const selectedAgent = useMemo(
-    () => agents.find((item) => item.id === selectedAgentId),
+    () => agents.find((item) => item.agentKey === selectedAgentId),
     [agents, selectedAgentId]
   );
   useEffect(() => {
     agentSessionHasStartedRef.current = agentSessionHasStarted;
   }, [agentSessionHasStarted]);
-  useEffect(() => {
-    setSelectedAgentSystemPromptDraft(selectedAgent?.systemPrompt ?? "");
-    setAgentSystemPromptEditing(false);
-    setAgentSystemPromptError(undefined);
-    setAgentSystemPromptCollapsed(true);
-  }, [selectedAgentId, selectedAgent?.systemPrompt]);
-  const selectedAgentRuntimeAllowedTools = useMemo(
-    () => (selectedAgent?.allowedTools ?? []).filter((item): item is string => typeof item === "string" && item.trim().length > 0),
-    [selectedAgent]
-  );
-  const baselineSelectedAgentSystemPrompt = selectedAgent?.systemPrompt ?? "";
-  const selectedAgentSystemPromptDirty = selectedAgentSystemPromptDraft !== baselineSelectedAgentSystemPrompt;
   const selectedStatus = selectedInstance?.status;
   const actionBusy = submittingAction || deletingInstance;
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
@@ -364,16 +346,16 @@ export function Dashboard() {
     setAgentsLoading(true);
     setAgentsError(undefined);
     try {
-      const response = await listInstanceAgents(instanceId);
+      const response = await listInstanceAgentBindings(instanceId);
       setAgents(response.items);
       setSelectedAgentId((current) => {
         if (!response.items.length) {
           return undefined;
         }
-        if (current && response.items.some((item) => item.id === current)) {
+        if (current && response.items.some((item) => item.agentKey === current)) {
           return current;
         }
-        return response.items[0].id;
+        return response.items[0].agentKey;
       });
     } catch (apiError) {
       setAgents([]);
@@ -383,40 +365,6 @@ export function Dashboard() {
       setAgentsLoading(false);
     }
   }, []);
-
-  const saveSelectedAgentSystemPrompt = useCallback(async (): Promise<boolean> => {
-    if (!selectedInstanceId || !selectedAgentId) {
-      return false;
-    }
-    setAgentSystemPromptSaving(true);
-    setAgentSystemPromptError(undefined);
-    try {
-      const response = await upsertAgentSystemPrompt(selectedInstanceId, selectedAgentId, {
-        systemPrompt: selectedAgentSystemPromptDraft,
-        updatedBy: "ui-dashboard",
-      });
-      setAgents((current) => current.map((item) => (
-        item.id === selectedAgentId
-          ? {
-              ...item,
-              systemPrompt: response.systemPrompt ?? null,
-              configPath: response.configPath ?? item.configPath,
-            }
-          : item
-      )));
-      setSelectedAgentSystemPromptDraft(response.systemPrompt ?? "");
-      setAgentSystemPromptEditing(false);
-      messageApi.success(uiText.agentSystemPromptSaved);
-      return true;
-    } catch (apiError) {
-      const messageText = apiError instanceof Error ? apiError.message : uiText.agentSystemPromptSaveFailed;
-      setAgentSystemPromptError(messageText);
-      messageApi.error(messageText);
-      return false;
-    } finally {
-      setAgentSystemPromptSaving(false);
-    }
-  }, [messageApi, selectedAgentId, selectedAgentSystemPromptDraft, selectedInstanceId]);
 
   const loadMainAgentGuidance = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
@@ -512,6 +460,20 @@ export function Dashboard() {
     void loadAgents(selectedInstanceId);
     void loadMainAgentGuidance(selectedInstanceId);
   }, [loadAgents, loadMainAgentGuidance, selectedInstanceId]);
+
+  const handleInstalledAgentsChange = useCallback((nextAgents: InstanceAgentBinding[]) => {
+    setAgents(nextAgents);
+    setAgentsError(undefined);
+    setSelectedAgentId((current) => {
+      if (!nextAgents.length) {
+        return undefined;
+      }
+      if (current && nextAgents.some((item) => item.agentKey === current)) {
+        return current;
+      }
+      return nextAgents[0].agentKey;
+    });
+  }, []);
 
   useEffect(() => {
     setMainAgentGuidanceCollapsed(true);
@@ -2687,13 +2649,17 @@ export function Dashboard() {
                                           onChange={setSelectedAgentId}
                                           disabled={agentSessionConnected || agentSessionConnecting}
                                           options={agents.map((item) => ({
-                                            value: item.id,
-                                            label: item.id,
+                                            value: item.agentKey,
+                                            label: item.displayName === item.agentKey
+                                              ? item.agentKey
+                                              : `${item.displayName} (${item.agentKey})`,
                                           }))}
                                         />
+                                        {agentsError ? <Alert type="error" showIcon message={agentsError} /> : null}
                                         {selectedAgent ? (
                                           <Space size={[8, 8]} wrap>
-                                            <Tag color="blue">{selectedAgent.id}</Tag>
+                                            <Tag color="blue">{selectedAgent.agentKey}</Tag>
+                                            <Tag>{selectedAgent.displayName || "-"}</Tag>
                                             <Tag>{selectedAgent.provider ?? "-"}</Tag>
                                             <Tag>{selectedAgent.model ?? "-"}</Tag>
                                           </Space>
@@ -3022,181 +2988,10 @@ export function Dashboard() {
                           key: "agents",
                           label: uiText.tabAgent,
                           children: (
-                            <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                              <InstanceAgentPanel instanceId={selectedInstance.id} />
-                              <div className="tab-section-header">
-                                <div className="tab-section-title">
-                                  <span className="tab-section-icon is-agent"><Bot size={16} /></span>
-                                  {uiText.tabAgent}
-                                </div>
-                                <Button size="small" loading={agentsLoading} onClick={() => void loadAgents(selectedInstance.id)} icon={<RefreshCw size={12} />}>
-                                  {uiText.refreshAgents}
-                                </Button>
-                              </div>
-                              {agentsError ? <Alert type="error" showIcon message={agentsError} /> : null}
-                              {(!agentsLoading && agents.length === 0) ? (
-                                <div className="empty-panel">{uiText.noAgents}</div>
-                              ) : null}
-                              {agents.length > 0 ? (
-                                <>
-                                  <Text type="secondary">{uiText.agentListHint}</Text>
-                                  <div className="agent-selector-grid">
-                                    {agents.map((item) => {
-                                      const selected = selectedAgentId === item.id;
-                                      const agenticLabel = typeof item.agentic === "boolean"
-                                        ? (item.agentic ? "Agentic" : "Non-agentic")
-                                        : "Agent";
-                                      return (
-                                        <button
-                                          key={item.id}
-                                          type="button"
-                                          className={`agent-selector-card ${selected ? "is-selected" : ""}`}
-                                          onClick={() => setSelectedAgentId(item.id)}
-                                        >
-                                          <div className={`agent-selector-card-icon ${item.agentic ? "is-agentic" : "is-standard"}`}>
-                                            <Bot size={18} />
-                                          </div>
-                                          <strong className="agent-selector-card-title">{item.id}</strong>
-                                          <p className="agent-selector-card-subline">{item.provider ?? "-"}</p>
-                                          <div className="agent-selector-card-meta">
-                                            <span className="agent-selector-card-chip is-model">{item.model ?? "-"}</span>
-                                            <span className={`agent-selector-card-chip ${item.agentic ? "is-agentic" : "is-neutral"}`}>{agenticLabel}</span>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </>
-                              ) : null}
-                              {selectedAgent ? (
-                                <motion.div
-                                  className="agent-detail-card"
-                                  initial={{ opacity: 0, y: 12 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                                >
-                                  <div className="agent-detail-header">
-                                    <div className="agent-detail-icon"><Bot size={22} /></div>
-                                    <div className="agent-detail-meta">
-                                      <div className="agent-detail-name">{selectedAgent.id}</div>
-                                      <div className="agent-detail-tags">
-                                        {selectedAgent.provider ? <span className="agent-detail-tag is-provider">{selectedAgent.provider}</span> : null}
-                                        {selectedAgent.model ? <span className="agent-detail-tag is-model">{selectedAgent.model}</span> : null}
-                                        {typeof selectedAgent.agentic === "boolean" ? (
-                                          <span className="agent-detail-tag is-agentic">{selectedAgent.agentic ? "Agentic" : "Non-agentic"}</span>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="agent-detail-props">
-                                    <div className="agent-detail-prop">
-                                      <span className="agent-detail-prop-label">Provider</span>
-                                      <span className="agent-detail-prop-value">{selectedAgent.provider ?? "-"}</span>
-                                    </div>
-                                    <div className="agent-detail-prop">
-                                      <span className="agent-detail-prop-label">Model</span>
-                                      <span className="agent-detail-prop-value">{selectedAgent.model ?? "-"}</span>
-                                    </div>
-                                    <div className="agent-detail-prop">
-                                      <span className="agent-detail-prop-label">Agentic Mode</span>
-                                      <span className="agent-detail-prop-value">{typeof selectedAgent.agentic === "boolean" ? String(selectedAgent.agentic) : "-"}</span>
-                                    </div>
-                                    <div className="agent-detail-prop is-wide">
-                                      <span className="agent-detail-prop-label">Allowed Tools</span>
-                                      {selectedAgentRuntimeAllowedTools.length > 0 ? (
-                                        <div className="agent-tool-list">
-                                          {selectedAgentRuntimeAllowedTools.map((toolId) => (
-                                            <span key={toolId} className="agent-tool-chip">{toolId}</span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="agent-detail-prop-value">-</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </motion.div>
-                              ) : null}
-                              {selectedAgent ? (
-                                <motion.div
-                                  initial={{ opacity: 0, y: 12 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.35, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-                                >
-                                  <div className="agent-prompt-card">
-                                    <div className="agent-prompt-header">
-                                      <span className="agent-prompt-header-title">{uiText.agentSystemPromptTitle}</span>
-                                      <Space size="small" wrap>
-                                        <Button
-                                          size="small"
-                                          disabled={agentSystemPromptEditing}
-                                          onClick={() => setAgentSystemPromptCollapsed((current) => !current)}
-                                          icon={agentSystemPromptCollapsed ? <Eye size={12} /> : <ChevronLeft size={12} />}
-                                        >
-                                          {agentSystemPromptCollapsed ? uiText.mainAgentGuidanceExpand : uiText.mainAgentGuidanceCollapse}
-                                        </Button>
-                                        {!agentSystemPromptCollapsed && agentSystemPromptEditing ? (
-                                          <>
-                                            <Button
-                                              type="primary"
-                                              size="small"
-                                              loading={agentSystemPromptSaving}
-                                              disabled={!selectedAgentSystemPromptDirty}
-                                              onClick={() => void saveSelectedAgentSystemPrompt()}
-                                            >
-                                              {uiText.agentSystemPromptSave}
-                                            </Button>
-                                            <Button
-                                              size="small"
-                                              disabled={agentSystemPromptSaving}
-                                              onClick={() => {
-                                                setSelectedAgentSystemPromptDraft(baselineSelectedAgentSystemPrompt);
-                                                setAgentSystemPromptEditing(false);
-                                                setAgentSystemPromptError(undefined);
-                                              }}
-                                            >
-                                              {uiText.agentSystemPromptCancel}
-                                            </Button>
-                                          </>
-                                        ) : null}
-                                        {!agentSystemPromptCollapsed && !agentSystemPromptEditing ? (
-                                          <Button
-                                            size="small"
-                                            disabled={agentSystemPromptSaving}
-                                            onClick={() => setAgentSystemPromptEditing(true)}
-                                          >
-                                            {uiText.agentSystemPromptEdit}
-                                          </Button>
-                                        ) : null}
-                                        {selectedAgent.configPath ? (
-                                          <Text code copyable={{ text: selectedAgent.configPath }} style={{ fontSize: 11 }}>{selectedAgent.configPath}</Text>
-                                        ) : null}
-                                      </Space>
-                                    </div>
-                                    <div className="agent-prompt-body is-spacious">
-                                      {agentSystemPromptCollapsed ? (
-                                        <Text type="secondary">默认折叠，展开后可查看或编辑当前 Agent 的 system_prompt。</Text>
-                                      ) : (
-                                        <Space direction="vertical" style={{ width: "100%" }} size="small">
-                                          <Text type="secondary">{uiText.agentSystemPromptHint}</Text>
-                                          {agentSystemPromptError ? <Alert type="error" showIcon message={agentSystemPromptError} /> : null}
-                                          <Input.TextArea
-                                            className="prompt-textarea prompt-textarea-agent"
-                                            rows={18}
-                                            value={agentSystemPromptEditing ? selectedAgentSystemPromptDraft : (selectedAgent.systemPrompt ?? "")}
-                                            onChange={(event) => setSelectedAgentSystemPromptDraft(event.target.value)}
-                                            placeholder={uiText.agentSystemPromptPlaceholder}
-                                            readOnly={!agentSystemPromptEditing}
-                                          />
-                                          {agentSystemPromptEditing ? (
-                                            <Text type="secondary">{uiText.agentSystemPromptClearHint}</Text>
-                                          ) : null}
-                                        </Space>
-                                      )}
-                                    </div>
-                                  </div>
-                                </motion.div>
-                              ) : null}
-                            </Space>
+                            <InstanceAgentPanel
+                              instanceId={selectedInstance.id}
+                              onInstalledAgentsChange={handleInstalledAgentsChange}
+                            />
                           ),
                         },
                         {
@@ -3514,4 +3309,5 @@ export function Dashboard() {
     </>
   );
 }
+
 

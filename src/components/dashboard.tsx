@@ -3000,7 +3000,6 @@ export function Dashboard() {
                           children: (
                             <InstanceSkillPanel
                               instanceId={selectedInstance.id}
-                              preferredAgentKey={selectedAgentId}
                             />
                           ),
                         },

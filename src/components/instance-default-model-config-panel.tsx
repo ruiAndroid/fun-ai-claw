@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { getInstanceDefaultModelConfig, upsertInstanceDefaultModelConfig } from "@/lib/control-api";
 import type { InstanceDefaultModelConfig } from "@/types/contracts";
@@ -79,7 +79,7 @@ export function InstanceDefaultModelConfigPanel({
       const response = await getInstanceDefaultModelConfig(instanceId);
       applyResponse(response);
       if (showSuccess) {
-        messageApi.success("已刷新实例默认模型配置");
+        messageApi.success("宸插埛鏂板疄渚嬮粯璁ゆā鍨嬮厤缃?);
       }
     } catch (apiError) {
       setConfig(undefined);
@@ -120,15 +120,15 @@ export function InstanceDefaultModelConfigPanel({
     const normalizedProvider = draft.defaultProvider.trim();
     const normalizedModel = draft.defaultModel.trim();
     if (!normalizedProvider) {
-      messageApi.warning("default_provider 不能为空");
+      messageApi.warning("default_provider 涓嶈兘涓虹┖");
       return;
     }
     if (!normalizedModel) {
-      messageApi.warning("default_model 不能为空");
+      messageApi.warning("default_model 涓嶈兘涓虹┖");
       return;
     }
     if (!Number.isFinite(draft.defaultTemperature)) {
-      messageApi.warning("default_temperature 无效");
+      messageApi.warning("default_temperature 鏃犳晥");
       return;
     }
 
@@ -144,11 +144,11 @@ export function InstanceDefaultModelConfigPanel({
       });
       applyResponse(response);
       await onSaved?.();
-      messageApi.success("实例默认模型配置已保存");
+      messageApi.success("瀹炰緥榛樿妯″瀷閰嶇疆宸蹭繚瀛?);
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error("保存实例默认模型配置失败");
+      messageApi.error("淇濆瓨瀹炰緥榛樿妯″瀷閰嶇疆澶辫触");
     } finally {
       setSaving(false);
     }
@@ -160,7 +160,7 @@ export function InstanceDefaultModelConfigPanel({
       <Card
         className="sub-glass-card"
         size="small"
-        title="默认模型配置"
+        title="榛樿妯″瀷閰嶇疆"
         extra={(
           <Button
             size="small"
@@ -170,7 +170,7 @@ export function InstanceDefaultModelConfigPanel({
             loading={loading}
             disabled={saving}
           >
-            刷新
+            鍒锋柊
           </Button>
         )}
       >
@@ -181,17 +181,11 @@ export function InstanceDefaultModelConfigPanel({
             <Alert
               type="warning"
               showIcon
-              message="请先处理 config.toml 的未保存修改"
-              description="结构化默认模型配置和原始 config.toml 编辑的是同一份实例配置。为避免互相覆盖，当前先锁定这里的编辑。"
+              message="璇峰厛澶勭悊 config.toml 鐨勬湭淇濆瓨淇敼"
+              description="缁撴瀯鍖栭粯璁ゆā鍨嬮厤缃拰鍘熷 config.toml 缂栬緫鐨勬槸鍚屼竴浠藉疄渚嬮厤缃€備负閬垮厤浜掔浉瑕嗙洊锛屽綋鍓嶅厛閿佸畾杩欓噷鐨勭紪杈戙€?
             />
           ) : null}
 
-          <Alert
-            type="info"
-            showIcon
-            message="这里维护实例级默认 api_key、default_provider、default_model、default_temperature"
-            description="这些值会回写到 config.toml 顶层。生效优先级上，model_routes 高于 Agent 配置，Agent 配置高于这里的实例默认值。api_key 当前只在实例级维护。"
-          />
 
           {loading && !config ? (
             <Skeleton active paragraph={{ rows: 6 }} />
@@ -204,7 +198,7 @@ export function InstanceDefaultModelConfigPanel({
                   ...currentDraft,
                   apiKey: event.target.value,
                 }))}
-                placeholder="api_key，可留空"
+                placeholder="api_key锛屽彲鐣欑┖"
               />
 
               <Input
@@ -215,7 +209,7 @@ export function InstanceDefaultModelConfigPanel({
                   ...currentDraft,
                   defaultProvider: event.target.value,
                 }))}
-                placeholder='例如：custom:https://api.ai.fun.tv/v1'
+                placeholder='渚嬪锛歝ustom:https://api.ai.fun.tv/v1'
               />
 
               <Input
@@ -226,7 +220,7 @@ export function InstanceDefaultModelConfigPanel({
                   ...currentDraft,
                   defaultModel: event.target.value,
                 }))}
-                placeholder="例如：MiniMax-M2.5"
+                placeholder="渚嬪锛歁iniMax-M2.5"
               />
 
               <InputNumber
@@ -246,19 +240,18 @@ export function InstanceDefaultModelConfigPanel({
               <Space wrap style={{ justifyContent: "space-between", width: "100%" }}>
                 <Space wrap>
                   <Button onClick={handleReset} disabled={!dirty || disabled || loading || saving}>
-                    撤销未保存修改
-                  </Button>
+                    鎾ら攢鏈繚瀛樹慨鏀?                  </Button>
                   <Button
                     type="primary"
                     loading={saving}
                     disabled={!dirty || disabled || loading || saving}
                     onClick={() => void handleSave()}
                   >
-                    保存默认配置
+                    淇濆瓨榛樿閰嶇疆
                   </Button>
                 </Space>
                 <Text type="secondary">
-                  最近更新：{formatTimestamp(config?.overrideUpdatedAt)} / {config?.overrideUpdatedBy || "系统默认"}
+                  鏈€杩戞洿鏂帮細{formatTimestamp(config?.overrideUpdatedAt)} / {config?.overrideUpdatedBy || "绯荤粺榛樿"}
                 </Text>
               </Space>
             </Space>

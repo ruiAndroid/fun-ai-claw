@@ -45,6 +45,12 @@ export default function ConsoleLayout({
           Modal: {
             borderRadiusLG: 28,
           },
+          Tag: {
+            borderRadiusSM: 999,
+          },
+          Input: {
+            activeShadow: "0 0 0 3px rgba(15, 118, 110, 0.08)",
+          },
         },
       }}
     >

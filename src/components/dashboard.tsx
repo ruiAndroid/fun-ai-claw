@@ -58,13 +58,31 @@ import { uiText } from "@/constants/ui-text";
 import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Copy, Plug } from "lucide-react";
 import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { motion } from "framer-motion";
+import { motion, useSpring, useTransform, useMotionValue } from "framer-motion";
 
 const { Header, Content } = Layout;
 const { Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
 type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills" | "tasks";
+
+function AnimatedNumber({ value, className }: { value: number; className?: string }) {
+  const motionValue = useMotionValue(0);
+  const spring = useSpring(motionValue, { stiffness: 80, damping: 20 });
+  const display = useTransform(spring, (v) => Math.round(v));
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    motionValue.set(value);
+  }, [motionValue, value]);
+
+  useEffect(() => {
+    const unsubscribe = display.on("change", (v) => setDisplayValue(v));
+    return unsubscribe;
+  }, [display]);
+
+  return <span className={className}>{displayValue}</span>;
+}
 type AgentSessionMode = "auto" | "direct";
 
 const MD3_EASE = [0.22, 1, 0.36, 1] as const;
@@ -2309,7 +2327,7 @@ export function Dashboard() {
                               <kpi.icon size={20} />
                             </div>
                             <p className="kpi-label">{kpi.label}</p>
-                            <p className={`kpi-value ${kpi.color}`}>{kpi.value}</p>
+                            <p className="kpi-value"><AnimatedNumber value={kpi.value} className={kpi.color} /></p>
                           </div>
                         </motion.div>
                       ))}

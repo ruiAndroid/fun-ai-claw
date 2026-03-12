@@ -65,16 +65,30 @@ body {
 .ai-console {
   min-height: 100vh;
   padding: 24px 20px 44px;
+  position: relative;
   background:
     radial-gradient(60rem 36rem at 10% -8%, rgba(15, 118, 110, 0.12), transparent 55%),
     radial-gradient(50rem 30rem at 92% 8%, rgba(20, 184, 166, 0.09), transparent 48%),
     var(--console-bg);
 }
 
+.ai-console::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(15, 118, 110, 0.45) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .console-shell {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
   gap: 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .console-shell.is-collapsed {
@@ -97,6 +111,18 @@ body {
   position: sticky;
   top: 16px;
   transition: width 0.35s var(--console-ease);
+  overflow: hidden;
+}
+
+.console-sidebar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0f766e, #14b8a6, rgba(20, 184, 166, 0));
+  border-radius: var(--console-radius-card) var(--console-radius-card) 0 0;
 }
 
 .sidebar-head {
@@ -116,6 +142,13 @@ body {
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.01em;
+}
+
+.sidebar-title .text-md-primary {
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .sidebar-nav {
@@ -208,6 +241,18 @@ body {
   height: auto !important;
   line-height: normal !important;
   margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.console-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 28px;
+  right: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(15, 118, 110, 0.25), rgba(20, 184, 166, 0.15), transparent);
 }
 
 .console-kicker {
@@ -216,7 +261,10 @@ body {
   letter-spacing: 0.15em;
   font-size: 11px;
   font-weight: 800;
-  color: #0f766e;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .console-subtitle {
@@ -265,6 +313,11 @@ body {
   right: 0;
   height: 4px;
   border-radius: var(--console-radius-card) var(--console-radius-card) 0 0;
+  transition: height 0.3s var(--console-ease);
+}
+
+.kpi-card:hover::before {
+  height: 6px;
 }
 
 .kpi-card.is-total::before { background: linear-gradient(90deg, #0f766e, #14b8a6); }
@@ -280,6 +333,11 @@ body {
   height: 40px;
   border-radius: 12px;
   margin-bottom: 10px;
+  transition: transform 0.3s var(--console-ease);
+}
+
+.kpi-card:hover .kpi-icon-wrap {
+  transform: scale(1.08) rotate(-3deg);
 }
 
 .kpi-card.is-total .kpi-icon-wrap { background: rgba(15, 118, 110, 0.10); color: #0f766e; }
@@ -314,12 +372,18 @@ body {
   box-shadow: var(--console-shadow) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transition: box-shadow 0.3s var(--console-ease);
+  transition: box-shadow 0.3s var(--console-ease), transform 0.3s var(--console-ease);
+}
+
+.glass-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--console-shadow-hover) !important;
 }
 
 .glass-card .ant-card-head {
   border-bottom: 1px solid var(--console-border);
   padding: 20px 24px 16px;
+  background: linear-gradient(180deg, rgba(250, 255, 254, 0.6), transparent);
 }
 
 .glass-card .ant-card-head-title {
@@ -373,9 +437,32 @@ body {
   right: 0;
   width: 60px;
   height: 60px;
-  background: radial-gradient(circle at top right, rgba(20, 184, 166, 0.08), transparent 70%);
+  background: radial-gradient(circle at top right, rgba(20, 184, 166, 0.10), transparent 70%);
   pointer-events: none;
   border-radius: 0 var(--console-radius-panel) 0 0;
+  transition: opacity 0.3s var(--console-ease);
+}
+
+.instance-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0f766e, #14b8a6);
+  border-radius: var(--console-radius-panel) var(--console-radius-panel) 0 0;
+  opacity: 0;
+  transition: opacity 0.3s var(--console-ease);
+  z-index: 1;
+}
+
+.instance-card:hover::before {
+  opacity: 1;
+}
+
+.instance-card:hover::after {
+  opacity: 1.5;
 }
 
 .instance-card:hover {
@@ -396,6 +483,7 @@ body {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
+  font-weight: 700;
 }
 
 .instance-card-line {
@@ -418,7 +506,7 @@ body {
 }
 
 .instance-card .ant-tag {
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -491,15 +579,16 @@ body {
 
 .empty-panel {
   margin-top: 12px;
-  border: 1px dashed rgba(203, 213, 225, 0.40);
+  border: 1px dashed rgba(15, 118, 110, 0.15);
   border-radius: var(--console-radius-panel);
-  background: rgba(255, 255, 255, 0.45);
+  background: linear-gradient(180deg, rgba(250, 255, 254, 0.50), rgba(255, 255, 255, 0.35));
   min-height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 18px;
   color: #475569;
+  font-weight: 500;
 }
 
 .back-button {
@@ -538,6 +627,7 @@ body {
   height: 200px;
   background: radial-gradient(circle, rgba(20,184,166,0.12), transparent 70%);
   pointer-events: none;
+  animation: console-blob-drift 18s ease-in-out infinite;
 }
 
 .instance-detail-hero::after {
@@ -549,6 +639,7 @@ body {
   height: 160px;
   background: radial-gradient(circle, rgba(15,118,110,0.08), transparent 70%);
   pointer-events: none;
+  animation: console-blob-drift 22s ease-in-out infinite reverse;
 }
 
 .instance-hero-header {
@@ -575,8 +666,11 @@ body {
   font-size: 24px !important;
   font-weight: 800 !important;
   letter-spacing: -0.02em;
-  color: #0f172a;
   line-height: 1.2;
+  background: linear-gradient(135deg, #0f172a 60%, #0f766e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .instance-hero-id {
@@ -977,6 +1071,18 @@ body {
   border-radius: var(--console-radius-panel);
   background: rgba(255,255,255,0.80);
   overflow: hidden;
+  position: relative;
+}
+
+.agent-prompt-card::before {
+  content: "";
+  position: absolute;
+  top: -30px;
+  left: -30px;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(15, 118, 110, 0.06), transparent 70%);
+  pointer-events: none;
 }
 
 .agent-prompt-header {
@@ -985,7 +1091,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(250,255,254,0.50);
+  background: linear-gradient(180deg, rgba(250,255,254,0.65), rgba(255,255,255,0.40));
 }
 
 .agent-prompt-header-title {
@@ -1266,7 +1372,7 @@ body {
 
 .skill-card-v2:hover {
   border-color: rgba(15,118,110,0.30);
-  transform: translateY(-2px);
+  transform: translateY(-3px) scale(1.01);
   box-shadow: var(--console-shadow-hover);
 }
 
@@ -1984,6 +2090,35 @@ body {
 }
 
 /* =========================================
+   Global Micro-interactions
+   ========================================= */
+
+.ai-console .ant-tag {
+  border-radius: 999px;
+}
+
+.ai-console .ant-btn:not(.ant-btn-primary):not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.ai-console .ant-input:focus,
+.ai-console .ant-input-focused,
+.ai-console .ant-input-affix-wrapper:focus,
+.ai-console .ant-input-affix-wrapper-focused {
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.08) !important;
+}
+
+.ai-console .ant-tabs .ant-tabs-tab:hover {
+  color: #0f766e;
+}
+
+.ai-console .ant-tabs .ant-tabs-ink-bar {
+  background: linear-gradient(90deg, #0f766e, #14b8a6);
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+}
+
+/* =========================================
    Animations
    ========================================= */
 
@@ -2003,6 +2138,12 @@ body {
 
 .animate-scale-in {
   animation: console-scale-in 0.4s var(--console-ease) both;
+}
+
+@keyframes console-blob-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(15px, -10px) scale(1.03); }
+  66% { transform: translate(-10px, 8px) scale(0.98); }
 }
 
 /* =========================================

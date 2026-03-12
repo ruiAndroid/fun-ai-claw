@@ -14,6 +14,7 @@ import {
   upsertInstanceMainAgentGuidance,
 } from "@/lib/control-api";
 import { AgentBaselinePanel } from "@/components/agent-baseline-panel";
+import { InstanceAgentPanel } from "@/components/instance-agent-panel";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
@@ -3022,6 +3023,7 @@ export function Dashboard() {
                           label: uiText.tabAgent,
                           children: (
                             <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                              <InstanceAgentPanel instanceId={selectedInstance.id} />
                               <div className="tab-section-header">
                                 <div className="tab-section-title">
                                   <span className="tab-section-icon is-agent"><Bot size={16} /></span>

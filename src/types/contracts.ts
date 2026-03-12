@@ -98,6 +98,26 @@ export interface AgentBaselineUpsertRequest {
   updatedBy?: string | null;
 }
 
+export interface InstanceAgentBinding {
+  instanceId: string;
+  agentKey: string;
+  displayName: string;
+  description?: string | null;
+  runtime: string;
+  sourceType: string;
+  sourceRef?: string | null;
+  enabled: boolean;
+  provider?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  agentic?: boolean | null;
+  systemPrompt?: string | null;
+  allowedTools: string[];
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SkillDescriptor {
   id: string;
   path: string;

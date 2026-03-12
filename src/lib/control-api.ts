@@ -7,6 +7,7 @@ import {
   ClawInstance,
   CreateInstanceRequest,
   ImagePreset,
+  InstanceAgentBinding,
   InstanceConfig,
   InstanceMainAgentGuidance,
   InstanceRoutingConfig,
@@ -158,6 +159,35 @@ export async function upsertAgentSystemPrompt(
   return requestJson<AgentSystemPrompt>(`/v1/instances/${instanceId}/agents/${encodeURIComponent(agentId)}/system-prompt`, {
     method: "PUT",
     body: JSON.stringify(request),
+  });
+}
+
+export async function listInstanceAgentBindings(instanceId: string) {
+  return requestJson<ListResponse<InstanceAgentBinding>>(`/v1/instances/${instanceId}/agent-bindings`);
+}
+
+export async function upsertInstanceAgentBinding(
+  instanceId: string,
+  agentKey: string,
+  request: {
+    provider?: string | null;
+    model?: string | null;
+    temperature?: number | null;
+    agentic?: boolean | null;
+    systemPrompt?: string | null;
+    allowedTools?: string[] | null;
+    updatedBy?: string | null;
+  }
+) {
+  return requestJson<InstanceAgentBinding>(`/v1/instances/${instanceId}/agent-bindings/${encodeURIComponent(agentKey)}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function uninstallInstanceAgentBinding(instanceId: string, agentKey: string) {
+  return requestVoid(`/v1/instances/${instanceId}/agent-bindings/${encodeURIComponent(agentKey)}`, {
+    method: "DELETE",
   });
 }
 

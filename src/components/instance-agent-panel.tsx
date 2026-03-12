@@ -463,6 +463,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         placeholder="选择当前实例已装载的 Skill"
                         optionFilterProp="label"
                         showSearch
+                        style={{ width: "100%" }}
                       />
                     </div>
                     <div className="agent-detail-prop">

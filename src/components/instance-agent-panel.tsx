@@ -16,7 +16,7 @@ import type {
 } from "@/types/contracts";
 import { Alert, Button, Empty, Input, InputNumber, Select, Space, Switch, Tag, Typography, message } from "antd";
 import { motion } from "framer-motion";
-import { Bot, ChevronLeft, Eye, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Bot, ChevronLeft, Download, Eye, RefreshCw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Text } = Typography;
@@ -79,7 +79,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
   const [bindings, setBindings] = useState<InstanceAgentBinding[]>([]);
   const [skillBindings, setSkillBindings] = useState<InstanceSkillBinding[]>([]);
   const [selectedAgentKey, setSelectedAgentKey] = useState<string>();
-  const [candidateAgentKey, setCandidateAgentKey] = useState<string>();
+  const [agentSearch, setAgentSearch] = useState("");
   const [selectedBaselineDetail, setSelectedBaselineDetail] = useState<AgentBaseline>();
   const [draft, setDraft] = useState<AgentDraft>();
   const [loading, setLoading] = useState(false);
@@ -107,12 +107,6 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
       setBaselines(nextBaselines);
       setBindings(nextBindings);
       setSkillBindings(nextSkillBindings);
-      setCandidateAgentKey((current) => {
-        if (current && nextCandidates.some((item) => item.agentKey === current)) {
-          return current;
-        }
-        return nextCandidates[0]?.agentKey;
-      });
       setSelectedAgentKey((current) => {
         if (current && (nextBindings.some((item) => item.agentKey === current) || nextCandidates.some((item) => item.agentKey === current))) {
           return current;
@@ -120,7 +114,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
         if (nextBindings.length > 0) {
           return nextBindings[0].agentKey;
         }
-        return nextCandidates[0]?.agentKey;
+        return undefined;
       });
       if (showSuccess) {
         messageApi.success("已刷新实例 Agent");
@@ -130,7 +124,6 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
       setBindings([]);
       setSkillBindings([]);
       setSelectedAgentKey(undefined);
-      setCandidateAgentKey(undefined);
       setSelectedBaselineDetail(undefined);
       setDraft(undefined);
       setError(apiError instanceof Error ? apiError.message : String(apiError));
@@ -159,6 +152,15 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
       .filter((item) => item.enabled && !installedKeys.has(item.agentKey))
       .sort((left, right) => left.agentKey.localeCompare(right.agentKey));
   }, [baselines, bindings]);
+  const filteredCandidateAgents = useMemo(() => {
+    if (!agentSearch.trim()) return candidateAgents;
+    const keyword = agentSearch.trim().toLowerCase();
+    return candidateAgents.filter(
+      (item) =>
+        item.agentKey.toLowerCase().includes(keyword) ||
+        (item.displayName || "").toLowerCase().includes(keyword),
+    );
+  }, [candidateAgents, agentSearch]);
 
   useEffect(() => {
     if (selectedBinding) {
@@ -198,15 +200,16 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
 
   const draftDirty = snapshotDraft(draft) !== snapshotDraft(selectedBinding ? toDraft(selectedBinding) : undefined);
 
-  const handleInstall = useCallback(async () => {
-    if (!candidateAgentKey) {
+  const handleInstall = useCallback(async (agentKey?: string) => {
+    const targetAgentKey = agentKey ?? selectedAgentKey;
+    if (!targetAgentKey) {
       return;
     }
     setSaving(true);
     setError(undefined);
     try {
-      await upsertInstanceAgentBinding(instanceId, candidateAgentKey, { updatedBy: "ui-dashboard" });
-      setSelectedAgentKey(candidateAgentKey);
+      await upsertInstanceAgentBinding(instanceId, targetAgentKey, { updatedBy: "ui-dashboard" });
+      setSelectedAgentKey(targetAgentKey);
       await loadAll();
       messageApi.success("Agent 已装载到当前实例");
     } catch (apiError) {
@@ -216,7 +219,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
     } finally {
       setSaving(false);
     }
-  }, [candidateAgentKey, instanceId, loadAll, messageApi]);
+  }, [instanceId, loadAll, messageApi, selectedAgentKey]);
 
   const handleSave = useCallback(async () => {
     if (!selectedBinding || !draft) {
@@ -274,16 +277,21 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
             <span className="tab-section-icon is-agent"><Bot size={16} /></span>
             实例 Agent 配置
           </div>
-          <Button
-            size="small"
-            loading={loading}
-            onClick={() => {
-              void loadAll(true);
-            }}
-            icon={<RefreshCw size={12} />}
-          >
-            刷新
-          </Button>
+          <Space size="small">
+            <Tag color="green">已装载 {installedAgents.length}</Tag>
+            <Tag color="blue">可添加 {candidateAgents.length}</Tag>
+            <Tag color="gold">已装载 Skill {skillBindings.length}</Tag>
+            <Button
+              size="small"
+              loading={loading}
+              onClick={() => {
+                void loadAll(true);
+              }}
+              icon={<RefreshCw size={12} />}
+            >
+              刷新
+            </Button>
+          </Space>
         </div>
 
         {error ? <Alert type="error" showIcon message={error} /> : null}
@@ -294,76 +302,85 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
           description={"首次打开时，会把当前实例已有的 [agents.\"...\"] 配置自动回填进数据库。后续以实例 Agent 配置为准。"}
         />
 
-        <div className="agent-prompt-card">
-          <div className="agent-prompt-header">
-            <span className="agent-prompt-header-title">添加 Agent</span>
-            <Space size="small" wrap>
-              <Select
-                style={{ minWidth: 320 }}
-                placeholder={candidateAgents.length > 0 ? "选择一个未装载的 Agent" : "没有可添加的 Agent"}
-                value={candidateAgentKey}
-                onChange={(value) => {
-                  setCandidateAgentKey(value);
-                  setSelectedAgentKey(value);
-                }}
-                options={candidateAgents.map((item) => ({
-                  value: item.agentKey,
-                  label: `${item.displayName} (${item.agentKey})`,
-                }))}
-                disabled={candidateAgents.length === 0 || saving}
-                showSearch
-                optionFilterProp="label"
-              />
-              <Button
-                type="primary"
-                icon={<Plus size={14} />}
-                disabled={!candidateAgentKey || saving}
-                loading={saving}
-                onClick={() => void handleInstall()}
-              >
-                添加并装载
-              </Button>
-            </Space>
-          </div>
-          <div className="agent-prompt-body">
-            <Space size="small" wrap>
-              <Tag color="green">已装载 {installedAgents.length}</Tag>
-              <Tag color="blue">可添加 {candidateAgents.length}</Tag>
-              <Tag color="gold">已装载 Skill {skillBindings.length}</Tag>
-            </Space>
-          </div>
-        </div>
-
         {installedAgents.length > 0 ? (
-          <div className="agent-selector-grid">
-            {installedAgents.map((item) => {
-              const selected = selectedAgentKey === item.agentKey;
-              return (
-                <button
-                  key={item.agentKey}
-                  type="button"
-                  className={`agent-selector-card ${selected ? "is-selected" : ""}`}
-                  onClick={() => setSelectedAgentKey(item.agentKey)}
-                >
-                  <div className={`agent-selector-card-icon ${item.agentic ? "is-agentic" : "is-standard"}`}>
-                    <Bot size={18} />
-                  </div>
-                  <strong className="agent-selector-card-title">{item.displayName || item.agentKey}</strong>
-                  <p className="agent-selector-card-path">{item.agentKey}</p>
-                  <div className="agent-selector-card-meta">
-                    <span className="agent-selector-card-chip is-neutral">{item.runtime}</span>
-                    <span className={`agent-selector-card-chip ${item.enabled ? "is-agentic" : "is-neutral"}`}>
-                      {item.enabled ? "Enabled" : "Disabled"}
-                    </span>
-                    {item.model ? <span className="agent-selector-card-chip is-model">{item.model}</span> : null}
-                  </div>
-                </button>
-              );
-            })}
+          <div className="agent-prompt-card">
+            <div className="agent-prompt-header">
+              <span className="agent-prompt-header-title">已装载</span>
+            </div>
+            <div className="agent-prompt-body">
+              <div className="agent-selector-grid">
+                {installedAgents.map((item) => {
+                  const selected = selectedAgentKey === item.agentKey;
+                  return (
+                    <button
+                      key={item.agentKey}
+                      type="button"
+                      className={`agent-selector-card ${selected ? "is-selected" : ""}`}
+                      onClick={() => setSelectedAgentKey(item.agentKey)}
+                    >
+                      <div className={`agent-selector-card-icon ${item.agentic ? "is-agentic" : "is-standard"}`}>
+                        <Bot size={18} />
+                      </div>
+                      <strong className="agent-selector-card-title">{item.displayName || item.agentKey}</strong>
+                      <p className="agent-selector-card-path">{item.agentKey}</p>
+                      <div className="agent-selector-card-meta">
+                        <span className="agent-selector-card-chip is-neutral">{item.runtime}</span>
+                        <span className={`agent-selector-card-chip ${item.enabled ? "is-agentic" : "is-neutral"}`}>
+                          {item.enabled ? "Enabled" : "Disabled"}
+                        </span>
+                        {item.model ? <span className="agent-selector-card-chip is-model">{item.model}</span> : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         ) : (
           !loading ? <Empty description="当前实例还没有装载 Agent" /> : null
         )}
+
+        {candidateAgents.length > 0 ? (
+          <div className="agent-prompt-card">
+            <div className="agent-prompt-header">
+              <span className="agent-prompt-header-title">可添加</span>
+              <Input
+                placeholder="搜索 Agent..."
+                prefix={<Search size={14} style={{ opacity: 0.45 }} />}
+                allowClear
+                style={{ width: 240 }}
+                value={agentSearch}
+                onChange={(e) => setAgentSearch(e.target.value)}
+              />
+            </div>
+            <div className="agent-prompt-body">
+              {filteredCandidateAgents.length > 0 ? (
+                <div className="agent-selector-grid">
+                  {filteredCandidateAgents.map((item) => {
+                    const selected = selectedAgentKey === item.agentKey;
+                    return (
+                      <button
+                        key={item.agentKey}
+                        type="button"
+                        className={`agent-selector-card ${selected ? "is-selected" : ""}`}
+                        onClick={() => setSelectedAgentKey(item.agentKey)}
+                      >
+                        <div className="agent-selector-card-icon is-standard">
+                          <Download size={18} />
+                        </div>
+                        <strong className="agent-selector-card-title">{item.displayName || item.agentKey}</strong>
+                        <p className="agent-selector-card-path">{item.agentKey}</p>
+                        <Tag color="blue">未装载</Tag>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Empty description={agentSearch ? "没有匹配的 Agent" : "没有可添加的 Agent"} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {selectedBinding ? (
           <motion.div
@@ -504,12 +521,10 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                 <Button
                   type="primary"
                   size="small"
-                  icon={<Plus size={12} />}
                   loading={saving}
-                  disabled={!candidateAgentKey || candidateAgentKey !== selectedAgentKey}
-                  onClick={() => void handleInstall()}
+                  onClick={() => void handleInstall(selectedAgentKey)}
                 >
-                  添加并装载
+                  装载到当前实例
                 </Button>
               </div>
               <div className="agent-prompt-body is-spacious">

@@ -651,9 +651,6 @@ export function Dashboard() {
       await loadInstances();
       setSelectedInstanceId(instance.id);
       messageApi.success(`${uiText.instanceCreatedPrefix}${instance.name}`);
-      if (values.desiredState === "RUNNING") {
-        await fetchAndShowPairingCode(instance.id, instance.name);
-      }
     } catch (apiError) {
       const hasValidationError =
         typeof apiError === "object" &&
@@ -687,9 +684,6 @@ export function Dashboard() {
       messageApi.success(`${uiText.actionSubmittedPrefix}${actionLabelMap[action]}`);
       setSubmittingAction(false);
       setActiveInstanceAction(undefined);
-      if (action === "START" || action === "RESTART" || action === "ROLLBACK") {
-        await fetchAndShowPairingCode(instanceId, instanceName);
-      }
       return true;
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.actionFailed);
@@ -2484,15 +2478,6 @@ export function Dashboard() {
                         <div className="instance-action-group">
                           <Button
                             className="instance-action-chip is-danger"
-                            loading={submittingAction}
-                            disabled={disableRollback}
-                            onClick={() => handleSensitiveAction("ROLLBACK")}
-                            icon={<Undo2 size={14} />}
-                          >
-                            {uiText.rollback}
-                          </Button>
-                          <Button
-                            className="instance-action-chip is-danger"
                             loading={deletingInstance}
                             disabled={disableDelete}
                             onClick={openDeleteModal}
@@ -2509,15 +2494,6 @@ export function Dashboard() {
                           icon={<Terminal size={14} />}
                         >
                           {uiText.remoteConnect}
-                        </Button>
-                        <Button
-                          className="instance-action-chip is-ghost"
-                          loading={pairingCodeLoading}
-                          disabled={!selectedInstance}
-                          onClick={openPairingCodeModal}
-                          icon={<Link2 size={14} />}
-                        >
-                          {uiText.fetchPairingCode}
                         </Button>
                         <Button
                           className="instance-action-chip is-primary"

@@ -30,6 +30,38 @@ type AgentDraft = {
   allowedTools: string[];
 };
 
+const RUNTIME_TOOL_CATALOG: Array<{ value: string; description: string }> = [
+  { value: "shell", description: "Run shell commands" },
+  { value: "file_read", description: "Read files" },
+  { value: "file_write", description: "Write files" },
+  { value: "file_edit", description: "Edit files" },
+  { value: "glob_search", description: "Search file paths" },
+  { value: "content_search", description: "Search file contents" },
+  { value: "cron_add", description: "Create cron jobs" },
+  { value: "cron_list", description: "List cron jobs" },
+  { value: "cron_remove", description: "Remove cron jobs" },
+  { value: "cron_update", description: "Update cron jobs" },
+  { value: "cron_run", description: "Run cron jobs" },
+  { value: "cron_runs", description: "Inspect cron run history" },
+  { value: "memory_store", description: "Store memory" },
+  { value: "memory_recall", description: "Recall memory" },
+  { value: "memory_forget", description: "Forget memory" },
+  { value: "schedule", description: "Manage schedules" },
+  { value: "model_routing_config", description: "Update model routing" },
+  { value: "proxy_config", description: "Update proxy config" },
+  { value: "git_operations", description: "Run git operations" },
+  { value: "pushover", description: "Send notifications" },
+  { value: "pdf_read", description: "Read PDFs" },
+  { value: "screenshot", description: "Capture screenshots" },
+  { value: "image_info", description: "Inspect images" },
+  { value: "browser_open", description: "Open browser URLs" },
+  { value: "browser", description: "Use browser automation" },
+  { value: "http_request", description: "Send HTTP requests" },
+  { value: "web_fetch", description: "Fetch web pages" },
+  { value: "web_search_tool", description: "Search the web" },
+  { value: "composio", description: "Call Composio tools" },
+];
+
 function toDraft(binding: InstanceAgentBinding): AgentDraft {
   return {
     provider: binding.provider ?? "",
@@ -196,14 +228,26 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
       });
   }, [selectedAgentKey, selectedBinding]);
 
-  const skillOptions = useMemo(() => {
-    const values = new Set<string>();
-    skillBindings.forEach((item) => values.add(item.skillKey));
-    (draft?.allowedTools ?? []).forEach((item) => values.add(item));
-    return Array.from(values)
-      .sort((left, right) => left.localeCompare(right))
-      .map((item) => ({ value: item, label: item }));
-  }, [draft?.allowedTools, skillBindings]);
+  const runtimeToolOptions = useMemo(() => {
+    const options = new Map(
+      RUNTIME_TOOL_CATALOG.map((item) => [
+        item.value,
+        {
+          value: item.value,
+          label: `${item.value} - ${item.description}`,
+        },
+      ]),
+    );
+    (draft?.allowedTools ?? []).forEach((item) => {
+      if (!options.has(item)) {
+        options.set(item, {
+          value: item,
+          label: `${item} - custom`,
+        });
+      }
+    });
+    return Array.from(options.values()).sort((left, right) => left.value.localeCompare(right.value));
+  }, [draft?.allowedTools]);
 
   const draftDirty = snapshotDraft(draft) !== snapshotDraft(selectedBinding ? toDraft(selectedBinding) : undefined);
 
@@ -522,19 +566,24 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                           }}
                         />
                       </div>
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">可用工具</span>
-                        <Select
-                          mode="multiple"
-                          allowClear
-                          placeholder="选择已挂载的 Skill"
-                          options={skillOptions}
-                          value={draft?.allowedTools ?? []}
-                          onChange={(value) => {
-                            setDraft((current) => (current ? { ...current, allowedTools: value } : current));
-                          }}
-                        />
-                      </div>
+                      {draft?.agentic ? (
+                        <div className="agent-detail-prop is-wide">
+                          <span className="agent-detail-prop-label">allowed_tools</span>
+                          <Select
+                            mode="tags"
+                            allowClear
+                            placeholder="Select runtime tools, not skill IDs"
+                            options={runtimeToolOptions}
+                            value={draft?.allowedTools ?? []}
+                            onChange={(value) => {
+                              setDraft((current) => (current ? { ...current, allowedTools: value } : current));
+                            }}
+                          />
+                          <Text type="secondary">
+                            allowed_tools only matches ZeroClaw runtime tool names. Mounted skills are managed separately.
+                          </Text>
+                        </div>
+                      ) : null}
                       <div className="agent-detail-prop is-wide">
                         <span className="agent-detail-prop-label">描述</span>
                         <span className="agent-detail-prop-value">{selectedBinding.description || "-"}</span>

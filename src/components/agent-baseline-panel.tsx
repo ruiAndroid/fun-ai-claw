@@ -261,10 +261,10 @@ export function AgentBaselinePanel() {
         extra={(
           <Space size="small" wrap>
             <Button size="small" onClick={() => void loadItems(selectedAgentKey)} loading={loading} icon={<RefreshCw size={12} />}>
-              Refresh Agent baseline
+              刷新
             </Button>
             <Button size="small" type="primary" onClick={() => setCreateModalOpen(true)} icon={<Plus size={12} />}>
-              Create Agent
+              新建 Agent
             </Button>
           </Space>
         )}
@@ -274,7 +274,7 @@ export function AgentBaselinePanel() {
             <Alert
               showIcon
               type="error"
-              message="Agent baseline request failed"
+              message="Agent 台账请求失败"
               description={error}
             />
           ) : null}
@@ -285,20 +285,20 @@ export function AgentBaselinePanel() {
 
           {(!loading && items.length === 0) ? (
             <Empty
-              description="No Agent baseline yet. Create one to get started."
+              description="暂无 Agent 台账，请先创建。"
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             >
-              <Button type="primary" onClick={() => setCreateModalOpen(true)}>Create Agent</Button>
+              <Button type="primary" onClick={() => setCreateModalOpen(true)}>新建 Agent</Button>
             </Empty>
           ) : null}
 
           {items.length > 0 ? (
             <>
-              <Text type="secondary">Select an Agent baseline to view or edit.</Text>
+              <Text type="secondary">选择一个 Agent 台账查看或编辑。</Text>
               <div className="agent-selector-grid">
                 {items.map((item) => {
                   const selected = selectedAgentKey === item.agentKey;
-                  const statusLabel = item.enabled ? "Enabled" : "Disabled";
+                  const statusLabel = item.enabled ? "已启用" : "已禁用";
                   return (
                     <button
                       key={item.agentKey}
@@ -335,7 +335,7 @@ export function AgentBaselinePanel() {
                     <Space size={[8, 8]} wrap>
                       <Tag color="blue">{draft.agentKey}</Tag>
                       <Tag>{draft.runtime}</Tag>
-                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "Enabled" : "Disabled"}</Tag>
+                      <Tag color={draft.enabled ? "green" : "default"}>{draft.enabled ? "已启用" : "已禁用"}</Tag>
                       {draft.model ? <Tag color="purple">{draft.model}</Tag> : null}
                       {draft.provider ? <Tag>{draft.provider}</Tag> : null}
                       {draft.temperature != null ? <Tag>{`temp ${draft.temperature}`}</Tag> : null}
@@ -343,20 +343,20 @@ export function AgentBaselinePanel() {
                     </Space>
                   </div>
                   <Space size="small" wrap>
-                    <Text type="secondary">{`Updated ${formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}`}</Text>
+                    <Text type="secondary">{`更新于 ${formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}`}</Text>
                     <Popconfirm
-                      title="Delete Agent baseline?"
-                      description={`This will remove ${draft.agentKey} from the baseline table.`}
-                      okText="Delete"
-                      cancelText="Cancel"
+                      title="确定删除该 Agent 台账？"
+                      description={`此操作将从台账中移除 ${draft.agentKey}。`}
+                      okText="删除"
+                      cancelText="取消"
                       onConfirm={() => void handleDelete()}
                     >
                       <Button danger loading={deleting} icon={<Trash2 size={12} />}>
-                        Delete
+                        删除
                       </Button>
                     </Popconfirm>
                     <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void handleSave()}>
-                      Save
+                      保存
                     </Button>
                   </Space>
                 </div>
@@ -364,7 +364,7 @@ export function AgentBaselinePanel() {
                 <div className="agent-baseline-grid">
                   <div className="agent-prompt-card">
                     <div className="agent-prompt-header">
-                      <span className="agent-prompt-header-title">Basic Info</span>
+                      <span className="agent-prompt-header-title">基本信息</span>
                     </div>
                     <div className="agent-prompt-body is-spacious">
                       <div className="agent-baseline-fields">
@@ -445,7 +445,7 @@ export function AgentBaselinePanel() {
                         rows={24}
                         value={systemPrompt}
                         onChange={(event) => updateDraft({ systemPrompt: event.target.value })}
-                        placeholder="Paste the agent system_prompt here"
+                        placeholder="在此粘贴 agent system_prompt"
                       />
                     </div>
                   </div>
@@ -457,14 +457,14 @@ export function AgentBaselinePanel() {
       </Card>
 
       <Modal
-        title="Create Agent baseline"
+        title="新建 Agent 台账"
         open={createModalOpen}
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
         }}
         onOk={() => void handleCreate()}
-        okText="Create"
+        okText="创建"
         confirmLoading={creating}
       >
         <Form<CreateBaselineForm> form={createForm} layout="vertical">
@@ -472,14 +472,14 @@ export function AgentBaselinePanel() {
             name="agentKey"
             label="Agent Key"
             rules={[
-              { required: true, message: "Please enter Agent Key" },
-              { pattern: /^[A-Za-z0-9._-]+$/, message: "Only letters, numbers, dot, underscore and hyphen are allowed" },
+              { required: true, message: "请输入 Agent Key" },
+              { pattern: /^[A-Za-z0-9._-]+$/, message: "仅允许字母、数字、点、下划线和连字符" },
             ]}
           >
-            <Input placeholder="For example: mgc-novel-to-script" />
+            <Input placeholder="例如：mgc-novel-to-script" />
           </Form.Item>
           <Form.Item name="displayName" label="Display Name">
-            <Input placeholder="Optional. Defaults to Agent Key." />
+            <Input placeholder="选填，默认使用 Agent Key" />
           </Form.Item>
         </Form>
       </Modal>

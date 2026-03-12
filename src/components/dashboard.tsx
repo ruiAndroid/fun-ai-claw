@@ -206,7 +206,7 @@ export function Dashboard() {
     setAgentSystemPromptError(undefined);
     setAgentSystemPromptCollapsed(true);
   }, [selectedAgentId, selectedAgent?.systemPrompt]);
-  const selectedAgentAllowedTools = useMemo(
+  const selectedAgentRuntimeAllowedTools = useMemo(
     () => (selectedAgent?.allowedTools ?? []).filter((item): item is string => typeof item === "string" && item.trim().length > 0),
     [selectedAgent]
   );
@@ -3103,9 +3103,9 @@ export function Dashboard() {
                                     </div>
                                     <div className="agent-detail-prop is-wide">
                                       <span className="agent-detail-prop-label">Allowed Tools</span>
-                                      {selectedAgentAllowedTools.length > 0 ? (
+                                      {selectedAgentRuntimeAllowedTools.length > 0 ? (
                                         <div className="agent-tool-list">
-                                          {selectedAgentAllowedTools.map((toolId) => (
+                                          {selectedAgentRuntimeAllowedTools.map((toolId) => (
                                             <span key={toolId} className="agent-tool-chip">{toolId}</span>
                                           ))}
                                         </div>
@@ -3205,7 +3205,7 @@ export function Dashboard() {
                           children: (
                             <InstanceSkillPanel
                               instanceId={selectedInstance.id}
-                              selectedAgentAllowedTools={selectedAgentAllowedTools}
+                              preferredAgentKey={selectedAgentId}
                             />
                           ),
                         },
@@ -3514,3 +3514,4 @@ export function Dashboard() {
     </>
   );
 }
+

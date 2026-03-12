@@ -235,6 +235,23 @@ export const uiText = {
   mainAgentGuidanceEffectivePrompt: "当前生效内容预览",
   mainAgentGuidanceNoEffectivePrompt: "当前无生效主 Agent 提示词",
   mainAgentGuidancePromptRequired: "首次保存实例覆盖时，请先填写提示词内容",
+  // Task tab
+  noTasks: "暂无定时任务",
+  createTask: "创建任务",
+  deleteTask: "删除",
+  confirmDeleteTask: "确定删除该定时任务？",
+  taskCreated: "任务创建成功",
+  taskDeleted: "任务已删除",
+  loadTasksFailed: "任务列表请求失败",
+  taskCreateFailed: "创建任务失败",
+  taskDeleteFailed: "删除任务失败",
+  taskNamePlaceholder: "任务名称（可选）",
+  taskSchedulePlaceholder: "Cron 表达式，如 0 9 * * *",
+  taskCommandPlaceholder: "Shell 命令",
+  taskScheduleRequired: "请输入 Cron 表达式",
+  taskCommandRequired: "请输入 Shell 命令",
+  taskCreatedJobs: "已创建的定时任务",
+  taskCreateNew: "创建定时任务",
 } as const;
 
 export type UiText = typeof uiText;

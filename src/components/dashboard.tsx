@@ -16,6 +16,7 @@ import { AgentBaselinePanel } from "@/components/agent-baseline-panel";
 import { InstanceAgentPanel } from "@/components/instance-agent-panel";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { InstanceSkillPanel } from "@/components/instance-skill-panel";
+import { InstanceTaskPanel } from "@/components/instance-task-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
 import { SkillBaselinePanel } from "@/components/skill-baseline-panel";
 import { appConfig } from "@/config/app-config";
@@ -54,7 +55,7 @@ import {
   parseAgentSessionFrame,
 } from "@/lib/agent-session-protocol";
 import { uiText } from "@/constants/ui-text";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Copy, CalendarClock, Plug } from "lucide-react";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Undo2, Trash2, Terminal, Link2, Eye, MonitorPlay, RefreshCw, FileText, Copy, Plug } from "lucide-react";
 import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion } from "framer-motion";
@@ -3007,18 +3008,7 @@ export function Dashboard() {
                           key: "tasks",
                           label: uiText.tabTask,
                           children: (
-                            <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                              <div className="tab-section-header">
-                                <div className="tab-section-title">
-                                  <span className="tab-section-icon is-task"><CalendarClock size={16} /></span>
-                                  {uiText.tabTask}
-                                </div>
-                              </div>
-                              <div className="empty-panel" style={{ minHeight: 200, flexDirection: "column", gap: 12 }}>
-                                <CalendarClock size={32} style={{ opacity: 0.25 }} />
-                                <span>长任务与定时任务，敬请期待</span>
-                              </div>
-                            </Space>
+                            <InstanceTaskPanel instanceId={selectedInstance.id} />
                           ),
                         },
                       ]}

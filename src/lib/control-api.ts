@@ -299,6 +299,80 @@ export async function deleteInstanceMainAgentGuidance(instanceId: string) {
   });
 }
 
+/* ── Gateway proxy (zeroclaw instance gateway via UiControllerProxy) ── */
+
+const GATEWAY_BASE = appConfig.uiControllerBaseUrl;
+
+async function gatewayRequestJson<T>(instanceId: string, path: string, init?: RequestInit): Promise<T> {
+  const url = `${GATEWAY_BASE}/${instanceId}${path}`;
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`HTTP ${response.status}: ${body || response.statusText}`);
+  }
+  return (await response.json()) as T;
+}
+
+async function gatewayRequestVoid(instanceId: string, path: string, init?: RequestInit): Promise<void> {
+  const url = `${GATEWAY_BASE}/${instanceId}${path}`;
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`HTTP ${response.status}: ${body || response.statusText}`);
+  }
+}
+
+/* ── Cron Jobs (via gateway) ── */
+
+export interface CronJob {
+  id: string;
+  name: string | null;
+  command: string;
+  enabled: boolean;
+  next_run: string | null;
+  last_run: string | null;
+  last_status: string | null;
+}
+
+export interface CronJobCreateRequest {
+  name?: string;
+  schedule: string;
+  command: string;
+}
+
+export async function listInstanceCronJobs(instanceId: string) {
+  return gatewayRequestJson<{ jobs: CronJob[] }>(instanceId, "/api/cron");
+}
+
+export async function createInstanceCronJob(instanceId: string, request: CronJobCreateRequest) {
+  return gatewayRequestJson<{ status: string; job: CronJob }>(instanceId, "/api/cron", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteInstanceCronJob(instanceId: string, jobId: string) {
+  return gatewayRequestVoid(instanceId, `/api/cron/${encodeURIComponent(jobId)}`, {
+    method: "DELETE",
+  });
+}
+
+/* ── Open Apps ── */
+
 export async function listOpenApps() {
   return requestJson<ListResponse<OpenClientApp>>("/v1/open-apps");
 }

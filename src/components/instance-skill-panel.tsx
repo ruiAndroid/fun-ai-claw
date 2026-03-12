@@ -3,12 +3,14 @@
 import {
   getSkillBaseline,
   installInstanceSkill,
+  listInstanceAgentBindings,
   listInstanceSkillBindings,
   listInstanceSkills,
   listSkillBaselines,
   uninstallInstanceSkill,
 } from "@/lib/control-api";
 import type {
+  InstanceAgentBinding,
   InstanceSkillBinding,
   SkillBaseline,
   SkillBaselineSummary,
@@ -37,17 +39,19 @@ function formatTimestamp(value?: string | null): string {
 
 export function InstanceSkillPanel({
   instanceId,
-  selectedAgentAllowedTools,
+  preferredAgentKey,
 }: {
   instanceId: string;
-  selectedAgentAllowedTools: string[];
+  preferredAgentKey?: string;
 }) {
   const [availableSkills, setAvailableSkills] = useState<SkillBaselineSummary[]>([]);
   const [bindings, setBindings] = useState<InstanceSkillBinding[]>([]);
   const [runtimeSkills, setRuntimeSkills] = useState<SkillDescriptor[]>([]);
+  const [agentBindings, setAgentBindings] = useState<InstanceAgentBinding[]>([]);
   const [selectedSkillKey, setSelectedSkillKey] = useState<string>();
   const [selectedSkillDetail, setSelectedSkillDetail] = useState<SkillBaseline>();
   const [candidateSkillKey, setCandidateSkillKey] = useState<string>();
+  const [selectedAgentKey, setSelectedAgentKey] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [runtimeLoading, setRuntimeLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -70,22 +74,25 @@ export function InstanceSkillPanel({
     }
   }, [instanceId]);
 
-  const loadBindingsAndBaselines = useCallback(async (showSuccess?: boolean) => {
+  const loadData = useCallback(async (showSuccess?: boolean) => {
     setLoading(true);
     setError(undefined);
     try {
-      const [baselineResponse, bindingResponse] = await Promise.all([
+      const [baselineResponse, bindingResponse, agentBindingResponse] = await Promise.all([
         listSkillBaselines(),
         listInstanceSkillBindings(instanceId),
+        listInstanceAgentBindings(instanceId),
       ]);
       const allSkills = baselineResponse.items;
       const currentBindings = bindingResponse.items;
-      const installedKeySet = new Set(currentBindings.map((item) => item.skillKey));
-      const installedSkills = allSkills.filter((item) => installedKeySet.has(item.skillKey));
-      const candidateSkills = allSkills.filter((item) => !installedKeySet.has(item.skillKey) && item.enabled);
+      const currentAgentBindings = agentBindingResponse.items;
+      const installedSkillKeySet = new Set(currentBindings.map((item) => item.skillKey));
+      const installedSkills = allSkills.filter((item) => installedSkillKeySet.has(item.skillKey));
+      const candidateSkills = allSkills.filter((item) => !installedSkillKeySet.has(item.skillKey) && item.enabled);
 
       setAvailableSkills(allSkills);
       setBindings(currentBindings);
+      setAgentBindings(currentAgentBindings);
       setCandidateSkillKey((current) => {
         if (current && candidateSkills.some((item) => item.skillKey === current)) {
           return current;
@@ -101,20 +108,31 @@ export function InstanceSkillPanel({
         }
         return candidateSkills[0]?.skillKey;
       });
+      setSelectedAgentKey((current) => {
+        if (current && currentAgentBindings.some((item) => item.agentKey === current)) {
+          return current;
+        }
+        if (preferredAgentKey && currentAgentBindings.some((item) => item.agentKey === preferredAgentKey)) {
+          return preferredAgentKey;
+        }
+        return currentAgentBindings[0]?.agentKey;
+      });
       if (showSuccess) {
         messageApi.success("已刷新实例 Skill");
       }
     } catch (apiError) {
       setAvailableSkills([]);
       setBindings([]);
+      setAgentBindings([]);
       setSelectedSkillKey(undefined);
       setCandidateSkillKey(undefined);
+      setSelectedAgentKey(undefined);
       setSelectedSkillDetail(undefined);
       setError(apiError instanceof Error ? apiError.message : String(apiError));
     } finally {
       setLoading(false);
     }
-  }, [instanceId, messageApi]);
+  }, [instanceId, messageApi, preferredAgentKey]);
 
   const loadSelectedSkillDetail = useCallback(async (skillKey?: string) => {
     if (!skillKey) {
@@ -133,9 +151,9 @@ export function InstanceSkillPanel({
   }, []);
 
   useEffect(() => {
-    void loadBindingsAndBaselines();
+    void loadData();
     void loadRuntimeSkills();
-  }, [loadBindingsAndBaselines, loadRuntimeSkills]);
+  }, [loadData, loadRuntimeSkills]);
 
   useEffect(() => {
     void loadSelectedSkillDetail(selectedSkillKey);
@@ -143,6 +161,7 @@ export function InstanceSkillPanel({
 
   const bindingMap = useMemo(() => new Map(bindings.map((item) => [item.skillKey, item])), [bindings]);
   const runtimeSkillMap = useMemo(() => new Map(runtimeSkills.map((item) => [item.id, item])), [runtimeSkills]);
+  const agentBindingMap = useMemo(() => new Map(agentBindings.map((item) => [item.agentKey, item])), [agentBindings]);
 
   const installedSkills = useMemo(
     () => availableSkills.filter((item) => bindingMap.has(item.skillKey)),
@@ -155,10 +174,15 @@ export function InstanceSkillPanel({
 
   const selectedBinding = selectedSkillKey ? bindingMap.get(selectedSkillKey) : undefined;
   const selectedRuntimeSkill = selectedSkillKey ? runtimeSkillMap.get(selectedSkillKey) : undefined;
+  const activeAgentBinding = selectedAgentKey
+    ? agentBindingMap.get(selectedAgentKey) ?? agentBindings[0]
+    : agentBindings[0];
+  const activeAgentAllowedTools = activeAgentBinding?.allowedTools ?? [];
   const selectedSkillNotAllowed = Boolean(
-    selectedSkillKey
-      && selectedAgentAllowedTools.length > 0
-      && !selectedAgentAllowedTools.includes(selectedSkillKey),
+    activeAgentBinding
+      && selectedSkillKey
+      && activeAgentAllowedTools.length > 0
+      && !activeAgentAllowedTools.includes(selectedSkillKey),
   );
 
   const handleInstall = useCallback(async (skillKey?: string) => {
@@ -172,7 +196,7 @@ export function InstanceSkillPanel({
       await installInstanceSkill(instanceId, targetSkillKey);
       setSelectedSkillKey(targetSkillKey);
       await Promise.all([
-        loadBindingsAndBaselines(),
+        loadData(),
         loadRuntimeSkills(),
         loadSelectedSkillDetail(targetSkillKey),
       ]);
@@ -184,7 +208,7 @@ export function InstanceSkillPanel({
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadBindingsAndBaselines, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, selectedSkillKey]);
+  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, selectedSkillKey]);
 
   const handleUninstall = useCallback(async () => {
     if (!selectedSkillKey) {
@@ -195,7 +219,7 @@ export function InstanceSkillPanel({
     try {
       await uninstallInstanceSkill(instanceId, selectedSkillKey);
       await Promise.all([
-        loadBindingsAndBaselines(),
+        loadData(),
         loadRuntimeSkills(),
       ]);
       messageApi.success("Skill 已从当前实例卸载");
@@ -206,7 +230,7 @@ export function InstanceSkillPanel({
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadBindingsAndBaselines, loadRuntimeSkills, messageApi, selectedSkillKey]);
+  }, [instanceId, loadData, loadRuntimeSkills, messageApi, selectedSkillKey]);
 
   return (
     <>
@@ -221,7 +245,7 @@ export function InstanceSkillPanel({
             size="small"
             loading={loading || runtimeLoading}
             onClick={() => {
-              void loadBindingsAndBaselines(true);
+              void loadData(true);
               void loadRuntimeSkills();
             }}
             icon={<RefreshCw size={12} />}
@@ -244,8 +268,41 @@ export function InstanceSkillPanel({
           type="info"
           showIcon
           message="这里只展示当前实例已装载的 Skill"
-          description="未装载的 Skill 可以通过下方“添加 Skill”选择后直接装载。老容器首次装载 Skill 后，建议重启一次实例以补齐 /workspace/skills 挂载。"
+          description={
+            activeAgentBinding
+              ? `当前正按 Agent「${activeAgentBinding.displayName || activeAgentBinding.agentKey}」的 allowed_tools 视角显示 Skill 兼容性。`
+              : "未选择实例 Agent 时，仅展示 Skill 装载状态，不做 allowed_tools 兼容性限制提示。"
+          }
         />
+
+        <div className="agent-prompt-card">
+          <div className="agent-prompt-header">
+            <span className="agent-prompt-header-title">Skill 视角</span>
+            <Space size="small" wrap>
+              <Select
+                style={{ minWidth: 320 }}
+                placeholder={agentBindings.length > 0 ? "选择一个实例 Agent 作为视角" : "当前实例还没有装载 Agent"}
+                value={activeAgentBinding?.agentKey}
+                onChange={setSelectedAgentKey}
+                options={agentBindings.map((item) => ({
+                  value: item.agentKey,
+                  label: `${item.displayName || item.agentKey} (${item.agentKey})`,
+                }))}
+                disabled={agentBindings.length === 0}
+                showSearch
+                optionFilterProp="label"
+              />
+            </Space>
+          </div>
+          <div className="agent-prompt-body">
+            <Space size="small" wrap>
+              <Tag color="green">已装载 {installedSkills.length}</Tag>
+              <Tag color="blue">可添加 {candidateSkills.length}</Tag>
+              <Tag color="gold">运行时已加载 {runtimeSkills.length}</Tag>
+              {activeAgentBinding ? <Tag color="purple">视角 Agent {activeAgentBinding.agentKey}</Tag> : null}
+            </Space>
+          </div>
+        </div>
 
         <div className="agent-prompt-card">
           <div className="agent-prompt-header">
@@ -278,13 +335,6 @@ export function InstanceSkillPanel({
               </Button>
             </Space>
           </div>
-          <div className="agent-prompt-body">
-            <Space size="small" wrap>
-              <Tag color="green">已装载 {installedSkills.length}</Tag>
-              <Tag color="blue">可添加 {candidateSkills.length}</Tag>
-              <Tag color="gold">运行时已加载 {runtimeSkills.length}</Tag>
-            </Space>
-          </div>
         </div>
 
         {installedSkills.length > 0 ? (
@@ -292,7 +342,7 @@ export function InstanceSkillPanel({
             {installedSkills.map((item) => {
               const selected = selectedSkillKey === item.skillKey;
               const loaded = runtimeSkillMap.has(item.skillKey);
-              const allowed = selectedAgentAllowedTools.length === 0 || selectedAgentAllowedTools.includes(item.skillKey);
+              const allowed = !activeAgentBinding || activeAgentAllowedTools.length === 0 || activeAgentAllowedTools.includes(item.skillKey);
               return (
                 <button
                   key={item.skillKey}
@@ -308,6 +358,7 @@ export function InstanceSkillPanel({
                   <Space size={4} wrap>
                     <Tag color="green">已装载</Tag>
                     {loaded ? <Tag color="gold">运行中已加载</Tag> : <Tag>待运行时生效</Tag>}
+                    {!allowed ? <Tag color="red">当前 Agent 不允许</Tag> : null}
                     {!item.enabled ? <Tag color="red">已全局禁用</Tag> : null}
                   </Space>
                 </button>
@@ -395,7 +446,7 @@ export function InstanceSkillPanel({
                     <Alert
                       type="warning"
                       showIcon
-                      message="当前选中的 Agent 不允许调用这个 Skill"
+                      message={`当前选中的 Agent「${activeAgentBinding?.displayName || activeAgentBinding?.agentKey}」不允许调用这个 Skill`}
                     />
                   ) : null}
 

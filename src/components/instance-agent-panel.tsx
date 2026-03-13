@@ -261,7 +261,6 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
     setError(undefined);
     try {
       await upsertInstanceAgentBinding(instanceId, targetAgentKey, {
-        agentic: false,
         updatedBy: "ui-dashboard",
       });
       await loadAll();

@@ -18,6 +18,7 @@ import {
   InputNumber,
   Modal,
   Popconfirm,
+  Select,
   Skeleton,
   Space,
   Switch,
@@ -35,6 +36,38 @@ type CreateBaselineForm = {
   displayName?: string;
 };
 
+const RUNTIME_TOOL_CATALOG: Array<{ value: string; description: string }> = [
+  { value: "shell", description: "Run shell commands" },
+  { value: "file_read", description: "Read files" },
+  { value: "file_write", description: "Write files" },
+  { value: "file_edit", description: "Edit files" },
+  { value: "glob_search", description: "Search file paths" },
+  { value: "content_search", description: "Search file contents" },
+  { value: "cron_add", description: "Create cron jobs" },
+  { value: "cron_list", description: "List cron jobs" },
+  { value: "cron_remove", description: "Remove cron jobs" },
+  { value: "cron_update", description: "Update cron jobs" },
+  { value: "cron_run", description: "Run cron jobs" },
+  { value: "cron_runs", description: "Inspect cron run history" },
+  { value: "memory_store", description: "Store memory" },
+  { value: "memory_recall", description: "Recall memory" },
+  { value: "memory_forget", description: "Forget memory" },
+  { value: "schedule", description: "Manage schedules" },
+  { value: "model_routing_config", description: "Update model routing" },
+  { value: "proxy_config", description: "Update proxy config" },
+  { value: "git_operations", description: "Run git operations" },
+  { value: "pushover", description: "Send notifications" },
+  { value: "pdf_read", description: "Read PDFs" },
+  { value: "screenshot", description: "Capture screenshots" },
+  { value: "image_info", description: "Inspect images" },
+  { value: "browser_open", description: "Open browser URLs" },
+  { value: "browser", description: "Use browser automation" },
+  { value: "http_request", description: "Send HTTP requests" },
+  { value: "web_fetch", description: "Fetch web pages" },
+  { value: "web_search_tool", description: "Search the web" },
+  { value: "composio", description: "Call Composio tools" },
+];
+
 function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
   const now = new Date().toISOString();
   return {
@@ -49,6 +82,7 @@ function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
     model: "",
     temperature: null,
     agentic: null,
+    allowedTools: [],
     systemPrompt: "",
     updatedBy: "",
     createdAt: now,
@@ -72,6 +106,7 @@ function snapshotBaseline(value?: AgentBaseline | null): string {
     model: value.model ?? "",
     temperature: value.temperature ?? null,
     agentic: value.agentic ?? null,
+    allowedTools: value.allowedTools ?? [],
     systemPrompt: value.systemPrompt ?? "",
     updatedBy: value.updatedBy ?? "",
   });
@@ -90,6 +125,7 @@ function toUpsertRequest(value: AgentBaseline): AgentBaselineUpsertRequest {
     model: value.model ?? null,
     temperature: value.temperature ?? null,
     agentic: value.agentic ?? null,
+    allowedTools: value.allowedTools ?? [],
     systemPrompt: value.systemPrompt ?? null,
     updatedBy: value.updatedBy ?? null,
   };
@@ -191,6 +227,27 @@ export function AgentBaselinePanel() {
   const updateDraft = useCallback((patch: Partial<AgentBaseline>) => {
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }, []);
+
+  const runtimeToolOptions = useMemo(() => {
+    const options = new Map(
+      RUNTIME_TOOL_CATALOG.map((item) => [
+        item.value,
+        {
+          value: item.value,
+          label: `${item.value} - ${item.description}`,
+        },
+      ]),
+    );
+    (draft?.allowedTools ?? []).forEach((item) => {
+      if (!options.has(item)) {
+        options.set(item, {
+          value: item,
+          label: `${item} - custom`,
+        });
+      }
+    });
+    return Array.from(options.values()).sort((left, right) => left.value.localeCompare(right.value));
+  }, [draft?.allowedTools]);
 
   const handleSave = useCallback(async () => {
     if (!draft) {
@@ -395,6 +452,19 @@ export function AgentBaselinePanel() {
                             onChange={(checked) => updateDraft({ agentic: checked })}
                           />
                         </div>
+                        {draft.agentic === true ? (
+                          <div className="agent-baseline-field is-wide">
+                            <span className="agent-detail-prop-label">allowed_tools</span>
+                            <Select
+                              mode="tags"
+                              allowClear
+                              placeholder="Select runtime tools, not skill IDs"
+                              options={runtimeToolOptions}
+                              value={draft.allowedTools ?? []}
+                              onChange={(value) => updateDraft({ allowedTools: value })}
+                            />
+                          </div>
+                        ) : null}
                         <div className="agent-baseline-field">
                           <span className="agent-detail-prop-label">Provider</span>
                           <Input value={draft.provider ?? ""} onChange={(event) => updateDraft({ provider: event.target.value })} />

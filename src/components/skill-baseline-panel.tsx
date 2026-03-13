@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  createSkillBaseline,
   deleteSkillBaseline,
   getSkillBaseline,
   listSkillBaselines,
+  uploadSkillBaselinePackage,
   upsertSkillBaseline,
 } from "@/lib/control-api";
 import type { SkillBaseline, SkillBaselineSummary, SkillBaselineUpsertRequest } from "@/types/contracts";
@@ -29,28 +29,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Text } = Typography;
 
-const DEFAULT_SKILL_SOURCE_TYPE = "SERVER_PACKAGE";
-
 type CreateBaselineForm = {
   skillKey: string;
   displayName?: string;
-  sourceRef: string;
 };
-
-function buildEmptyDraft(skillKey = "", displayName = ""): SkillBaseline {
-  const now = new Date().toISOString();
-  return {
-    skillKey,
-    displayName,
-    description: "",
-    sourceType: DEFAULT_SKILL_SOURCE_TYPE,
-    sourceRef: "",
-    enabled: true,
-    updatedBy: "",
-    createdAt: now,
-    updatedAt: now,
-  };
-}
 
 function snapshotBaseline(value?: SkillBaseline | null): string {
   if (!value) {
@@ -105,6 +87,7 @@ export function SkillBaselinePanel() {
   const [selectedBaseline, setSelectedBaseline] = useState<SkillBaseline>();
   const [draft, setDraft] = useState<SkillBaseline>();
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createPackageFile, setCreatePackageFile] = useState<File>();
   const [createForm] = Form.useForm<CreateBaselineForm>();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -217,13 +200,22 @@ export function SkillBaselinePanel() {
   const handleCreate = useCallback(async () => {
     try {
       const values = await createForm.validateFields();
-      const draftValue = buildEmptyDraft(values.skillKey.trim(), (values.displayName ?? "").trim());
-      draftValue.sourceRef = values.sourceRef.trim();
+      if (!createPackageFile) {
+        messageApi.error("请先选择 Skill ZIP 文件");
+        return;
+      }
+      const normalizedSkillKey = values.skillKey.trim();
+      const normalizedDisplayName = (values.displayName ?? "").trim();
       setCreating(true);
       setError(undefined);
-      const created = await createSkillBaseline(toUpsertRequest(draftValue));
+      const created = await uploadSkillBaselinePackage({
+        skillKey: normalizedSkillKey,
+        displayName: normalizedDisplayName || undefined,
+        file: createPackageFile,
+      });
       setCreateModalOpen(false);
       createForm.resetFields();
+      setCreatePackageFile(undefined);
       setSelectedSkillKey(created.skillKey);
       setSelectedBaseline(created);
       setDraft(created);
@@ -238,7 +230,7 @@ export function SkillBaselinePanel() {
     } finally {
       setCreating(false);
     }
-  }, [createForm, loadItems, messageApi]);
+  }, [createForm, createPackageFile, loadItems, messageApi]);
 
   return (
     <>
@@ -364,8 +356,8 @@ export function SkillBaselinePanel() {
                         <span className="agent-detail-prop-label">Source Ref</span>
                         <Input
                           value={draft.sourceRef ?? ""}
-                          onChange={(event) => updateDraft({ sourceRef: event.target.value })}
-                          placeholder="例如 screenplay-writer 或 screenplay-writer/v1"
+                          disabled
+                          placeholder="由上传时的 skillKey 自动生成"
                         />
                       </div>
                       <div className="agent-baseline-field is-wide">
@@ -413,6 +405,7 @@ export function SkillBaselinePanel() {
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
+          setCreatePackageFile(undefined);
         }}
         onOk={() => void handleCreate()}
         okText="创建"
@@ -430,16 +423,19 @@ export function SkillBaselinePanel() {
             <Input placeholder="例如 screenplay-writer" />
           </Form.Item>
           <Form.Item name="displayName" label="Display Name">
-            <Input placeholder="可选，不填时默认与 Skill Key 相同" />
+            <Input placeholder="可选，不填时默认与 Skill Key 相同；需全局唯一" />
           </Form.Item>
-          <Form.Item
-            name="sourceRef"
-            label="Source Ref"
-            rules={[
-              { required: true, message: "请输入 Source Ref" },
-            ]}
-          >
-            <Input placeholder="例如 screenplay-writer 或 screenplay-writer/v1" />
+          <Form.Item label="Skill ZIP">
+            <input
+              type="file"
+              accept=".zip,application/zip"
+              onChange={(event) => setCreatePackageFile(event.target.files?.[0] ?? undefined)}
+            />
+            <div style={{ marginTop: 8 }}>
+              <Text type="secondary">
+                上传的 ZIP 会解压到服务器 ` /opt/fun-ai-claw/skills/&lt;skillKey&gt; `，并自动生成 `sourceRef=skillKey`。
+              </Text>
+            </div>
           </Form.Item>
         </Form>
       </Modal>

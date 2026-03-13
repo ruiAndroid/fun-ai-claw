@@ -60,6 +60,20 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
   }
 }
 
+async function requestFormJson<T>(path: string, formData: FormData, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    method: init?.method ?? "POST",
+    body: formData,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`HTTP ${response.status}: ${body || response.statusText}`);
+  }
+  return (await response.json()) as T;
+}
+
 export async function listInstances() {
   return requestJson<ListResponse<ClawInstance>>("/v1/instances");
 }
@@ -105,6 +119,32 @@ export async function createSkillBaseline(request: SkillBaselineUpsertRequest) {
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+export async function uploadSkillBaselinePackage(request: {
+  skillKey: string;
+  displayName?: string;
+  description?: string;
+  enabled?: boolean;
+  updatedBy?: string;
+  file: File;
+}) {
+  const formData = new FormData();
+  formData.append("skillKey", request.skillKey);
+  if (request.displayName) {
+    formData.append("displayName", request.displayName);
+  }
+  if (request.description) {
+    formData.append("description", request.description);
+  }
+  if (request.enabled !== undefined) {
+    formData.append("enabled", String(request.enabled));
+  }
+  if (request.updatedBy) {
+    formData.append("updatedBy", request.updatedBy);
+  }
+  formData.append("file", request.file);
+  return requestFormJson<SkillBaseline>("/v1/skill-baselines/upload", formData);
 }
 
 export async function upsertSkillBaseline(skillKey: string, request: SkillBaselineUpsertRequest) {

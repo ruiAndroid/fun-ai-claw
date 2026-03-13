@@ -277,6 +277,49 @@ body {
   padding: 0 !important;
 }
 
+.console-access-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.console-access-card {
+  width: min(100%, 460px);
+  border: 1px solid var(--console-border) !important;
+  border-radius: var(--console-radius-card) !important;
+  background: var(--console-surface) !important;
+  box-shadow: var(--console-shadow) !important;
+}
+
+.console-access-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.console-access-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.console-access-form {
+  width: 100%;
+}
+
+.console-access-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
 /* =========================================
    KPI Grid
    ========================================= */

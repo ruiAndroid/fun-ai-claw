@@ -31,7 +31,6 @@ import {
   type AgentSessionDebugEntry,
   type AgentSessionDelta,
   type AgentSessionDisconnectNotice,
-  type AgentSessionStarterDraft,
   type AgentSessionStreamMessage,
   type AgentTurnTracker,
   formatAgentInteractionPayloadForDisplay,
@@ -60,6 +59,15 @@ const { Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
 type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills" | "tasks";
+type AgentMessageSendOptions = {
+  displayText?: string;
+  resolveInteractionMessageId?: string;
+  resolvedInteractionNote?: string;
+};
+type QueuedAgentSessionMessage = {
+  normalizedMessage: string;
+  options?: AgentMessageSendOptions;
+};
 
 function AnimatedNumber({ value, className }: { value: number; className?: string }) {
   const motionValue = useMotionValue(0);
@@ -150,7 +158,7 @@ export function Dashboard() {
   const [agentMessageInput, setAgentMessageInput] = useState("");
   const [agentComposerInteractionDraft, setAgentComposerInteractionDraft] = useState<AgentComposerInteractionDraft>();
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
-  const agentQueuedMessageRef = useRef<string | null>(null);
+  const agentQueuedMessageRef = useRef<QueuedAgentSessionMessage | null>(null);
   const agentMessageComposingRef = useRef(false);
   const agentAssistantMessageAliasRef = useRef<Map<string, string>>(new Map());
   const queuedAgentSessionDeltasRef = useRef<AgentSessionDelta[]>([]);
@@ -170,12 +178,6 @@ export function Dashboard() {
   const [agentChatMessages, setAgentChatMessages] = useState<AgentChatMessage[]>([]);
   const [agentSessionDebugVisible, setAgentSessionDebugVisible] = useState(false);
   const [agentSessionDebugEntries, setAgentSessionDebugEntries] = useState<AgentSessionDebugEntry[]>([]);
-  const [agentSessionStarterDraft, setAgentSessionStarterDraft] = useState<AgentSessionStarterDraft>({
-    scriptType: "一句话剧本",
-    scriptContent: "",
-    targetAudience: "女频",
-    expectedEpisodeCount: "3",
-  });
   const [agentSessionHasStarted, setAgentSessionHasStarted] = useState(false);
   const agentSessionHasStartedRef = useRef(false);
   const [agentSessionDisconnectNotice, setAgentSessionDisconnectNotice] = useState<AgentSessionDisconnectNotice>();
@@ -215,18 +217,23 @@ export function Dashboard() {
   const disableRestartInstance = !selectedInstance || actionBusy || selectedStatus === "CREATING";
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
-  const disableSendAgentMessage = !selectedInstance || !agentSessionConnected || !agentMessageInput.trim();
-  const agentSessionInputLocked = !agentSessionConnected || agentSessionConnecting;
   const agentSessionRequiresDirectAgent = agentSessionMode === "direct";
   const agentSessionTargetAgentId = agentSessionRequiresDirectAgent ? selectedAgentId : undefined;
+  const disableSendAgentMessage = !selectedInstance
+    || selectedStatus !== "RUNNING"
+    || agentSessionConnecting
+    || !agentMessageInput.trim()
+    || (agentSessionRequiresDirectAgent && !selectedAgentId);
+  const disableAgentInteractionSend = !selectedInstance
+    || selectedStatus !== "RUNNING"
+    || agentSessionConnecting
+    || (agentSessionRequiresDirectAgent && !selectedAgentId);
+  const agentSessionInputLocked = agentSessionConnecting;
   const disableConnectAgentSession = !selectedInstance
     || selectedStatus !== "RUNNING"
     || agentSessionConnecting
     || agentSessionConnected
     || agentsLoading
-    || (agentSessionRequiresDirectAgent && !selectedAgentId);
-  const disableSendAgentStarter = !selectedInstance
-    || agentSessionInputLocked
     || (agentSessionRequiresDirectAgent && !selectedAgentId);
   const agentSessionReconnectAvailable = Boolean(agentSessionDisconnectNotice) && !agentSessionConnected;
   const agentSessionStatusTagColor = agentSessionConnected ? "cyan" : agentSessionReconnectAvailable ? "gold" : "default";
@@ -240,7 +247,6 @@ export function Dashboard() {
     : agentSessionReconnectAvailable
       ? uiText.agentSessionControlReconnectHint
       : uiText.agentSessionControlIdleHint;
-  const agentSessionConnectButtonLabel = agentSessionReconnectAvailable ? uiText.agentSessionReconnect : uiText.agentSessionConnect;
   const selectedRemoteConnectCommand = selectedInstance?.remoteConnectCommand?.trim();
   const selectedGatewayUrl = selectedInstance ? resolveUiControllerUrl(selectedInstance) : undefined;
   const agentSessionRenderedLines = useMemo(() => agentSessionOutput.split("\n"), [agentSessionOutput]);
@@ -248,7 +254,6 @@ export function Dashboard() {
     () => agentSessionDebugEntries.length > 0 || agentSessionOutput.trim().length > 0,
     [agentSessionDebugEntries, agentSessionOutput]
   );
-  const hasAgentSessionConversationStarted = agentSessionHasStarted;
   const latestInteractiveAgentMessage = useMemo(
     () => [...agentChatMessages].reverse().find((item) => item.role === "assistant" && !item.interactionResolved && (item.interaction?.actions.length ?? 0) > 0),
     [agentChatMessages]
@@ -268,11 +273,11 @@ export function Dashboard() {
       : uiText.agentSessionConnectInterruptedDescription;
   const agentMessageComposerPlaceholder = agentComposerInteractionDraft?.interactionAction === "revise"
     ? `请补充你对“${getAgentInteractionStateLabel(agentComposerInteractionDraft.stateId) ?? "当前内容"}”的修改要求`
-    : agentSessionReconnectAvailable
-      ? uiText.agentSessionReconnectFirst
-    : agentSessionInputLocked
-      ? uiText.agentSessionConnectFirst
-      : uiText.agentSessionFollowUpPlaceholder;
+    : agentSessionConnected
+      ? uiText.agentSessionFollowUpPlaceholder
+      : agentSessionReconnectAvailable
+        ? uiText.agentSessionReconnectFirst
+        : uiText.agentMessagePlaceholder;
   const agentComposerDraftStateLabel = getAgentInteractionStateLabel(agentComposerInteractionDraft?.stateId) ?? "当前内容";
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
@@ -1602,11 +1607,7 @@ export function Dashboard() {
 
   const sendNormalizedAgentMessage = useCallback((
     normalizedMessage: string,
-    options?: {
-      displayText?: string;
-      resolveInteractionMessageId?: string;
-      resolvedInteractionNote?: string;
-    }
+    options?: AgentMessageSendOptions
   ) => {
     const socket = agentSessionSocketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -1626,6 +1627,8 @@ export function Dashboard() {
     );
     const placeholderAssistantMessageId = appendPendingAssistantPlaceholder(sentAt);
     if (userMessageId) {
+      setAgentSessionHasStarted(true);
+      agentSessionHasStartedRef.current = true;
       agentTurnQueueRef.current.push({
         userMessageId,
         userSentAt: sentAt,
@@ -1643,26 +1646,9 @@ export function Dashboard() {
     return true;
   }, [appendAgentChatMessage, appendPendingAssistantPlaceholder, finalizePendingAssistantMessage, formatAgentMessageForDisplay, markAgentInteractionResolved]);
 
-  const buildAgentStarterMessage = useCallback(() => {
-    const scriptContent = agentSessionStarterDraft.scriptContent.trim();
-    const targetAudience = agentSessionStarterDraft.targetAudience.trim();
-    const expectedEpisodeCount = agentSessionStarterDraft.expectedEpisodeCount.trim();
-
-    if (!scriptContent || !targetAudience || !expectedEpisodeCount) {
-      return "";
-    }
-
-    return [
-      `script_type=${agentSessionStarterDraft.scriptType}`,
-      `script_content=${scriptContent}`,
-      `target_audience=${targetAudience}`,
-      `expected_episode_count=${expectedEpisodeCount}`,
-    ].join("\n");
-  }, [agentSessionStarterDraft]);
-
   const getAgentSessionCoreFields = useCallback((): AgentSessionCoreFields | undefined => {
-    return parseAgentSessionCoreFields(buildAgentStarterMessage()) ?? agentSessionCoreFields;
-  }, [agentSessionCoreFields, buildAgentStarterMessage]);
+    return agentSessionCoreFields;
+  }, [agentSessionCoreFields]);
 
   const enrichAgentInteractionMessage = useCallback((rawInput: string) => {
     const normalizedInput = normalizeAgentSessionMessage(rawInput);
@@ -1771,7 +1757,7 @@ export function Dashboard() {
       const queuedMessage = agentQueuedMessageRef.current;
       if (queuedMessage) {
         agentQueuedMessageRef.current = null;
-        sendNormalizedAgentMessage(queuedMessage);
+        sendNormalizedAgentMessage(queuedMessage.normalizedMessage, queuedMessage.options);
       }
     };
 
@@ -1823,11 +1809,37 @@ export function Dashboard() {
     sendNormalizedAgentMessage,
   ]);
 
-  const sendAgentMessage = useCallback(() => {
-    if (!agentSessionConnected) {
-      messageApi.warning(uiText.agentSessionConnectFailed);
-      return;
+  const queueAgentMessageAndConnect = useCallback((
+    normalizedMessage: string,
+    options?: AgentMessageSendOptions
+  ) => {
+    if (!selectedInstance) {
+      return false;
     }
+    if (selectedInstance.status !== "RUNNING") {
+      messageApi.warning(uiText.agentSessionNotRunning);
+      return false;
+    }
+    if (agentSessionRequiresDirectAgent && !agentSessionTargetAgentId) {
+      messageApi.warning(agents.length === 0 ? uiText.agentSessionNoAgentsAvailable : uiText.agentSessionSelectAgentRequired);
+      return false;
+    }
+    agentQueuedMessageRef.current = { normalizedMessage, options };
+    if (!agentSessionConnecting) {
+      connectAgentSession();
+    }
+    return true;
+  }, [
+    agentSessionConnecting,
+    agentSessionRequiresDirectAgent,
+    agentSessionTargetAgentId,
+    agents.length,
+    connectAgentSession,
+    messageApi,
+    selectedInstance,
+  ]);
+
+  const sendAgentMessage = useCallback(() => {
     const trimmedInput = agentMessageInput.trim();
     if (!trimmedInput) {
       return;
@@ -1852,10 +1864,13 @@ export function Dashboard() {
     if (!normalizedMessage) {
       return;
     }
-    const sent = sendNormalizedAgentMessage(normalizedMessage, {
+    const sendOptions: AgentMessageSendOptions = {
       displayText,
       resolveInteractionMessageId,
-    });
+    };
+    const sent = agentSessionConnected
+      ? sendNormalizedAgentMessage(normalizedMessage, sendOptions)
+      : queueAgentMessageAndConnect(normalizedMessage, sendOptions);
     if (!sent) {
       return;
     }
@@ -1865,9 +1880,9 @@ export function Dashboard() {
     agentComposerInteractionDraft,
     agentMessageInput,
     agentSessionConnected,
-    messageApi,
     normalizeAgentSessionMessage,
     enrichAgentInteractionMessage,
+    queueAgentMessageAndConnect,
     sendNormalizedAgentMessage,
   ]);
 
@@ -1893,50 +1908,18 @@ export function Dashboard() {
     agentMessageComposingRef.current = false;
   }, []);
 
-  const sendAgentStarterMessage = useCallback(() => {
-    const starterMessage = buildAgentStarterMessage();
-    if (!starterMessage) {
-      messageApi.warning(uiText.agentSessionNeedStarterFields);
-      return;
-    }
-    if (!agentSessionConnected) {
-      messageApi.warning(uiText.agentSessionConnectFirst);
-      return;
-    }
-    if (agentSessionRequiresDirectAgent && !agentSessionTargetAgentId) {
-      messageApi.warning(agents.length === 0 ? uiText.agentSessionNoAgentsAvailable : uiText.agentSessionSelectAgentRequired);
-      return;
-    }
-    const sent = sendNormalizedAgentMessage(normalizeAgentSessionMessage(starterMessage));
-    if (sent) {
-      setAgentSessionHasStarted(true);
-      agentSessionHasStartedRef.current = true;
-    }
-  }, [
-    agentSessionConnected,
-    agentSessionTargetAgentId,
-    agentSessionRequiresDirectAgent,
-    agents.length,
-    buildAgentStarterMessage,
-    messageApi,
-    normalizeAgentSessionMessage,
-    setAgentSessionHasStarted,
-    sendNormalizedAgentMessage,
-  ]);
-
   const runAgentInteractionAction = useCallback((messageId: string, action: AgentInteractionAction) => {
     if (action.kind === "send") {
-      if (!agentSessionConnected) {
-        messageApi.warning(uiText.agentSessionConnectFailed);
-        return;
-      }
       const normalizedPayload = enrichAgentInteractionMessage(action.payload);
       if (!normalizedPayload) {
         return;
       }
-      const sent = sendNormalizedAgentMessage(normalizedPayload, {
+      const sendOptions: AgentMessageSendOptions = {
         resolveInteractionMessageId: messageId,
-      });
+      };
+      const sent = agentSessionConnected
+        ? sendNormalizedAgentMessage(normalizedPayload, sendOptions)
+        : queueAgentMessageAndConnect(normalizedPayload, sendOptions);
       if (sent) {
         setAgentComposerInteractionDraft(undefined);
       }
@@ -1963,7 +1946,7 @@ export function Dashboard() {
     }
     setAgentComposerInteractionDraft(undefined);
     setAgentMessageInput(action.payload);
-  }, [agentSessionConnected, enrichAgentInteractionMessage, messageApi, sendNormalizedAgentMessage]);
+  }, [agentSessionConnected, enrichAgentInteractionMessage, queueAgentMessageAndConnect, sendNormalizedAgentMessage]);
 
   const buildTerminalWebSocketUrl = useCallback((instanceId: string) => {
     const apiBase = appConfig.controlApiBaseUrl;
@@ -2576,27 +2559,6 @@ export function Dashboard() {
                                     </Space>
                                   </Card>
                                   <div className="agent-session-action-bar">
-                                    <div className="agent-session-action-cluster">
-                                      <Button
-                                        type="primary"
-                                        size="large"
-                                        className="agent-session-control-button is-connect"
-                                        loading={agentSessionConnecting}
-                                        disabled={disableConnectAgentSession}
-                                        onClick={connectAgentSession}
-                                      >
-                                        {agentSessionConnectButtonLabel}
-                                      </Button>
-                                      <Button
-                                        size="large"
-                                        danger={agentSessionConnected}
-                                        className="agent-session-control-button is-disconnect"
-                                        disabled={!agentSessionConnected}
-                                        onClick={disconnectAgentSession}
-                                      >
-                                        {uiText.agentSessionDisconnect}
-                                      </Button>
-                                    </div>
                                     <div className="agent-session-action-status">
                                       <Tag color={agentSessionStatusTagColor}>
                                         {agentSessionStatusLabel}
@@ -2605,6 +2567,15 @@ export function Dashboard() {
                                         {agentSessionStatusDescription}
                                       </Text>
                                     </div>
+                                    <Button
+                                      size="large"
+                                      danger={agentSessionConnected}
+                                      className="agent-session-control-button is-disconnect"
+                                      disabled={!agentSessionConnected}
+                                      onClick={disconnectAgentSession}
+                                    >
+                                      {uiText.agentSessionDisconnect}
+                                    </Button>
                                   </div>
                                   {agentSessionDisconnectNotice ? (
                                     <Alert
@@ -2656,81 +2627,6 @@ export function Dashboard() {
                                       </Space>
                                     </Card>
                                   ) : null}
-                                  <Card
-                                    size="small"
-                                    className={`agent-session-starter${agentSessionInputLocked ? " is-disabled" : ""}`}
-                                    title={uiText.agentSessionStarterTitle}
-                                  >
-                                    <Space direction="vertical" style={{ width: "100%" }} size="small">
-                                      <Text type="secondary">{uiText.agentSessionStarterHint}</Text>
-                                      <div className="agent-session-starter-field">
-                                        <Text strong>{uiText.agentSessionScriptType}</Text>
-                                        <Select
-                                          disabled={agentSessionInputLocked}
-                                          value={agentSessionStarterDraft.scriptType}
-                                          onChange={(value) => setAgentSessionStarterDraft((current) => ({
-                                            ...current,
-                                            scriptType: value,
-                                          }))}
-                                          options={[
-                                            { value: "一句话剧本", label: "一句话剧本" },
-                                            { value: "小说转剧本", label: "小说转剧本" },
-                                          ]}
-                                        />
-                                      </div>
-                                      <div className="agent-session-starter-field">
-                                        <Text strong>{uiText.agentSessionScriptContent}</Text>
-                                        <Input.TextArea
-                                          disabled={agentSessionInputLocked}
-                                          rows={4}
-                                          value={agentSessionStarterDraft.scriptContent}
-                                          onChange={(event) => setAgentSessionStarterDraft((current) => ({
-                                            ...current,
-                                            scriptContent: event.target.value,
-                                          }))}
-                                          placeholder={uiText.agentSessionStarterContentPlaceholder}
-                                        />
-                                      </div>
-                                      <div className="agent-session-starter-grid">
-                                        <div className="agent-session-starter-field">
-                                          <Text strong>{uiText.agentSessionTargetAudience}</Text>
-                                          <Input
-                                            disabled={agentSessionInputLocked}
-                                            value={agentSessionStarterDraft.targetAudience}
-                                            onChange={(event) => setAgentSessionStarterDraft((current) => ({
-                                              ...current,
-                                              targetAudience: event.target.value,
-                                            }))}
-                                          />
-                                        </div>
-                                        <div className="agent-session-starter-field">
-                                          <Text strong>{uiText.agentSessionEpisodeCount}</Text>
-                                          <Input
-                                            disabled={agentSessionInputLocked}
-                                            value={agentSessionStarterDraft.expectedEpisodeCount}
-                                            onChange={(event) => setAgentSessionStarterDraft((current) => ({
-                                              ...current,
-                                              expectedEpisodeCount: event.target.value,
-                                            }))}
-                                          />
-                                        </div>
-                                      </div>
-                                      {!hasAgentSessionConversationStarted ? (
-                                        <div className="agent-sender-actions">
-                                          <Button
-                                            type="primary"
-                                            loading={agentSessionConnecting}
-                                            disabled={disableSendAgentStarter}
-                                            onClick={sendAgentStarterMessage}
-                                          >
-                                            {uiText.agentSessionSendStarter}
-                                          </Button>
-                                        </div>
-                                      ) : null}
-                                    </Space>
-                                  </Card>
-                                  {hasAgentSessionConversationStarted ? (
-                                    <>
                                   <div className="agent-session-section-head">
                                     <Text strong>{uiText.agentSessionActiveSession}</Text>
                                   </div>
@@ -2864,7 +2760,7 @@ export function Dashboard() {
                                                     key={`${item.id}-${action.id}`}
                                                     type={action.kind === "send" ? "primary" : "default"}
                                                     onClick={() => runAgentInteractionAction(item.id, action)}
-                                                    disabled={!agentSessionConnected}
+                                                    disabled={action.kind === "send" ? disableAgentInteractionSend : false}
                                                   >
                                                     {action.label}
                                                   </Button>
@@ -2959,8 +2855,6 @@ export function Dashboard() {
                                           <Text type="secondary">{uiText.agentSessionOutputPlaceholder}</Text>
                                         )}
                                       </div>
-                                    </>
-                                  ) : null}
                                     </>
                                   ) : null}
                                 </Space>

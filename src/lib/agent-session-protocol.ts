@@ -86,13 +86,6 @@ export type AgentSessionDebugEntry = {
   emittedAt?: string;
   content: string;
 };
-export type AgentSessionStarterDraft = {
-  scriptType: "小说转剧本" | "一句话剧本";
-  scriptContent: string;
-  targetAudience: string;
-  expectedEpisodeCount: string;
-};
-
 export type AgentSessionCoreFields = {
   scriptType: string;
   scriptContent: string;

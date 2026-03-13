@@ -1,30 +1,49 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { FormEvent, useState } from "react";
 import { Alert, Button, Card, Input, Space, Typography } from "antd";
 import { LockKeyhole } from "lucide-react";
-import { useRouter } from "next/navigation";
-import {
-  initialConsoleAccessActionState,
-  submitConsoleAccessPassword,
-} from "@/app/console/actions";
+import { routePaths } from "@/config/route-paths";
 
 type ConsoleAccessGateProps = {
   passwordConfigured: boolean;
 };
 
 export function ConsoleAccessGate({ passwordConfigured }: ConsoleAccessGateProps) {
-  const router = useRouter();
-  const [state, formAction, isPending] = useActionState(
-    submitConsoleAccessPassword,
-    initialConsoleAccessActionState,
-  );
+  const [errorMessage, setErrorMessage] = useState<string>();
+  const [isPending, setIsPending] = useState(false);
 
-  useEffect(() => {
-    if (state.success) {
-      router.refresh();
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!passwordConfigured || isPending) {
+      return;
     }
-  }, [router, state.success]);
+
+    setIsPending(true);
+    setErrorMessage(undefined);
+
+    try {
+      const formData = new FormData(event.currentTarget);
+      const response = await fetch(routePaths.consoleAccess, {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        setErrorMessage(result?.error ?? "访问验证失败，请稍后重试。");
+        return;
+      }
+
+      window.location.assign(routePaths.console);
+    } catch {
+      setErrorMessage("访问验证失败，请检查网络或稍后重试。");
+    } finally {
+      setIsPending(false);
+    }
+  }
 
   return (
     <main className="console-access-shell">
@@ -53,9 +72,18 @@ export function ConsoleAccessGate({ passwordConfigured }: ConsoleAccessGateProps
             />
           ) : null}
 
-          {state.error ? <Alert type="error" showIcon message={state.error} /> : null}
+          {errorMessage ? <Alert type="error" showIcon message={errorMessage} /> : null}
 
-          <form action={formAction} className="console-access-form">
+          <form className="console-access-form" onSubmit={handleSubmit}>
+            <input
+              type="text"
+              name="username"
+              autoComplete="username"
+              defaultValue="console"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="console-access-hidden-field"
+            />
             <Space direction="vertical" size={14} style={{ width: "100%" }}>
               <label className="console-access-label" htmlFor="console-access-password">
                 访问密码

@@ -99,7 +99,7 @@ export const uiText = {
   desiredStateStopped: "停止",
   noPresetImage: "当前没有可选预置镜像，请先在API配置 app.images.presets",
   imagePresetUpgrading: "镜像升级中，暂不可用",
-  imagePresetShellOnlyHint: "当前仅开放 zeroclaw-shell 最新镜像，其他内置镜像正在升级中。",
+  imagePresetShellOnlyHint: "当前开放 zeroclaw-shell 和 zeroclaw-python，其他内置镜像仍在升级中。",
   requiredName: "请输入实例名",
   nameAlreadyExists: "实例名已存在，请更换",
   requiredImage: "请选择镜像",

@@ -151,7 +151,7 @@ export const AGENT_INTERACTION_STATE_LABELS: Record<string, string> = {
   step4_episode_outline: "分集大纲",
   step5_full_script: "完整剧本",
 };
-export const ACTIVE_IMAGE_PRESET_KEYWORD = "zeroclaw-shell";
+export const ACTIVE_IMAGE_PRESET_KEYWORDS = ["zeroclaw-shell", "zeroclaw-python"] as const;
 
 // ── Utility functions ────────────────────────────────────────────
 
@@ -160,10 +160,12 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function isImagePresetAvailable(preset: { id?: string; name?: string; image?: string }): boolean {
-  const keyword = ACTIVE_IMAGE_PRESET_KEYWORD;
   return [preset.id, preset.name, preset.image]
     .filter((value): value is string => typeof value === "string")
-    .some((value) => value.toLowerCase().includes(keyword));
+    .some((value) => {
+      const normalizedValue = value.toLowerCase();
+      return ACTIVE_IMAGE_PRESET_KEYWORDS.some((keyword) => normalizedValue.includes(keyword));
+    });
 }
 
 export function sanitizeAgentInteractionAction(value: unknown): AgentInteractionAction | undefined {

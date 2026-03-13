@@ -25,7 +25,7 @@ import {
   message,
 } from "antd";
 import { Plus, RefreshCw, Shield, Trash2, Zap } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const { Text } = Typography;
 
@@ -75,6 +75,16 @@ function formatTimestamp(value?: string | null): string {
   }).format(date);
 }
 
+function formatFileSize(value: number): string {
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function SkillBaselinePanel() {
   const [items, setItems] = useState<SkillBaselineSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,6 +100,8 @@ export function SkillBaselinePanel() {
   const [createPackageFile, setCreatePackageFile] = useState<File>();
   const [createForm] = Form.useForm<CreateBaselineForm>();
   const [messageApi, contextHolder] = message.useMessage();
+  const createFileInputRef = useRef<HTMLInputElement>(null);
+  const createSkillKeyValue = Form.useWatch("skillKey", createForm);
 
   const loadItems = useCallback(async (preferredSkillKey?: string) => {
     setLoading(true);
@@ -155,9 +167,41 @@ export function SkillBaselinePanel() {
     [items, selectedSkillKey],
   );
 
+  const createPackageTarget = useMemo(() => {
+    const normalizedSkillKey = (createSkillKeyValue ?? "").trim();
+    return normalizedSkillKey || "<skillKey>";
+  }, [createSkillKeyValue]);
+
   const updateDraft = useCallback((patch: Partial<SkillBaseline>) => {
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }, []);
+
+  const clearCreatePackageFile = useCallback(() => {
+    setCreatePackageFile(undefined);
+    if (createFileInputRef.current) {
+      createFileInputRef.current.value = "";
+    }
+  }, []);
+
+  const openCreatePackagePicker = useCallback(() => {
+    if (createFileInputRef.current) {
+      createFileInputRef.current.value = "";
+      createFileInputRef.current.click();
+    }
+  }, []);
+
+  const handleCreatePackageSelected = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0];
+    if (!nextFile) {
+      return;
+    }
+    if (!nextFile.name.toLowerCase().endsWith(".zip")) {
+      messageApi.error("请选择 ZIP 格式的 Skill 包");
+      event.target.value = "";
+      return;
+    }
+    setCreatePackageFile(nextFile);
+  }, [messageApi]);
 
   const handleSave = useCallback(async () => {
     if (!draft) {
@@ -215,7 +259,7 @@ export function SkillBaselinePanel() {
       });
       setCreateModalOpen(false);
       createForm.resetFields();
-      setCreatePackageFile(undefined);
+      clearCreatePackageFile();
       setSelectedSkillKey(created.skillKey);
       setSelectedBaseline(created);
       setDraft(created);
@@ -230,7 +274,7 @@ export function SkillBaselinePanel() {
     } finally {
       setCreating(false);
     }
-  }, [createForm, createPackageFile, loadItems, messageApi]);
+  }, [clearCreatePackageFile, createForm, createPackageFile, loadItems, messageApi]);
 
   return (
     <>
@@ -405,11 +449,12 @@ export function SkillBaselinePanel() {
         onCancel={() => {
           setCreateModalOpen(false);
           createForm.resetFields();
-          setCreatePackageFile(undefined);
+          clearCreatePackageFile();
         }}
         onOk={() => void handleCreate()}
         okText="创建"
         confirmLoading={creating}
+        width={560}
       >
         <Form<CreateBaselineForm> form={createForm} layout="vertical">
           <Form.Item
@@ -426,15 +471,45 @@ export function SkillBaselinePanel() {
             <Input placeholder="可选，不填时默认与 Skill Key 相同；需全局唯一" />
           </Form.Item>
           <Form.Item label="Skill ZIP">
-            <input
-              type="file"
-              accept=".zip,application/zip"
-              onChange={(event) => setCreatePackageFile(event.target.files?.[0] ?? undefined)}
-            />
-            <div style={{ marginTop: 8 }}>
-              <Text type="secondary">
-                上传的 ZIP 会解压到服务器 ` /opt/fun-ai-claw/skills/&lt;skillKey&gt; `，并自动生成 `sourceRef=skillKey`。
-              </Text>
+            <div className={`skill-package-upload-card ${createPackageFile ? "is-selected" : ""}`}>
+              <input
+                ref={createFileInputRef}
+                type="file"
+                accept=".zip,application/zip"
+                className="skill-package-upload-input"
+                onChange={handleCreatePackageSelected}
+              />
+              <div className="skill-package-upload-main">
+                <div className="skill-package-upload-badge">ZIP</div>
+                <div className="skill-package-upload-copy">
+                  <div
+                    className="skill-package-upload-title"
+                    title={createPackageFile?.name ?? "上传完整的 Skill ZIP 包"}
+                  >
+                    {createPackageFile?.name ?? "上传完整的 Skill ZIP 包"}
+                  </div>
+                  <div className="skill-package-upload-meta">
+                    {createPackageFile
+                      ? `已选择 · ${formatFileSize(createPackageFile.size)}`
+                      : "支持包含 SKILL.md、references、assets 等资源的整包 ZIP"}
+                  </div>
+                </div>
+              </div>
+              <Space size="small" wrap>
+                <Button onClick={openCreatePackagePicker}>
+                  {createPackageFile ? "重新选择" : "选择 ZIP"}
+                </Button>
+                {createPackageFile ? (
+                  <Button type="text" onClick={clearCreatePackageFile}>
+                    清空
+                  </Button>
+                ) : null}
+              </Space>
+            </div>
+            <div className="skill-package-upload-summary">
+              <Text strong>解压目标</Text>
+              <Text code>{`/opt/fun-ai-claw/skills/${createPackageTarget}`}</Text>
+              <Text type="secondary">上传完成后会自动写入 `sourceRef={createPackageTarget}`。</Text>
             </div>
           </Form.Item>
         </Form>

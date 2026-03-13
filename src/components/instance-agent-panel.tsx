@@ -260,7 +260,10 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
     setSaving(true);
     setError(undefined);
     try {
-      await upsertInstanceAgentBinding(instanceId, targetAgentKey, { updatedBy: "ui-dashboard" });
+      await upsertInstanceAgentBinding(instanceId, targetAgentKey, {
+        agentic: false,
+        updatedBy: "ui-dashboard",
+      });
       await loadAll();
       messageApi.success("Agent 已装载到当前实例");
     } catch (apiError) {

@@ -151,7 +151,7 @@ export const AGENT_INTERACTION_STATE_LABELS: Record<string, string> = {
   step4_episode_outline: "分集大纲",
   step5_full_script: "完整剧本",
 };
-export const ACTIVE_IMAGE_PRESET_KEYWORDS = ["zeroclaw-shell", "zeroclaw-python"] as const;
+export const ACTIVE_IMAGE_PRESET_IDS = ["zeroclaw-shell", "zeroclaw-python"] as const;
 
 // ── Utility functions ────────────────────────────────────────────
 
@@ -159,13 +159,26 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function normalizeImagePresetValue(value: string): string {
+  let normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return "";
+  }
+  const digestIndex = normalized.indexOf("@");
+  if (digestIndex >= 0) {
+    normalized = normalized.slice(0, digestIndex);
+  }
+  const lastSlashIndex = normalized.lastIndexOf("/");
+  const repositoryWithTag = lastSlashIndex >= 0 ? normalized.slice(lastSlashIndex + 1) : normalized;
+  const tagIndex = repositoryWithTag.lastIndexOf(":");
+  return tagIndex >= 0 ? repositoryWithTag.slice(0, tagIndex) : repositoryWithTag;
+}
+
 export function isImagePresetAvailable(preset: { id?: string; name?: string; image?: string }): boolean {
-  return [preset.id, preset.name, preset.image]
+  return [preset.id, preset.image]
     .filter((value): value is string => typeof value === "string")
-    .some((value) => {
-      const normalizedValue = value.toLowerCase();
-      return ACTIVE_IMAGE_PRESET_KEYWORDS.some((keyword) => normalizedValue.includes(keyword));
-    });
+    .map(normalizeImagePresetValue)
+    .some((value) => ACTIVE_IMAGE_PRESET_IDS.some((presetId) => presetId === value));
 }
 
 export function sanitizeAgentInteractionAction(value: unknown): AgentInteractionAction | undefined {

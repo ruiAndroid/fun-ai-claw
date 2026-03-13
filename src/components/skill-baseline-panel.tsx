@@ -29,9 +29,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Text } = Typography;
 
+const DEFAULT_SKILL_SOURCE_TYPE = "SERVER_PACKAGE";
+
 type CreateBaselineForm = {
   skillKey: string;
   displayName?: string;
+  sourceRef: string;
 };
 
 function buildEmptyDraft(skillKey = "", displayName = ""): SkillBaseline {
@@ -40,10 +43,9 @@ function buildEmptyDraft(skillKey = "", displayName = ""): SkillBaseline {
     skillKey,
     displayName,
     description: "",
-    sourceType: "MANUAL",
+    sourceType: DEFAULT_SKILL_SOURCE_TYPE,
     sourceRef: "",
     enabled: true,
-    skillMd: "",
     updatedBy: "",
     createdAt: now,
     updatedAt: now,
@@ -61,7 +63,6 @@ function snapshotBaseline(value?: SkillBaseline | null): string {
     sourceType: value.sourceType,
     sourceRef: value.sourceRef ?? "",
     enabled: value.enabled,
-    skillMd: value.skillMd,
     updatedBy: value.updatedBy ?? "",
   });
 }
@@ -74,7 +75,6 @@ function toUpsertRequest(value: SkillBaseline): SkillBaselineUpsertRequest {
     sourceType: value.sourceType,
     sourceRef: value.sourceRef ?? null,
     enabled: value.enabled,
-    skillMd: value.skillMd,
     updatedBy: value.updatedBy ?? null,
   };
 }
@@ -99,12 +99,12 @@ export function SkillBaselinePanel() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string>();
   const [selectedSkillKey, setSelectedSkillKey] = useState<string>();
   const [selectedBaseline, setSelectedBaseline] = useState<SkillBaseline>();
   const [draft, setDraft] = useState<SkillBaseline>();
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [createForm] = Form.useForm<CreateBaselineForm>();
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -164,16 +164,16 @@ export function SkillBaselinePanel() {
 
   const dirty = useMemo(
     () => snapshotBaseline(draft) !== snapshotBaseline(selectedBaseline),
-    [draft, selectedBaseline]
+    [draft, selectedBaseline],
   );
 
   const selectedSummary = useMemo(
     () => items.find((item) => item.skillKey === selectedSkillKey),
-    [items, selectedSkillKey]
+    [items, selectedSkillKey],
   );
 
   const updateDraft = useCallback((patch: Partial<SkillBaseline>) => {
-    setDraft((current) => current ? { ...current, ...patch } : current);
+    setDraft((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -187,48 +187,54 @@ export function SkillBaselinePanel() {
       setSelectedBaseline(saved);
       setDraft(saved);
       await loadItems(saved.skillKey);
-      messageApi.success(`Skill baseline 已保存：${saved.skillKey}`);
+      messageApi.success("Skill baseline 已保存");
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
+      messageApi.error("保存 Skill baseline 失败");
     } finally {
       setSaving(false);
     }
   }, [draft, loadItems, messageApi]);
 
   const handleDelete = useCallback(async () => {
-    if (!selectedSkillKey) {
+    if (!draft) {
       return;
     }
     setDeleting(true);
     setError(undefined);
     try {
-      await deleteSkillBaseline(selectedSkillKey);
-      messageApi.success(`Skill baseline 已删除：${selectedSkillKey}`);
+      await deleteSkillBaseline(draft.skillKey);
+      messageApi.success("Skill baseline 已删除");
       await loadItems();
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : String(apiError));
+      messageApi.error("删除 Skill baseline 失败");
     } finally {
       setDeleting(false);
     }
-  }, [loadItems, messageApi, selectedSkillKey]);
+  }, [draft, loadItems, messageApi]);
 
   const handleCreate = useCallback(async () => {
     try {
       const values = await createForm.validateFields();
+      const draftValue = buildEmptyDraft(values.skillKey.trim(), (values.displayName ?? "").trim());
+      draftValue.sourceRef = values.sourceRef.trim();
       setCreating(true);
       setError(undefined);
-      const payload = buildEmptyDraft(values.skillKey.trim(), values.displayName?.trim() || values.skillKey.trim());
-      const created = await createSkillBaseline(toUpsertRequest(payload));
+      const created = await createSkillBaseline(toUpsertRequest(draftValue));
       setCreateModalOpen(false);
       createForm.resetFields();
-      await loadItems(created.skillKey);
       setSelectedSkillKey(created.skillKey);
-      messageApi.success(`Skill baseline 已创建：${created.skillKey}`);
+      setSelectedBaseline(created);
+      setDraft(created);
+      await loadItems(created.skillKey);
+      messageApi.success("Skill baseline 已创建");
     } catch (apiError) {
-      if ((apiError as { errorFields?: unknown }).errorFields) {
+      if ((apiError as { errorFields?: unknown[] })?.errorFields) {
         return;
       }
       setError(apiError instanceof Error ? apiError.message : String(apiError));
+      messageApi.error("创建 Skill baseline 失败");
     } finally {
       setCreating(false);
     }
@@ -267,7 +273,7 @@ export function SkillBaselinePanel() {
 
           {(!loading && items.length === 0) ? (
             <Empty
-              description="当前还没有 Skill baseline，可先创建一条台账记录。"
+              description="当前还没有 Skill baseline，可先创建一条记录。"
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             >
               <Button type="primary" onClick={() => setCreateModalOpen(true)}>新增 Skill</Button>
@@ -276,7 +282,7 @@ export function SkillBaselinePanel() {
 
           {items.length > 0 ? (
             <>
-              <Text type="secondary">点击 Skill 卡片查看并维护基线内容。</Text>
+              <Text type="secondary">点击 Skill 卡片查看并维护服务器 skill 包引用。</Text>
               <div className="skill-card-grid-v2">
                 {items.map((item) => {
                   const selected = selectedSkillKey === item.skillKey;
@@ -317,7 +323,7 @@ export function SkillBaselinePanel() {
                     <Text type="secondary">最近更新：{formatTimestamp(selectedSummary?.updatedAt ?? draft.updatedAt)}</Text>
                     <Popconfirm
                       title="删除 Skill baseline"
-                      description={`确认删除 ${draft.skillKey} 吗？此操作只影响台账，不影响现有实例。`}
+                      description={`确认删除 ${draft.skillKey} 吗？这会影响后续实例装载。`}
                       okText="确认删除"
                       cancelText="取消"
                       onConfirm={() => void handleDelete()}
@@ -348,7 +354,7 @@ export function SkillBaselinePanel() {
                       </div>
                       <div className="agent-baseline-field">
                         <span className="agent-detail-prop-label">Source Type</span>
-                        <Input value={draft.sourceType} onChange={(event) => updateDraft({ sourceType: event.target.value })} />
+                        <Input value={draft.sourceType} disabled />
                       </div>
                       <div className="agent-baseline-field is-switch">
                         <span className="agent-detail-prop-label">Enabled</span>
@@ -356,18 +362,26 @@ export function SkillBaselinePanel() {
                       </div>
                       <div className="agent-baseline-field is-wide">
                         <span className="agent-detail-prop-label">Source Ref</span>
-                        <Input value={draft.sourceRef ?? ""} onChange={(event) => updateDraft({ sourceRef: event.target.value })} />
+                        <Input
+                          value={draft.sourceRef ?? ""}
+                          onChange={(event) => updateDraft({ sourceRef: event.target.value })}
+                          placeholder="例如 screenplay-writer 或 screenplay-writer/v1"
+                        />
                       </div>
                       <div className="agent-baseline-field is-wide">
                         <span className="agent-detail-prop-label">Description</span>
-                        <Input.TextArea rows={3} value={draft.description ?? ""} onChange={(event) => updateDraft({ description: event.target.value })} />
+                        <Input.TextArea
+                          rows={3}
+                          value={draft.description ?? ""}
+                          onChange={(event) => updateDraft({ description: event.target.value })}
+                        />
                       </div>
                       <div className="agent-baseline-field">
                         <span className="agent-detail-prop-label">Updated By</span>
                         <Input
                           value={draft.updatedBy ?? ""}
                           onChange={(event) => updateDraft({ updatedBy: event.target.value })}
-                          placeholder="可选，记录本次维护人"
+                          placeholder="可选，用于记录本次维护人"
                         />
                       </div>
                     </div>
@@ -376,17 +390,15 @@ export function SkillBaselinePanel() {
 
                 <div className="agent-prompt-card">
                   <div className="agent-prompt-header">
-                    <span className="agent-prompt-header-title">SKILL.md</span>
-                    <Text type="secondary">{draft.skillMd.split("\n").length} 行 / {draft.skillMd.length} 字符</Text>
+                    <span className="agent-prompt-header-title">Skill Package</span>
+                    <Text type="secondary">{draft.sourceRef || "未配置 sourceRef"}</Text>
                   </div>
                   <div className="agent-prompt-body is-spacious">
-                    <Input.TextArea
-                      className="prompt-textarea prompt-textarea-skill"
-                      rows={20}
-                      value={draft.skillMd}
-                      onChange={(event) => updateDraft({ skillMd: event.target.value })}
-                      placeholder="填写 Skill 对应的 SKILL.md 内容"
-                    />
+                    <Space direction="vertical" size={6}>
+                      <Text>Skill baseline 现在只记录服务器上的 skill 包引用，不再直接存储 `SKILL.md` 内容。</Text>
+                      <Text type="secondary">服务端会把 `sourceRef` 解析为服务器技能根目录下的包路径，并将整个目录同步到运行时。</Text>
+                      <Text type="secondary">请确保对应目录下至少存在 `SKILL.md`，并且目录结构可直接作为 Codex skill 包使用。</Text>
+                    </Space>
                   </div>
                 </div>
               </div>
@@ -415,10 +427,19 @@ export function SkillBaselinePanel() {
               { pattern: /^[A-Za-z0-9._-]+$/, message: "仅支持字母、数字、点、下划线和中划线" },
             ]}
           >
-            <Input placeholder="例如：novel-to-script-main" />
+            <Input placeholder="例如 screenplay-writer" />
           </Form.Item>
           <Form.Item name="displayName" label="Display Name">
             <Input placeholder="可选，不填时默认与 Skill Key 相同" />
+          </Form.Item>
+          <Form.Item
+            name="sourceRef"
+            label="Source Ref"
+            rules={[
+              { required: true, message: "请输入 Source Ref" },
+            ]}
+          >
+            <Input placeholder="例如 screenplay-writer 或 screenplay-writer/v1" />
           </Form.Item>
         </Form>
       </Modal>

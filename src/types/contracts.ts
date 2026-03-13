@@ -155,7 +155,6 @@ export interface SkillBaseline {
   sourceType: string;
   sourceRef?: string | null;
   enabled: boolean;
-  skillMd: string;
   updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -168,7 +167,6 @@ export interface SkillBaselineUpsertRequest {
   sourceType?: string | null;
   sourceRef?: string | null;
   enabled?: boolean | null;
-  skillMd?: string | null;
   updatedBy?: string | null;
 }
 

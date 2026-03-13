@@ -432,12 +432,11 @@ export function InstanceSkillPanel({
                   {detailLoading ? (
                     <Text type="secondary">正在加载 Skill 详情...</Text>
                   ) : (
-                    <Input.TextArea
-                      className="prompt-textarea prompt-textarea-skill"
-                      rows={20}
-                      readOnly
-                      value={selectedSkillDetail.skillMd}
-                    />
+                    <Space direction="vertical" size={6} style={{ width: "100%" }}>
+                      <Text>该 Skill 由服务器上的 skill package 提供，不再直接返回 `SKILL.md` 内容。</Text>
+                      <Text type="secondary">Source Type：{selectedSkillDetail.sourceType}</Text>
+                      <Text type="secondary">Source Ref：{selectedSkillDetail.sourceRef || "-"}</Text>
+                    </Space>
                   )}
                 </Space>
               </div>

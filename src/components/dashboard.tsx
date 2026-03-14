@@ -500,7 +500,7 @@ export function Dashboard() {
 
   const clearQueuedAgentSessionDeltas = useCallback(() => {
     if (queuedAgentSessionDeltasFlushRef.current !== null && typeof window !== "undefined") {
-      window.cancelAnimationFrame(queuedAgentSessionDeltasFlushRef.current);
+      window.clearTimeout(queuedAgentSessionDeltasFlushRef.current);
     }
     queuedAgentSessionDeltasFlushRef.current = null;
     queuedAgentSessionDeltasRef.current = [];
@@ -509,7 +509,7 @@ export function Dashboard() {
 
   const clearQueuedStructuredAgentSessionMessages = useCallback(() => {
     if (queuedStructuredAgentMessagesFlushRef.current !== null && typeof window !== "undefined") {
-      window.cancelAnimationFrame(queuedStructuredAgentMessagesFlushRef.current);
+      window.clearTimeout(queuedStructuredAgentMessagesFlushRef.current);
     }
     queuedStructuredAgentMessagesFlushRef.current = null;
     queuedStructuredAgentMessagesRef.current.clear();
@@ -1337,10 +1337,10 @@ export function Dashboard() {
     if (queuedAgentSessionDeltasFlushRef.current !== null) {
       return;
     }
-    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      queuedAgentSessionDeltasFlushRef.current = window.requestAnimationFrame(() => {
+    if (typeof window !== "undefined") {
+      queuedAgentSessionDeltasFlushRef.current = window.setTimeout(() => {
         flushQueuedAgentSessionDeltas();
-      });
+      }, 0);
       return;
     }
     flushQueuedAgentSessionDeltas();
@@ -1354,10 +1354,10 @@ export function Dashboard() {
     if (queuedStructuredAgentMessagesFlushRef.current !== null) {
       return;
     }
-    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      queuedStructuredAgentMessagesFlushRef.current = window.requestAnimationFrame(() => {
+    if (typeof window !== "undefined") {
+      queuedStructuredAgentMessagesFlushRef.current = window.setTimeout(() => {
         flushQueuedStructuredAgentSessionMessages();
-      });
+      }, 0);
       return;
     }
     flushQueuedStructuredAgentSessionMessages();

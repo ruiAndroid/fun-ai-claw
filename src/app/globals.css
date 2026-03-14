@@ -1081,6 +1081,16 @@ body {
   grid-column: 1 / -1;
 }
 
+.agent-detail-prop > .ant-select {
+  display: block;
+  width: 100%;
+}
+
+.agent-detail-prop > .ant-typography {
+  display: block;
+  margin-top: 6px;
+}
+
 .agent-detail-prop-label {
   display: block;
   font-size: 11px;
@@ -1243,6 +1253,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.agent-baseline-field > .ant-select {
+  width: 100%;
+}
+
+.agent-baseline-field > .ant-typography {
+  display: block;
 }
 
 .agent-baseline-field.is-wide {

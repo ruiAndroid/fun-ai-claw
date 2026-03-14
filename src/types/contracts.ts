@@ -37,6 +37,7 @@ export interface AgentDescriptor {
   model?: string | null;
   agentic?: boolean | null;
   allowedTools?: string[] | null;
+  allowedSkills?: string[] | null;
   systemPrompt?: string | null;
   configPath?: string | null;
 }
@@ -63,6 +64,7 @@ export interface AgentBaselineSummary {
   allowedToolsExtra?: string[] | null;
   deniedTools?: string[] | null;
   allowedTools?: string[] | null;
+  allowedSkills?: string[] | null;
   updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -84,6 +86,7 @@ export interface AgentBaseline {
   allowedToolsExtra: string[];
   deniedTools: string[];
   allowedTools: string[];
+  allowedSkills: string[];
   systemPrompt?: string | null;
   updatedBy?: string | null;
   createdAt: string;
@@ -106,6 +109,7 @@ export interface AgentBaselineUpsertRequest {
   allowedToolsExtra?: string[] | null;
   deniedTools?: string[] | null;
   allowedTools?: string[] | null;
+  allowedSkills?: string[] | null;
   systemPrompt?: string | null;
   updatedBy?: string | null;
 }
@@ -142,6 +146,7 @@ export interface InstanceAgentBinding {
   agentic?: boolean | null;
   systemPrompt?: string | null;
   allowedTools: string[];
+  allowedSkills: string[];
   updatedBy?: string | null;
   createdAt: string;
   updatedAt: string;

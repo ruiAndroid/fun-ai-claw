@@ -31,7 +31,35 @@ type AgentDraft = {
   agentic: boolean;
   systemPrompt: string;
   allowedTools: string[];
+  allowedSkills: string[];
 };
+
+function normalizeStringValues(values?: string[] | null): string[] {
+  if (!values || values.length === 0) {
+    return [];
+  }
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function buildSkillOptions(bindings: InstanceSkillBinding[], selectedValues: string[]) {
+  const options = new Map<string, string>();
+  for (const binding of bindings) {
+    options.set(
+      binding.skillKey,
+      binding.displayName && binding.displayName !== binding.skillKey
+        ? `${binding.displayName} (${binding.skillKey})`
+        : binding.skillKey,
+    );
+  }
+  for (const value of selectedValues) {
+    if (!options.has(value)) {
+      options.set(value, value);
+    }
+  }
+  return Array.from(options.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([value, label]) => ({ value, label }));
+}
 
 function toDraft(binding: InstanceAgentBinding): AgentDraft {
   return {
@@ -40,7 +68,8 @@ function toDraft(binding: InstanceAgentBinding): AgentDraft {
     temperature: binding.temperature ?? null,
     agentic: binding.agentic === true,
     systemPrompt: binding.systemPrompt ?? "",
-    allowedTools: binding.allowedTools ?? [],
+    allowedTools: normalizeStringValues(binding.allowedTools),
+    allowedSkills: normalizeStringValues(binding.allowedSkills),
   };
 }
 
@@ -54,7 +83,8 @@ function snapshotDraft(value: AgentDraft | undefined): string {
     temperature: value.temperature,
     agentic: value.agentic,
     systemPrompt: value.systemPrompt,
-    allowedTools: value.allowedTools,
+    allowedTools: normalizeStringValues(value.allowedTools),
+    allowedSkills: normalizeStringValues(value.allowedSkills),
   });
 }
 
@@ -209,6 +239,9 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
   const runtimeToolOptions = useMemo(() => {
     return buildAgentToolOptions(toolCatalog.tools, draft?.allowedTools ?? []);
   }, [draft?.allowedTools, toolCatalog.tools]);
+  const allowedSkillOptions = useMemo(() => {
+    return buildSkillOptions(skillBindings, draft?.allowedSkills ?? []);
+  }, [draft?.allowedSkills, skillBindings]);
 
   const draftDirty = snapshotDraft(draft) !== snapshotDraft(selectedBinding ? toDraft(selectedBinding) : undefined);
 
@@ -248,7 +281,8 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
         temperature: draft.temperature,
         agentic: draft.agentic,
         systemPrompt: draft.systemPrompt,
-        allowedTools: draft.allowedTools,
+        allowedTools: normalizeStringValues(draft.allowedTools),
+        allowedSkills: normalizeStringValues(draft.allowedSkills),
         updatedBy: "ui-dashboard",
       });
       setBindings((current) => current.map((item) => (item.agentKey === saved.agentKey ? saved : item)));
@@ -537,6 +571,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                             allowClear
                             placeholder="Select runtime tools, not skill IDs"
                             options={runtimeToolOptions}
+                            style={{ width: "100%" }}
                             value={draft?.allowedTools ?? []}
                             onChange={(value) => {
                               setDraft((current) => (current ? { ...current, allowedTools: value } : current));
@@ -547,6 +582,25 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                           </Text>
                         </div>
                       ) : null}
+                      <div className="agent-detail-prop is-wide">
+                        <span className="agent-detail-prop-label">allowed_skills</span>
+                        <Select
+                          mode="multiple"
+                          allowClear
+                          placeholder="Leave empty to allow all mounted skills"
+                          options={allowedSkillOptions}
+                          style={{ width: "100%" }}
+                          value={draft?.allowedSkills ?? []}
+                          onChange={(value) => {
+                            setDraft((current) => (
+                              current ? { ...current, allowedSkills: normalizeStringValues(value) } : current
+                            ));
+                          }}
+                        />
+                        <Text type="secondary">
+                          allowed_skills limits which mounted skills this agent can see and read. Leave empty to keep all.
+                        </Text>
+                      </div>
                       <div className="agent-detail-prop is-wide">
                         <span className="agent-detail-prop-label">描述</span>
                         <span className="agent-detail-prop-value">{selectedBinding.description || "-"}</span>

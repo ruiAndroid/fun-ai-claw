@@ -5,6 +5,7 @@ import {
   deleteAgentBaseline,
   getAgentToolCatalog,
   getAgentBaseline,
+  listSkillBaselines,
   listAgentBaselines,
   upsertAgentBaseline,
 } from "@/lib/control-api";
@@ -14,7 +15,13 @@ import {
   normalizeToolValues,
   resolveAgentAllowedTools,
 } from "@/lib/agent-tool-catalog";
-import type { AgentBaseline, AgentBaselineSummary, AgentBaselineUpsertRequest, AgentToolCatalog } from "@/types/contracts";
+import type {
+  AgentBaseline,
+  AgentBaselineSummary,
+  AgentBaselineUpsertRequest,
+  AgentToolCatalog,
+  SkillBaselineSummary,
+} from "@/types/contracts";
 import {
   Alert,
   Button,
@@ -61,11 +68,39 @@ function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
     allowedToolsExtra: [],
     deniedTools: [],
     allowedTools: [],
+    allowedSkills: [],
     systemPrompt: "",
     updatedBy: "",
     createdAt: now,
     updatedAt: now,
   };
+}
+
+function normalizeStringValues(values?: string[] | null): string[] {
+  if (!values || values.length === 0) {
+    return [];
+  }
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function buildSkillOptions(skills: SkillBaselineSummary[], selectedValues: string[]) {
+  const options = new Map<string, string>();
+  for (const skill of skills.filter((item) => item.enabled)) {
+    options.set(
+      skill.skillKey,
+      skill.displayName && skill.displayName !== skill.skillKey
+        ? `${skill.displayName} (${skill.skillKey})`
+        : skill.skillKey,
+    );
+  }
+  for (const value of selectedValues) {
+    if (!options.has(value)) {
+      options.set(value, value);
+    }
+  }
+  return Array.from(options.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([value, label]) => ({ value, label }));
 }
 
 function normalizeBaseline(value: AgentBaseline): AgentBaseline {
@@ -76,6 +111,7 @@ function normalizeBaseline(value: AgentBaseline): AgentBaseline {
     allowedToolsExtra: normalizeToolValues(value.allowedToolsExtra ?? normalizedAllowedTools),
     deniedTools: normalizeToolValues(value.deniedTools ?? []),
     allowedTools: normalizedAllowedTools,
+    allowedSkills: normalizeStringValues(value.allowedSkills ?? []),
   };
 }
 
@@ -98,6 +134,7 @@ function snapshotBaseline(value?: AgentBaseline | null): string {
     toolPresetKey: value.toolPresetKey ?? null,
     allowedToolsExtra: normalizeToolValues(value.allowedToolsExtra ?? []),
     deniedTools: normalizeToolValues(value.deniedTools ?? []),
+    allowedSkills: normalizeStringValues(value.allowedSkills ?? []),
     systemPrompt: value.systemPrompt ?? "",
     updatedBy: value.updatedBy ?? "",
   });
@@ -119,6 +156,7 @@ function toUpsertRequest(value: AgentBaseline): AgentBaselineUpsertRequest {
     toolPresetKey: value.toolPresetKey ?? null,
     allowedToolsExtra: normalizeToolValues(value.allowedToolsExtra ?? []),
     deniedTools: normalizeToolValues(value.deniedTools ?? []),
+    allowedSkills: normalizeStringValues(value.allowedSkills ?? []),
     systemPrompt: value.systemPrompt ?? null,
     updatedBy: value.updatedBy ?? null,
   };
@@ -149,6 +187,7 @@ export function AgentBaselinePanel() {
   const [selectedBaseline, setSelectedBaseline] = useState<AgentBaseline>();
   const [draft, setDraft] = useState<AgentBaseline>();
   const [toolCatalog, setToolCatalog] = useState<AgentToolCatalog>(emptyAgentToolCatalog());
+  const [skillBaselines, setSkillBaselines] = useState<SkillBaselineSummary[]>([]);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createForm] = Form.useForm<CreateBaselineForm>();
@@ -203,6 +242,12 @@ export function AgentBaselinePanel() {
     void getAgentToolCatalog()
       .then((response) => setToolCatalog(response))
       .catch(() => setToolCatalog(emptyAgentToolCatalog()));
+  }, []);
+
+  useEffect(() => {
+    void listSkillBaselines()
+      .then((response) => setSkillBaselines(response.items))
+      .catch(() => setSkillBaselines([]));
   }, []);
 
   useEffect(() => {
@@ -263,6 +308,9 @@ export function AgentBaselinePanel() {
       ...effectiveAllowedTools,
     ]);
   }, [draft?.allowedToolsExtra, draft?.deniedTools, effectiveAllowedTools, toolCatalog.tools]);
+  const allowedSkillOptions = useMemo(() => {
+    return buildSkillOptions(skillBaselines, draft?.allowedSkills ?? []);
+  }, [draft?.allowedSkills, skillBaselines]);
 
   const handleSave = useCallback(async () => {
     if (!draft) {
@@ -474,6 +522,7 @@ export function AgentBaselinePanel() {
                               allowClear
                               placeholder="Select a preset or leave empty for custom"
                               options={presetOptions}
+                              style={{ width: "100%" }}
                               value={draft.toolPresetKey ?? undefined}
                               onChange={(value) => updateDraft({ toolPresetKey: value ?? null })}
                             />
@@ -490,6 +539,7 @@ export function AgentBaselinePanel() {
                               allowClear
                               placeholder="Add runtime tools beyond the preset"
                               options={runtimeToolOptions}
+                              style={{ width: "100%" }}
                               value={draft.allowedToolsExtra ?? []}
                               onChange={(value) => updateDraft({ allowedToolsExtra: value })}
                             />
@@ -503,6 +553,7 @@ export function AgentBaselinePanel() {
                               allowClear
                               placeholder="Remove runtime tools from preset or extra list"
                               options={runtimeToolOptions}
+                              style={{ width: "100%" }}
                               value={draft.deniedTools ?? []}
                               onChange={(value) => updateDraft({ deniedTools: value })}
                             />
@@ -518,6 +569,21 @@ export function AgentBaselinePanel() {
                             </Space>
                           </div>
                         ) : null}
+                        <div className="agent-baseline-field is-wide">
+                          <span className="agent-detail-prop-label">allowed_skills</span>
+                          <Select
+                            mode="multiple"
+                            allowClear
+                            placeholder="Leave empty to allow all mounted skills"
+                            options={allowedSkillOptions}
+                            style={{ width: "100%" }}
+                            value={draft.allowedSkills ?? []}
+                            onChange={(value) => updateDraft({ allowedSkills: normalizeStringValues(value) })}
+                          />
+                          <Text type="secondary">
+                            Leave empty for unrestricted skill visibility; otherwise only listed skill keys stay visible to this agent.
+                          </Text>
+                        </div>
                         <div className="agent-baseline-field">
                           <span className="agent-detail-prop-label">Provider</span>
                           <Input value={draft.provider ?? ""} onChange={(event) => updateDraft({ provider: event.target.value })} />

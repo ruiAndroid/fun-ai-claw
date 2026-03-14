@@ -223,6 +223,7 @@ export async function upsertInstanceAgentBinding(
     agentic?: boolean | null;
     systemPrompt?: string | null;
     allowedTools?: string[] | null;
+    allowedSkills?: string[] | null;
     updatedBy?: string | null;
   }
 ) {

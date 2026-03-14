@@ -154,6 +154,7 @@ export function Dashboard() {
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [agentsError, setAgentsError] = useState<string>();
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
+  const [instanceConfigReloadToken, setInstanceConfigReloadToken] = useState(0);
   const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("direct");
   const [agentMessageInput, setAgentMessageInput] = useState("");
   const [agentComposerInteractionDraft, setAgentComposerInteractionDraft] = useState<AgentComposerInteractionDraft>();
@@ -483,6 +484,7 @@ export function Dashboard() {
   const handleInstalledAgentsChange = useCallback((nextAgents: InstanceAgentBinding[]) => {
     setAgents(nextAgents);
     setAgentsError(undefined);
+    setInstanceConfigReloadToken((current) => current + 1);
     setSelectedAgentId((current) => {
       if (!nextAgents.length) {
         return undefined;
@@ -2888,7 +2890,13 @@ export function Dashboard() {
                         {
                           key: "config",
                           label: uiText.tabConfig,
-                          children: <InstanceConfigPanel instance={selectedInstance} topSection={mainAgentGuidanceSection} />,
+                          children: (
+                            <InstanceConfigPanel
+                              instance={selectedInstance}
+                              topSection={mainAgentGuidanceSection}
+                              reloadToken={instanceConfigReloadToken}
+                            />
+                          ),
                         },
                         {
                           key: "agents",

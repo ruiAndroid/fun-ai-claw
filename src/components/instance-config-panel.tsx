@@ -18,7 +18,7 @@ import {
   Typography,
   message,
 } from "antd";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -57,7 +57,15 @@ function getSourceMeta(source?: string) {
   }
 }
 
-export function InstanceConfigPanel({ instance, topSection }: { instance: ClawInstance; topSection?: ReactNode }) {
+export function InstanceConfigPanel({
+  instance,
+  topSection,
+  reloadToken,
+}: {
+  instance: ClawInstance;
+  topSection?: ReactNode;
+  reloadToken?: number;
+}) {
   const [config, setConfig] = useState<InstanceConfig>();
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
@@ -66,6 +74,7 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
   const [error, setError] = useState<string>();
   const [configTomlCollapsed, setConfigTomlCollapsed] = useState(true);
   const [messageApi, contextHolder] = message.useMessage();
+  const lastReloadTokenRef = useRef<number | undefined>(reloadToken);
 
   const loadConfig = useCallback(async (showSuccess?: boolean) => {
     setLoading(true);
@@ -89,6 +98,17 @@ export function InstanceConfigPanel({ instance, topSection }: { instance: ClawIn
   useEffect(() => {
     void loadConfig();
   }, [loadConfig]);
+
+  useEffect(() => {
+    if (reloadToken === undefined) {
+      return;
+    }
+    if (lastReloadTokenRef.current === reloadToken) {
+      return;
+    }
+    lastReloadTokenRef.current = reloadToken;
+    void loadConfig();
+  }, [loadConfig, reloadToken]);
 
   useEffect(() => {
     setConfigTomlCollapsed(true);

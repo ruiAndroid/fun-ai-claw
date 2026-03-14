@@ -165,6 +165,7 @@ export function Dashboard() {
   const queuedAgentSessionDeltasFlushRef = useRef<number | null>(null);
   const queuedStructuredAgentMessagesRef = useRef<Map<string, AgentSessionStreamMessage>>(new Map());
   const queuedStructuredAgentMessagesFlushRef = useRef<number | null>(null);
+  const flushQueuedAgentMessageRef = useRef<() => boolean>(() => false);
   const agentSessionLineBufferRef = useRef("");
   const agentPendingAssistantMessageIdRef = useRef<string | null>(null);
   const agentTurnQueueRef = useRef<AgentTurnTracker[]>([]);
@@ -1565,6 +1566,9 @@ export function Dashboard() {
     }
 
     if (frame.eventType === "message" && frame.message) {
+      if (frame.message.role === "system" && frame.message.content.startsWith("agent session ready:")) {
+        flushQueuedAgentMessageRef.current();
+      }
       if (!(frame.message.role === "assistant" && frame.message.pending)) {
         appendAgentSessionDebugEntry({
           eventType: "message",
@@ -1578,7 +1582,14 @@ export function Dashboard() {
     }
 
     processAgentSessionChunk(data);
-  }, [appendAgentSessionDebugEntry, appendAgentSessionOutput, processAgentSessionChunk, queueAgentSessionDelta, queueStructuredAgentSessionMessage, trackAgentTimingFromDebug]);
+  }, [
+    appendAgentSessionDebugEntry,
+    appendAgentSessionOutput,
+    processAgentSessionChunk,
+    queueAgentSessionDelta,
+    queueStructuredAgentSessionMessage,
+    trackAgentTimingFromDebug,
+  ]);
 
   const normalizeAgentSessionMessage = useCallback((rawInput: string) => {
     const normalizedLines = rawInput
@@ -1645,6 +1656,22 @@ export function Dashboard() {
     socket.send(`${normalizedMessage}\n`);
     return true;
   }, [appendAgentChatMessage, appendPendingAssistantPlaceholder, finalizePendingAssistantMessage, formatAgentMessageForDisplay, markAgentInteractionResolved]);
+
+  const flushQueuedAgentMessage = useCallback(() => {
+    const queuedMessage = agentQueuedMessageRef.current;
+    if (!queuedMessage) {
+      return false;
+    }
+    const sent = sendNormalizedAgentMessage(queuedMessage.normalizedMessage, queuedMessage.options);
+    if (sent) {
+      agentQueuedMessageRef.current = null;
+    }
+    return sent;
+  }, [sendNormalizedAgentMessage]);
+
+  useEffect(() => {
+    flushQueuedAgentMessageRef.current = flushQueuedAgentMessage;
+  }, [flushQueuedAgentMessage]);
 
   const getAgentSessionCoreFields = useCallback((): AgentSessionCoreFields | undefined => {
     return agentSessionCoreFields;
@@ -1754,11 +1781,7 @@ export function Dashboard() {
       setAgentSessionConnected(true);
       setAgentSessionDisconnectNotice(undefined);
       messageApi.success(uiText.agentSessionConnected);
-      const queuedMessage = agentQueuedMessageRef.current;
-      if (queuedMessage) {
-        agentQueuedMessageRef.current = null;
-        sendNormalizedAgentMessage(queuedMessage.normalizedMessage, queuedMessage.options);
-      }
+      flushQueuedAgentMessage();
     };
 
     socket.onmessage = (event) => {
@@ -1806,7 +1829,7 @@ export function Dashboard() {
     agents.length,
     processAgentSessionLine,
     selectedInstance,
-    sendNormalizedAgentMessage,
+    flushQueuedAgentMessage,
   ]);
 
   const queueAgentMessageAndConnect = useCallback((

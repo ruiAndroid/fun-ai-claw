@@ -3,11 +3,18 @@
 import {
   createAgentBaseline,
   deleteAgentBaseline,
+  getAgentToolCatalog,
   getAgentBaseline,
   listAgentBaselines,
   upsertAgentBaseline,
 } from "@/lib/control-api";
-import type { AgentBaseline, AgentBaselineSummary, AgentBaselineUpsertRequest } from "@/types/contracts";
+import {
+  buildAgentToolOptions,
+  emptyAgentToolCatalog,
+  normalizeToolValues,
+  resolveAgentAllowedTools,
+} from "@/lib/agent-tool-catalog";
+import type { AgentBaseline, AgentBaselineSummary, AgentBaselineUpsertRequest, AgentToolCatalog } from "@/types/contracts";
 import {
   Alert,
   Button,
@@ -36,38 +43,6 @@ type CreateBaselineForm = {
   displayName?: string;
 };
 
-const RUNTIME_TOOL_CATALOG: Array<{ value: string; description: string }> = [
-  { value: "shell", description: "Run shell commands" },
-  { value: "file_read", description: "Read files" },
-  { value: "file_write", description: "Write files" },
-  { value: "file_edit", description: "Edit files" },
-  { value: "glob_search", description: "Search file paths" },
-  { value: "content_search", description: "Search file contents" },
-  { value: "cron_add", description: "Create cron jobs" },
-  { value: "cron_list", description: "List cron jobs" },
-  { value: "cron_remove", description: "Remove cron jobs" },
-  { value: "cron_update", description: "Update cron jobs" },
-  { value: "cron_run", description: "Run cron jobs" },
-  { value: "cron_runs", description: "Inspect cron run history" },
-  { value: "memory_store", description: "Store memory" },
-  { value: "memory_recall", description: "Recall memory" },
-  { value: "memory_forget", description: "Forget memory" },
-  { value: "schedule", description: "Manage schedules" },
-  { value: "model_routing_config", description: "Update model routing" },
-  { value: "proxy_config", description: "Update proxy config" },
-  { value: "git_operations", description: "Run git operations" },
-  { value: "pushover", description: "Send notifications" },
-  { value: "pdf_read", description: "Read PDFs" },
-  { value: "screenshot", description: "Capture screenshots" },
-  { value: "image_info", description: "Inspect images" },
-  { value: "browser_open", description: "Open browser URLs" },
-  { value: "browser", description: "Use browser automation" },
-  { value: "http_request", description: "Send HTTP requests" },
-  { value: "web_fetch", description: "Fetch web pages" },
-  { value: "web_search_tool", description: "Search the web" },
-  { value: "composio", description: "Call Composio tools" },
-];
-
 function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
   const now = new Date().toISOString();
   return {
@@ -82,11 +57,25 @@ function buildEmptyDraft(agentKey = "", displayName = ""): AgentBaseline {
     model: "",
     temperature: null,
     agentic: null,
+    toolPresetKey: null,
+    allowedToolsExtra: [],
+    deniedTools: [],
     allowedTools: [],
     systemPrompt: "",
     updatedBy: "",
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+function normalizeBaseline(value: AgentBaseline): AgentBaseline {
+  const normalizedAllowedTools = normalizeToolValues(value.allowedTools ?? []);
+  return {
+    ...value,
+    toolPresetKey: value.toolPresetKey ?? null,
+    allowedToolsExtra: normalizeToolValues(value.allowedToolsExtra ?? normalizedAllowedTools),
+    deniedTools: normalizeToolValues(value.deniedTools ?? []),
+    allowedTools: normalizedAllowedTools,
   };
 }
 
@@ -106,7 +95,9 @@ function snapshotBaseline(value?: AgentBaseline | null): string {
     model: value.model ?? "",
     temperature: value.temperature ?? null,
     agentic: value.agentic ?? null,
-    allowedTools: value.allowedTools ?? [],
+    toolPresetKey: value.toolPresetKey ?? null,
+    allowedToolsExtra: normalizeToolValues(value.allowedToolsExtra ?? []),
+    deniedTools: normalizeToolValues(value.deniedTools ?? []),
     systemPrompt: value.systemPrompt ?? "",
     updatedBy: value.updatedBy ?? "",
   });
@@ -125,7 +116,9 @@ function toUpsertRequest(value: AgentBaseline): AgentBaselineUpsertRequest {
     model: value.model ?? null,
     temperature: value.temperature ?? null,
     agentic: value.agentic ?? null,
-    allowedTools: value.allowedTools ?? [],
+    toolPresetKey: value.toolPresetKey ?? null,
+    allowedToolsExtra: normalizeToolValues(value.allowedToolsExtra ?? []),
+    deniedTools: normalizeToolValues(value.deniedTools ?? []),
     systemPrompt: value.systemPrompt ?? null,
     updatedBy: value.updatedBy ?? null,
   };
@@ -155,6 +148,7 @@ export function AgentBaselinePanel() {
   const [selectedAgentKey, setSelectedAgentKey] = useState<string>();
   const [selectedBaseline, setSelectedBaseline] = useState<AgentBaseline>();
   const [draft, setDraft] = useState<AgentBaseline>();
+  const [toolCatalog, setToolCatalog] = useState<AgentToolCatalog>(emptyAgentToolCatalog());
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createForm] = Form.useForm<CreateBaselineForm>();
@@ -189,7 +183,7 @@ export function AgentBaselinePanel() {
     setDetailLoading(true);
     setError(undefined);
     try {
-      const response = await getAgentBaseline(agentKey);
+      const response = normalizeBaseline(await getAgentBaseline(agentKey));
       setSelectedBaseline(response);
       setDraft(response);
     } catch (apiError) {
@@ -204,6 +198,12 @@ export function AgentBaselinePanel() {
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
+
+  useEffect(() => {
+    void getAgentToolCatalog()
+      .then((response) => setToolCatalog(response))
+      .catch(() => setToolCatalog(emptyAgentToolCatalog()));
+  }, []);
 
   useEffect(() => {
     if (selectedAgentKey) {
@@ -228,26 +228,41 @@ export function AgentBaselinePanel() {
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
-  const runtimeToolOptions = useMemo(() => {
-    const options = new Map(
-      RUNTIME_TOOL_CATALOG.map((item) => [
-        item.value,
-        {
-          value: item.value,
-          label: `${item.value} - ${item.description}`,
-        },
-      ]),
+  const effectiveAllowedTools = useMemo(() => {
+    if (!draft) {
+      return [];
+    }
+    if (toolCatalog.presets.length === 0) {
+      return normalizeToolValues(draft.allowedTools ?? []);
+    }
+    return resolveAgentAllowedTools(
+      draft.toolPresetKey,
+      draft.allowedToolsExtra,
+      draft.deniedTools,
+      toolCatalog.presets,
     );
-    (draft?.allowedTools ?? []).forEach((item) => {
-      if (!options.has(item)) {
-        options.set(item, {
-          value: item,
-          label: `${item} - custom`,
-        });
-      }
-    });
-    return Array.from(options.values()).sort((left, right) => left.value.localeCompare(right.value));
-  }, [draft?.allowedTools]);
+  }, [draft, toolCatalog.presets]);
+
+  const selectedPreset = useMemo(
+    () => toolCatalog.presets.find((preset) => preset.key === draft?.toolPresetKey),
+    [draft?.toolPresetKey, toolCatalog.presets],
+  );
+
+  const presetOptions = useMemo(
+    () => toolCatalog.presets.map((preset) => ({
+      value: preset.key,
+      label: `${preset.displayName} (${preset.key})`,
+    })),
+    [toolCatalog.presets],
+  );
+
+  const runtimeToolOptions = useMemo(() => {
+    return buildAgentToolOptions(toolCatalog.tools, [
+      ...(draft?.allowedToolsExtra ?? []),
+      ...(draft?.deniedTools ?? []),
+      ...effectiveAllowedTools,
+    ]);
+  }, [draft?.allowedToolsExtra, draft?.deniedTools, effectiveAllowedTools, toolCatalog.tools]);
 
   const handleSave = useCallback(async () => {
     if (!draft) {
@@ -256,7 +271,7 @@ export function AgentBaselinePanel() {
     setSaving(true);
     setError(undefined);
     try {
-      const saved = await upsertAgentBaseline(draft.agentKey, toUpsertRequest(draft));
+      const saved = normalizeBaseline(await upsertAgentBaseline(draft.agentKey, toUpsertRequest(draft)));
       setSelectedBaseline(saved);
       setDraft(saved);
       await loadItems(saved.agentKey);
@@ -291,7 +306,7 @@ export function AgentBaselinePanel() {
       setCreating(true);
       setError(undefined);
       const payload = buildEmptyDraft(values.agentKey.trim(), values.displayName?.trim() || values.agentKey.trim());
-      const created = await createAgentBaseline(toUpsertRequest(payload));
+      const created = normalizeBaseline(await createAgentBaseline(toUpsertRequest(payload)));
       setCreateModalOpen(false);
       createForm.resetFields();
       await loadItems(created.agentKey);
@@ -454,15 +469,53 @@ export function AgentBaselinePanel() {
                         </div>
                         {draft.agentic === true ? (
                           <div className="agent-baseline-field is-wide">
-                            <span className="agent-detail-prop-label">allowed_tools</span>
+                            <span className="agent-detail-prop-label">Tool Preset</span>
+                            <Select
+                              allowClear
+                              placeholder="Select a preset or leave empty for custom"
+                              options={presetOptions}
+                              value={draft.toolPresetKey ?? undefined}
+                              onChange={(value) => updateDraft({ toolPresetKey: value ?? null })}
+                            />
+                            <Text type="secondary">
+                              {selectedPreset?.description ?? "Final allowed_tools = preset + extra - denied."}
+                            </Text>
+                          </div>
+                        ) : null}
+                        {draft.agentic === true ? (
+                          <div className="agent-baseline-field is-wide">
+                            <span className="agent-detail-prop-label">Extra Tools</span>
                             <Select
                               mode="tags"
                               allowClear
-                              placeholder="Select runtime tools, not skill IDs"
+                              placeholder="Add runtime tools beyond the preset"
                               options={runtimeToolOptions}
-                              value={draft.allowedTools ?? []}
-                              onChange={(value) => updateDraft({ allowedTools: value })}
+                              value={draft.allowedToolsExtra ?? []}
+                              onChange={(value) => updateDraft({ allowedToolsExtra: value })}
                             />
+                          </div>
+                        ) : null}
+                        {draft.agentic === true ? (
+                          <div className="agent-baseline-field is-wide">
+                            <span className="agent-detail-prop-label">Denied Tools</span>
+                            <Select
+                              mode="tags"
+                              allowClear
+                              placeholder="Remove runtime tools from preset or extra list"
+                              options={runtimeToolOptions}
+                              value={draft.deniedTools ?? []}
+                              onChange={(value) => updateDraft({ deniedTools: value })}
+                            />
+                          </div>
+                        ) : null}
+                        {draft.agentic === true ? (
+                          <div className="agent-baseline-field is-wide">
+                            <span className="agent-detail-prop-label">Resolved allowed_tools</span>
+                            <Space size={[6, 6]} wrap>
+                              {effectiveAllowedTools.length > 0
+                                ? effectiveAllowedTools.map((tool) => <Tag key={tool}>{tool}</Tag>)
+                                : <Text type="secondary">No runtime tools enabled.</Text>}
+                            </Space>
                           </div>
                         ) : null}
                         <div className="agent-baseline-field">

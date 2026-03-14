@@ -4,6 +4,7 @@ import {
   AgentBaselineUpsertRequest,
   AgentDescriptor,
   AgentSystemPrompt,
+  AgentToolCatalog,
   ClawInstance,
   CreateInstanceRequest,
   ImagePreset,
@@ -104,6 +105,10 @@ export async function deleteAgentBaseline(agentKey: string) {
   return requestVoid(`/v1/agent-baselines/${encodeURIComponent(agentKey)}`, {
     method: "DELETE",
   });
+}
+
+export async function getAgentToolCatalog() {
+  return requestJson<AgentToolCatalog>("/v1/agent-tools/catalog");
 }
 
 export async function listSkillBaselines() {

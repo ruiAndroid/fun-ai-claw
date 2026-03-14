@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  getAgentToolCatalog,
   getAgentBaseline,
   listAgentBaselines,
   listInstanceAgentBindings,
@@ -8,9 +9,11 @@ import {
   uninstallInstanceAgentBinding,
   upsertInstanceAgentBinding,
 } from "@/lib/control-api";
+import { buildAgentToolOptions, emptyAgentToolCatalog } from "@/lib/agent-tool-catalog";
 import type {
   AgentBaseline,
   AgentBaselineSummary,
+  AgentToolCatalog,
   InstanceAgentBinding,
   InstanceSkillBinding,
 } from "@/types/contracts";
@@ -29,38 +32,6 @@ type AgentDraft = {
   systemPrompt: string;
   allowedTools: string[];
 };
-
-const RUNTIME_TOOL_CATALOG: Array<{ value: string; description: string }> = [
-  { value: "shell", description: "Run shell commands" },
-  { value: "file_read", description: "Read files" },
-  { value: "file_write", description: "Write files" },
-  { value: "file_edit", description: "Edit files" },
-  { value: "glob_search", description: "Search file paths" },
-  { value: "content_search", description: "Search file contents" },
-  { value: "cron_add", description: "Create cron jobs" },
-  { value: "cron_list", description: "List cron jobs" },
-  { value: "cron_remove", description: "Remove cron jobs" },
-  { value: "cron_update", description: "Update cron jobs" },
-  { value: "cron_run", description: "Run cron jobs" },
-  { value: "cron_runs", description: "Inspect cron run history" },
-  { value: "memory_store", description: "Store memory" },
-  { value: "memory_recall", description: "Recall memory" },
-  { value: "memory_forget", description: "Forget memory" },
-  { value: "schedule", description: "Manage schedules" },
-  { value: "model_routing_config", description: "Update model routing" },
-  { value: "proxy_config", description: "Update proxy config" },
-  { value: "git_operations", description: "Run git operations" },
-  { value: "pushover", description: "Send notifications" },
-  { value: "pdf_read", description: "Read PDFs" },
-  { value: "screenshot", description: "Capture screenshots" },
-  { value: "image_info", description: "Inspect images" },
-  { value: "browser_open", description: "Open browser URLs" },
-  { value: "browser", description: "Use browser automation" },
-  { value: "http_request", description: "Send HTTP requests" },
-  { value: "web_fetch", description: "Fetch web pages" },
-  { value: "web_search_tool", description: "Search the web" },
-  { value: "composio", description: "Call Composio tools" },
-];
 
 function toDraft(binding: InstanceAgentBinding): AgentDraft {
   return {
@@ -114,6 +85,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
   const [agentSearch, setAgentSearch] = useState("");
   const [selectedBaselineDetail, setSelectedBaselineDetail] = useState<AgentBaseline>();
   const [draft, setDraft] = useState<AgentDraft>();
+  const [toolCatalog, setToolCatalog] = useState<AgentToolCatalog>(emptyAgentToolCatalog());
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -170,6 +142,12 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    void getAgentToolCatalog()
+      .then((response) => setToolCatalog(response))
+      .catch(() => setToolCatalog(emptyAgentToolCatalog()));
+  }, []);
 
   useEffect(() => {
     onInstalledAgentsChange?.(bindings);
@@ -229,25 +207,8 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
   }, [selectedAgentKey, selectedBinding]);
 
   const runtimeToolOptions = useMemo(() => {
-    const options = new Map(
-      RUNTIME_TOOL_CATALOG.map((item) => [
-        item.value,
-        {
-          value: item.value,
-          label: `${item.value} - ${item.description}`,
-        },
-      ]),
-    );
-    (draft?.allowedTools ?? []).forEach((item) => {
-      if (!options.has(item)) {
-        options.set(item, {
-          value: item,
-          label: `${item} - custom`,
-        });
-      }
-    });
-    return Array.from(options.values()).sort((left, right) => left.value.localeCompare(right.value));
-  }, [draft?.allowedTools]);
+    return buildAgentToolOptions(toolCatalog.tools, draft?.allowedTools ?? []);
+  }, [draft?.allowedTools, toolCatalog.tools]);
 
   const draftDirty = snapshotDraft(draft) !== snapshotDraft(selectedBinding ? toDraft(selectedBinding) : undefined);
 

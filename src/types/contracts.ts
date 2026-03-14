@@ -59,6 +59,9 @@ export interface AgentBaselineSummary {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
+  toolPresetKey?: string | null;
+  allowedToolsExtra?: string[] | null;
+  deniedTools?: string[] | null;
   allowedTools?: string[] | null;
   updatedBy?: string | null;
   createdAt: string;
@@ -77,6 +80,9 @@ export interface AgentBaseline {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
+  toolPresetKey?: string | null;
+  allowedToolsExtra: string[];
+  deniedTools: string[];
   allowedTools: string[];
   systemPrompt?: string | null;
   updatedBy?: string | null;
@@ -96,9 +102,29 @@ export interface AgentBaselineUpsertRequest {
   model?: string | null;
   temperature?: number | null;
   agentic?: boolean | null;
+  toolPresetKey?: string | null;
+  allowedToolsExtra?: string[] | null;
+  deniedTools?: string[] | null;
   allowedTools?: string[] | null;
   systemPrompt?: string | null;
   updatedBy?: string | null;
+}
+
+export interface AgentToolDefinition {
+  value: string;
+  description: string;
+}
+
+export interface AgentToolPreset {
+  key: string;
+  displayName: string;
+  description?: string | null;
+  tools: string[];
+}
+
+export interface AgentToolCatalog {
+  tools: AgentToolDefinition[];
+  presets: AgentToolPreset[];
 }
 
 export interface InstanceAgentBinding {

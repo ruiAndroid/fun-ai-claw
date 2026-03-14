@@ -72,6 +72,17 @@ function formatTimestamp(value?: string | null): string {
   }).format(date);
 }
 
+function formatSourceLabel(source?: string): string {
+  switch (source) {
+    case "INSTANCE_OVERRIDE":
+      return "实例覆盖";
+    case "DEFAULT_TEMPLATE":
+      return "默认模板";
+    default:
+      return source || "未知来源";
+  }
+}
+
 export function InstanceChannelsConfigPanel({
   instanceId,
   onSaved,
@@ -109,7 +120,7 @@ export function InstanceChannelsConfigPanel({
       const response = await getInstanceChannelsConfig(instanceId);
       applyResponse(response);
       if (showSuccess) {
-        messageApi.success("Channel config refreshed");
+        messageApi.success("渠道配置已刷新");
       }
     } catch (apiError) {
       setConfig(undefined);
@@ -139,23 +150,23 @@ export function InstanceChannelsConfigPanel({
 
   const handleSave = useCallback(async () => {
     if (!Number.isFinite(draft.messageTimeoutSecs) || draft.messageTimeoutSecs <= 0) {
-      messageApi.warning("message_timeout_secs must be positive");
+      messageApi.warning("消息超时时间必须大于 0");
       return;
     }
     if (draft.dingtalkEnabled && !draft.dingtalkClientId.trim()) {
-      messageApi.warning("DingTalk client_id is required");
+      messageApi.warning("请填写钉钉应用 ID");
       return;
     }
     if (draft.dingtalkEnabled && !draft.dingtalkClientSecret.trim()) {
-      messageApi.warning("DingTalk client_secret is required");
+      messageApi.warning("请填写钉钉应用密钥");
       return;
     }
     if (draft.qqEnabled && !draft.qqAppId.trim()) {
-      messageApi.warning("QQ app_id is required");
+      messageApi.warning("请填写 QQ 应用 ID");
       return;
     }
     if (draft.qqEnabled && !draft.qqAppSecret.trim()) {
-      messageApi.warning("QQ app_secret is required");
+      messageApi.warning("请填写 QQ 应用密钥");
       return;
     }
 
@@ -177,11 +188,11 @@ export function InstanceChannelsConfigPanel({
       });
       applyResponse(response);
       await onSaved?.();
-      messageApi.success("Channel config saved");
+      messageApi.success("渠道配置已保存");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
-      messageApi.error("Failed to save channel config");
+      messageApi.error("保存渠道配置失败");
     } finally {
       setSaving(false);
     }
@@ -191,7 +202,7 @@ export function InstanceChannelsConfigPanel({
     if (!config) {
       return "-";
     }
-    return `${config.source} / updated ${formatTimestamp(config.overrideUpdatedAt)} / ${config.overrideUpdatedBy ?? "system"}`;
+    return `来源：${formatSourceLabel(config.source)} / 最近更新：${formatTimestamp(config.overrideUpdatedAt)} / 更新人：${config.overrideUpdatedBy ?? "system"}`;
   }, [config]);
 
   return (
@@ -202,11 +213,11 @@ export function InstanceChannelsConfigPanel({
           <Alert
             type="error"
             showIcon
-            message="Failed to load channel config"
+            message="加载渠道配置失败"
             description={error}
             action={(
               <Button size="small" onClick={() => void loadConfig()}>
-                Retry
+                重试
               </Button>
             )}
           />
@@ -215,12 +226,12 @@ export function InstanceChannelsConfigPanel({
         <Card
           className="sub-glass-card"
           size="small"
-          title="Channels"
+          title="渠道接入配置"
           extra={(
             <Space size="small">
               <Text type="secondary">{metaText}</Text>
               <Button onClick={() => void loadConfig(true)} loading={loading} disabled={saving}>
-                Refresh
+                刷新
               </Button>
             </Space>
           )}
@@ -232,18 +243,18 @@ export function InstanceChannelsConfigPanel({
               <Alert
                 type="info"
                 showIcon
-                message="This tab only visualizes instance channel config"
-                description="Saved values will be written back into config.toml under channels_config. This page currently supports QQ and DingTalk only."
+                message="这里用于可视化维护实例级渠道接入配置"
+                description="保存后会回写到 config.toml 的 channels_config 下。目前先支持 QQ 和钉钉两种渠道。"
               />
 
               <Card
                 type="inner"
                 size="small"
-                title="Global"
+                title="全局设置"
               >
                 <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
                   <div>
-                    <Text type="secondary">cli</Text>
+                    <Text type="secondary">本地命令行入口（cli）</Text>
                     <div style={{ marginTop: 8 }}>
                       <Switch
                         checked={draft.cliEnabled}
@@ -253,7 +264,7 @@ export function InstanceChannelsConfigPanel({
                     </div>
                   </div>
                   <div>
-                    <Text type="secondary">message_timeout_secs</Text>
+                    <Text type="secondary">消息超时时间（秒）</Text>
                     <div style={{ marginTop: 8 }}>
                       <InputNumber
                         min={1}
@@ -275,10 +286,10 @@ export function InstanceChannelsConfigPanel({
               <Card
                 type="inner"
                 size="small"
-                title="DingTalk"
+                title="钉钉"
                 extra={(
                   <Space size="small">
-                    <Text type="secondary">enabled</Text>
+                    <Text type="secondary">启用</Text>
                     <Switch
                       checked={draft.dingtalkEnabled}
                       disabled={loading || saving}
@@ -288,24 +299,25 @@ export function InstanceChannelsConfigPanel({
                 )}
               >
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                  <Text type="secondary">对应 config.toml 中的 `channels_config.dingtalk`。</Text>
                   {!draft.dingtalkEnabled ? (
-                    <Text type="secondary">Disabled. Enable it to configure client_id, client_secret and allowed_users.</Text>
+                    <Text type="secondary">当前未启用。开启后即可配置钉钉应用 ID、应用密钥和允许访问的用户。</Text>
                   ) : null}
                   <Input
-                    addonBefore="client_id"
+                    addonBefore="应用 ID"
                     value={draft.dingtalkClientId}
                     disabled={loading || saving || !draft.dingtalkEnabled}
                     onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, dingtalkClientId: event.target.value }))}
-                    placeholder="ding-app-key"
+                    placeholder="请输入钉钉开放平台的 AppKey / client_id"
                   />
                   <Password
-                    addonBefore="client_secret"
+                    addonBefore="应用密钥"
                     value={draft.dingtalkClientSecret}
                     disabled={loading || saving || !draft.dingtalkEnabled}
                     onChange={(event) =>
                       setDraft((currentDraft) => ({ ...currentDraft, dingtalkClientSecret: event.target.value }))
                     }
-                    placeholder="ding-app-secret"
+                    placeholder="请输入钉钉开放平台的 AppSecret / client_secret"
                   />
                   <TextArea
                     rows={4}
@@ -314,7 +326,7 @@ export function InstanceChannelsConfigPanel({
                     onChange={(event) =>
                       setDraft((currentDraft) => ({ ...currentDraft, dingtalkAllowedUsersText: event.target.value }))
                     }
-                    placeholder={"allowed_users, one per line or comma-separated\n*"}
+                    placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
                   />
                 </Space>
               </Card>
@@ -325,7 +337,7 @@ export function InstanceChannelsConfigPanel({
                 title="QQ"
                 extra={(
                   <Space size="small">
-                    <Text type="secondary">enabled</Text>
+                    <Text type="secondary">启用</Text>
                     <Switch
                       checked={draft.qqEnabled}
                       disabled={loading || saving}
@@ -335,24 +347,25 @@ export function InstanceChannelsConfigPanel({
                 )}
               >
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                  <Text type="secondary">对应 config.toml 中的 `channels_config.qq`。</Text>
                   {!draft.qqEnabled ? (
-                    <Text type="secondary">Disabled. Enable it to configure app_id, app_secret and allowed_users.</Text>
+                    <Text type="secondary">当前未启用。开启后即可配置 QQ 应用 ID、应用密钥和允许访问的用户。</Text>
                   ) : null}
                   <Input
-                    addonBefore="app_id"
+                    addonBefore="应用 ID"
                     value={draft.qqAppId}
                     disabled={loading || saving || !draft.qqEnabled}
                     onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, qqAppId: event.target.value }))}
-                    placeholder="qq-app-id"
+                    placeholder="请输入 QQ 机器人的 app_id"
                   />
                   <Password
-                    addonBefore="app_secret"
+                    addonBefore="应用密钥"
                     value={draft.qqAppSecret}
                     disabled={loading || saving || !draft.qqEnabled}
                     onChange={(event) =>
                       setDraft((currentDraft) => ({ ...currentDraft, qqAppSecret: event.target.value }))
                     }
-                    placeholder="qq-app-secret"
+                    placeholder="请输入 QQ 机器人的 app_secret"
                   />
                   <TextArea
                     rows={4}
@@ -361,17 +374,17 @@ export function InstanceChannelsConfigPanel({
                     onChange={(event) =>
                       setDraft((currentDraft) => ({ ...currentDraft, qqAllowedUsersText: event.target.value }))
                     }
-                    placeholder={"allowed_users, one per line or comma-separated\n*"}
+                    placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
                   />
                 </Space>
               </Card>
 
               <Space wrap>
                 <Button onClick={handleReset} disabled={!dirty || loading || saving}>
-                  Reset
+                  重置
                 </Button>
                 <Button type="primary" loading={saving} disabled={!dirty || loading || saving} onClick={() => void handleSave()}>
-                  Save
+                  保存
                 </Button>
               </Space>
             </Space>

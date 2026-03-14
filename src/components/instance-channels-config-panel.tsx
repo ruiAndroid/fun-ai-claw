@@ -8,6 +8,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 const { Text } = Typography;
 const { TextArea, Password } = Input;
 
+const CHANNEL_PLATFORM_LINKS = {
+  dingtalk: {
+    consoleUrl: "https://open-dev.dingtalk.com/",
+    docsUrl: "https://open.dingtalk.com/doc-mobile",
+  },
+  qq: {
+    consoleUrl: "https://q.qq.com/",
+    docsUrl: "https://q.qq.com/wiki",
+  },
+} as const;
+
 type ChannelsDraft = {
   cliEnabled: boolean;
   messageTimeoutSecs: number;
@@ -300,6 +311,14 @@ export function InstanceChannelsConfigPanel({
               >
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
                   <Text type="secondary">对应 config.toml 中的 `channels_config.dingtalk`。</Text>
+                  <Space size="middle" wrap>
+                    <a href={CHANNEL_PLATFORM_LINKS.dingtalk.consoleUrl} target="_blank" rel="noreferrer">
+                      前往钉钉开发者后台
+                    </a>
+                    <a href={CHANNEL_PLATFORM_LINKS.dingtalk.docsUrl} target="_blank" rel="noreferrer">
+                      查看钉钉开发文档
+                    </a>
+                  </Space>
                   {!draft.dingtalkEnabled ? (
                     <Text type="secondary">当前未启用。开启后即可配置钉钉应用 ID、应用密钥和允许访问的用户。</Text>
                   ) : null}
@@ -348,6 +367,14 @@ export function InstanceChannelsConfigPanel({
               >
                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
                   <Text type="secondary">对应 config.toml 中的 `channels_config.qq`。</Text>
+                  <Space size="middle" wrap>
+                    <a href={CHANNEL_PLATFORM_LINKS.qq.consoleUrl} target="_blank" rel="noreferrer">
+                      前往 QQ 开放平台
+                    </a>
+                    <a href={CHANNEL_PLATFORM_LINKS.qq.docsUrl} target="_blank" rel="noreferrer">
+                      查看 QQ 平台文档
+                    </a>
+                  </Space>
                   {!draft.qqEnabled ? (
                     <Text type="secondary">当前未启用。开启后即可配置 QQ 应用 ID、应用密钥和允许访问的用户。</Text>
                   ) : null}

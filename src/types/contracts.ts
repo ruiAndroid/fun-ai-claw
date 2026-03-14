@@ -283,6 +283,26 @@ export interface InstanceDefaultModelConfig {
   overrideUpdatedBy?: string | null;
 }
 
+export interface InstanceChannelsConfig {
+  instanceId: string;
+  runtimeConfigPath: string;
+  source: "INSTANCE_OVERRIDE" | "DEFAULT_TEMPLATE" | string;
+  overwriteOnStart: boolean;
+  overrideExists: boolean;
+  cliEnabled: boolean;
+  messageTimeoutSecs: number;
+  dingtalkEnabled: boolean;
+  dingtalkClientId: string;
+  dingtalkClientSecret: string;
+  dingtalkAllowedUsers: string[];
+  qqEnabled: boolean;
+  qqAppId: string;
+  qqAppSecret: string;
+  qqAllowedUsers: string[];
+  overrideUpdatedAt?: string | null;
+  overrideUpdatedBy?: string | null;
+}
+
 export interface OpenClientApp {
   appId: string;
   name: string;

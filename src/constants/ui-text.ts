@@ -113,6 +113,7 @@ export const uiText = {
   noSkills: "该实例暂无可用 Skill",
   tabClaw: "claw详情",
   tabConfig: "Config",
+  tabChannel: "Channels",
   tabAgent: "Agent",
   tabSkill: "Skill",
   tabTask: "Task",

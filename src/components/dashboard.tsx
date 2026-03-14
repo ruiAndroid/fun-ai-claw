@@ -14,6 +14,7 @@ import {
 } from "@/lib/control-api";
 import { AgentBaselinePanel } from "@/components/agent-baseline-panel";
 import { InstanceAgentPanel } from "@/components/instance-agent-panel";
+import { InstanceChannelsConfigPanel } from "@/components/instance-channels-config-panel";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { InstanceTaskPanel } from "@/components/instance-task-panel";
@@ -58,7 +59,7 @@ const { Header, Content } = Layout;
 const { Text, Paragraph } = Typography;
 type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
 type ConsoleView = "instances" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
-type InstanceDetailTabKey = "claw" | "config" | "agents" | "skills" | "tasks";
+type InstanceDetailTabKey = "claw" | "config" | "channels" | "agents" | "skills" | "tasks";
 type AgentMessageSendOptions = {
   displayText?: string;
   resolveInteractionMessageId?: string;
@@ -2895,6 +2896,16 @@ export function Dashboard() {
                               instance={selectedInstance}
                               topSection={mainAgentGuidanceSection}
                               reloadToken={instanceConfigReloadToken}
+                            />
+                          ),
+                        },
+                        {
+                          key: "channels",
+                          label: uiText.tabChannel,
+                          children: (
+                            <InstanceChannelsConfigPanel
+                              instanceId={selectedInstance.id}
+                              onSaved={() => setInstanceConfigReloadToken((current) => current + 1)}
                             />
                           ),
                         },

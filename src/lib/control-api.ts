@@ -9,6 +9,7 @@ import {
   CreateInstanceRequest,
   ImagePreset,
   InstanceAgentBinding,
+  InstanceChannelsConfig,
   InstanceConfig,
   InstanceDefaultModelConfig,
   InstanceMainAgentGuidance,
@@ -284,6 +285,32 @@ export async function deleteInstanceConfig(instanceId: string) {
 
 export async function getInstanceDefaultModelConfig(instanceId: string) {
   return requestJson<InstanceDefaultModelConfig>(`/v1/instances/${instanceId}/default-model-config`);
+}
+
+export async function getInstanceChannelsConfig(instanceId: string) {
+  return requestJson<InstanceChannelsConfig>(`/v1/instances/${instanceId}/channels-config`);
+}
+
+export async function upsertInstanceChannelsConfig(
+  instanceId: string,
+  request: {
+    cliEnabled: boolean;
+    messageTimeoutSecs: number;
+    dingtalkEnabled: boolean;
+    dingtalkClientId?: string;
+    dingtalkClientSecret?: string;
+    dingtalkAllowedUsers?: string[];
+    qqEnabled: boolean;
+    qqAppId?: string;
+    qqAppSecret?: string;
+    qqAllowedUsers?: string[];
+    updatedBy?: string;
+  }
+) {
+  return requestJson<InstanceChannelsConfig>(`/v1/instances/${instanceId}/channels-config`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function upsertInstanceDefaultModelConfig(

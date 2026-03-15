@@ -13,6 +13,10 @@ const CHANNEL_PLATFORM_LINKS = {
     consoleUrl: "https://open-dev.dingtalk.com/",
     docsUrl: "https://open.dingtalk.com/doc-mobile",
   },
+  feishu: {
+    consoleUrl: "https://open.feishu.cn/app",
+    docsUrl: "https://open.feishu.cn/document/",
+  },
   qq: {
     consoleUrl: "https://q.qq.com/",
     docsUrl: "https://q.qq.com/wiki",
@@ -41,6 +45,10 @@ type ChannelsDraft = {
   wecomToken: string;
   wecomEncodingAesKey: string;
   wecomAllowedUsersText: string;
+  feishuEnabled: boolean;
+  feishuAppId: string;
+  feishuAppSecret: string;
+  feishuAllowedUsersText: string;
 };
 
 function toDraft(config: InstanceChannelsConfig): ChannelsDraft {
@@ -62,6 +70,10 @@ function toDraft(config: InstanceChannelsConfig): ChannelsDraft {
     wecomToken: config.wecomToken ?? "",
     wecomEncodingAesKey: config.wecomEncodingAesKey ?? "",
     wecomAllowedUsersText: (config.wecomAllowedUsers ?? []).join("\n"),
+    feishuEnabled: config.feishuEnabled,
+    feishuAppId: config.feishuAppId ?? "",
+    feishuAppSecret: config.feishuAppSecret ?? "",
+    feishuAllowedUsersText: (config.feishuAllowedUsers ?? []).join("\n"),
   };
 }
 
@@ -91,6 +103,10 @@ function comparableDraft(draft: ChannelsDraft) {
     wecomToken: draft.wecomToken,
     wecomEncodingAesKey: draft.wecomEncodingAesKey,
     wecomAllowedUsers: normalizeUsers(draft.wecomAllowedUsersText),
+    feishuEnabled: draft.feishuEnabled,
+    feishuAppId: draft.feishuAppId.trim(),
+    feishuAppSecret: draft.feishuAppSecret,
+    feishuAllowedUsers: normalizeUsers(draft.feishuAllowedUsersText),
   };
 }
 
@@ -145,6 +161,10 @@ export function InstanceChannelsConfigPanel({
     wecomToken: "",
     wecomEncodingAesKey: "",
     wecomAllowedUsersText: "",
+    feishuEnabled: false,
+    feishuAppId: "",
+    feishuAppSecret: "",
+    feishuAllowedUsersText: "",
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -234,6 +254,15 @@ export function InstanceChannelsConfigPanel({
       return;
     }
 
+    if (draft.feishuEnabled && !draft.feishuAppId.trim()) {
+      messageApi.warning("请填写飞书应用 App ID");
+      return;
+    }
+    if (draft.feishuEnabled && !draft.feishuAppSecret.trim()) {
+      messageApi.warning("请填写飞书应用 App Secret");
+      return;
+    }
+
     setSaving(true);
     setError(undefined);
     try {
@@ -255,6 +284,10 @@ export function InstanceChannelsConfigPanel({
         wecomToken: draft.wecomToken,
         wecomEncodingAesKey: draft.wecomEncodingAesKey,
         wecomAllowedUsers: normalizeUsers(draft.wecomAllowedUsersText),
+        feishuEnabled: draft.feishuEnabled,
+        feishuAppId: draft.feishuAppId.trim(),
+        feishuAppSecret: draft.feishuAppSecret,
+        feishuAllowedUsers: normalizeUsers(draft.feishuAllowedUsersText),
         updatedBy: "console",
       });
       applyResponse(response);
@@ -478,6 +511,65 @@ export function InstanceChannelsConfigPanel({
                       setDraft((currentDraft) => ({ ...currentDraft, wecomAllowedUsersText: event.target.value }))
                     }
                     placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
+                  />
+                </Space>
+              </Card>
+
+              <Card
+                type="inner"
+                size="small"
+                title="飞书"
+                extra={(
+                  <Space size="small">
+                    <Text type="secondary">启用</Text>
+                    <Switch
+                      checked={draft.feishuEnabled}
+                      disabled={loading || saving}
+                      onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, feishuEnabled: checked }))}
+                    />
+                  </Space>
+                )}
+              >
+                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                  <Text type="secondary">对应 `config.toml` 中的 `channels_config.feishu`。</Text>
+                  <Text type="secondary">
+                    参考 OpenClaw 的默认接入方式，控制台当前按“应用模式 + WebSocket 长连接”维护，不需要公网回调地址；如需更高级的 webhook 字段，可继续在 Config 页手工补充。
+                  </Text>
+                  <Space size="middle" wrap>
+                    <a href={CHANNEL_PLATFORM_LINKS.feishu.consoleUrl} target="_blank" rel="noreferrer">
+                      前往飞书开放平台
+                    </a>
+                    <a href={CHANNEL_PLATFORM_LINKS.feishu.docsUrl} target="_blank" rel="noreferrer">
+                      查看飞书开发文档
+                    </a>
+                  </Space>
+                  {!draft.feishuEnabled ? (
+                    <Text type="secondary">当前未启用。开启后即可配置飞书应用 App ID、App Secret 和允许访问的用户。</Text>
+                  ) : null}
+                  <Input
+                    addonBefore="App ID"
+                    value={draft.feishuAppId}
+                    disabled={loading || saving || !draft.feishuEnabled}
+                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, feishuAppId: event.target.value }))}
+                    placeholder="请输入飞书应用的 App ID"
+                  />
+                  <Password
+                    addonBefore="App Secret"
+                    value={draft.feishuAppSecret}
+                    disabled={loading || saving || !draft.feishuEnabled}
+                    onChange={(event) =>
+                      setDraft((currentDraft) => ({ ...currentDraft, feishuAppSecret: event.target.value }))
+                    }
+                    placeholder="请输入飞书应用的 App Secret"
+                  />
+                  <TextArea
+                    rows={4}
+                    value={draft.feishuAllowedUsersText}
+                    disabled={loading || saving || !draft.feishuEnabled}
+                    onChange={(event) =>
+                      setDraft((currentDraft) => ({ ...currentDraft, feishuAllowedUsersText: event.target.value }))
+                    }
+                    placeholder={"允许访问的用户 open_id / union_id，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
                   />
                 </Space>
               </Card>

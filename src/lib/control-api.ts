@@ -312,6 +312,10 @@ export async function upsertInstanceChannelsConfig(
     wecomToken?: string;
     wecomEncodingAesKey?: string;
     wecomAllowedUsers?: string[];
+    feishuEnabled: boolean;
+    feishuAppId?: string;
+    feishuAppSecret?: string;
+    feishuAllowedUsers?: string[];
     updatedBy?: string;
   }
 ) {

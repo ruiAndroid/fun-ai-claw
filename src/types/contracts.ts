@@ -311,6 +311,10 @@ export interface InstanceChannelsConfig {
   wecomToken: string;
   wecomEncodingAesKey: string;
   wecomAllowedUsers: string[];
+  feishuEnabled: boolean;
+  feishuAppId: string;
+  feishuAppSecret: string;
+  feishuAllowedUsers: string[];
   overrideUpdatedAt?: string | null;
   overrideUpdatedBy?: string | null;
 }

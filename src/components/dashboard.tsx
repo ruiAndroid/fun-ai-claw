@@ -218,6 +218,7 @@ export function Dashboard() {
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
   const disableStop = !selectedInstance || actionBusy || selectedStatus === "STOPPED" || selectedStatus === "CREATING";
   const disableRestartInstance = !selectedInstance || actionBusy || selectedStatus === "CREATING";
+  const disableRestartZeroclaw = !selectedInstance || actionBusy || selectedStatus !== "RUNNING";
   const disableDelete = !selectedInstance || actionBusy;
   const disableRemoteConnect = !selectedInstance;
   const agentSessionRequiresDirectAgent = agentSessionMode === "direct";
@@ -289,6 +290,7 @@ export function Dashboard() {
     START: uiText.start,
     STOP: uiText.stop,
     RESTART: uiText.restartInstance,
+    RESTART_ZEROCLAW: "重启 ZeroClaw",
     ROLLBACK: uiText.rollback,
   };
   const activeActionLabel = activeInstanceAction ? actionLabelMap[activeInstanceAction.action] : "";
@@ -2494,6 +2496,15 @@ export function Dashboard() {
                             icon={<RotateCcw size={14} />}
                           >
                             {uiText.restartInstance}
+                          </Button>
+                          <Button
+                            className="instance-action-chip is-ghost"
+                            loading={submittingAction}
+                            disabled={disableRestartZeroclaw}
+                            onClick={() => handleSensitiveAction("RESTART_ZEROCLAW")}
+                            icon={<RefreshCw size={14} />}
+                          >
+                            重启 ZeroClaw
                           </Button>
                         </div>
                         <div className="instance-action-group">

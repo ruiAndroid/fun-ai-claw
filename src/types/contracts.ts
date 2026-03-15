@@ -1,7 +1,7 @@
 export type InstanceStatus = "CREATING" | "RUNNING" | "STOPPED" | "ERROR";
 export type DesiredState = "RUNNING" | "STOPPED";
 export type RuntimeType = "ZEROCLAW";
-export type InstanceActionType = "START" | "STOP" | "RESTART" | "ROLLBACK";
+export type InstanceActionType = "START" | "STOP" | "RESTART" | "RESTART_ZEROCLAW" | "ROLLBACK";
 
 export interface ClawInstance {
   id: string;
@@ -304,6 +304,13 @@ export interface InstanceChannelsConfig {
   qqAppId: string;
   qqAppSecret: string;
   qqAllowedUsers: string[];
+  wecomEnabled: boolean;
+  wecomCorpId: string;
+  wecomAgentId: string;
+  wecomSecret: string;
+  wecomToken: string;
+  wecomEncodingAesKey: string;
+  wecomAllowedUsers: string[];
   overrideUpdatedAt?: string | null;
   overrideUpdatedBy?: string | null;
 }

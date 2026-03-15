@@ -251,13 +251,6 @@ export function InstanceChannelsConfigPanel({
             <Skeleton active paragraph={{ rows: 4 }} />
           ) : (
             <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-              <Alert
-                type="info"
-                showIcon
-                message="这里用于可视化维护实例级渠道接入配置"
-                description="保存后会回写到 config.toml 的 channels_config 下。目前先支持 QQ 和钉钉两种渠道。"
-              />
-
               <Card
                 type="inner"
                 size="small"

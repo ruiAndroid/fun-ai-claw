@@ -12,8 +12,7 @@ import {
   upsertInstanceMainAgentGuidance,
   upsertInstanceRoutingConfig,
 } from "@/lib/control-api";
-import type { ClawInstance, DesiredState, ImagePreset } from "@/types/contracts";
-import type { InstanceTemplateDefinition } from "@/config/instance-templates";
+import type { ClawInstance, DesiredState, ImagePreset, InstanceTemplate } from "@/types/contracts";
 
 const TEMPLATE_UPDATED_BY = "template-center";
 
@@ -28,7 +27,7 @@ export class ManagedInstanceTemplateError extends Error {
 }
 
 export function resolveTemplateImagePreset(
-  template: InstanceTemplateDefinition,
+  template: InstanceTemplate,
   images: ImagePreset[],
 ): ImagePreset | undefined {
   const availableImages = images.filter(isImagePresetAvailable);
@@ -43,7 +42,7 @@ type CreateManagedInstanceFromTemplateOptions = {
   hostId: string;
   name: string;
   desiredState: DesiredState;
-  template: InstanceTemplateDefinition;
+  template: InstanceTemplate;
   images: ImagePreset[];
   onProgress?: (message: string) => void;
 };
@@ -98,7 +97,14 @@ export async function createManagedInstanceFromTemplate({
       });
     }
 
-    if (template.defaultModelConfig) {
+    if (
+      template.defaultModelConfig
+      && typeof template.defaultModelConfig.defaultTemperature === "number"
+      && template.defaultModelConfig.defaultProvider
+      && template.defaultModelConfig.defaultModel
+      && template.defaultModelConfig.apiKey !== undefined
+      && template.defaultModelConfig.apiKey !== null
+    ) {
       onProgress?.("正在写入默认模型配置…");
       await upsertInstanceDefaultModelConfig(instance.id, {
         ...template.defaultModelConfig,

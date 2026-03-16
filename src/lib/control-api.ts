@@ -15,6 +15,8 @@ import {
   InstanceMainAgentGuidance,
   InstanceRoutingConfig,
   InstanceSkillBinding,
+  InstanceTemplate,
+  InstanceTemplateUpsertRequest,
   InstanceActionType,
   ListResponse,
   OpenClientApp,
@@ -85,6 +87,34 @@ async function requestFormJson<T>(path: string, formData: FormData, init?: Reque
 
 export async function listInstances() {
   return requestJson<ListResponse<ClawInstance>>("/v1/instances");
+}
+
+export async function listInstanceTemplates() {
+  return requestJson<ListResponse<InstanceTemplate>>("/v1/instance-templates");
+}
+
+export async function getInstanceTemplate(templateKey: string) {
+  return requestJson<InstanceTemplate>(`/v1/instance-templates/${encodeURIComponent(templateKey)}`);
+}
+
+export async function createInstanceTemplate(request: InstanceTemplateUpsertRequest) {
+  return requestJson<InstanceTemplate>("/v1/instance-templates", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function upsertInstanceTemplate(templateKey: string, request: InstanceTemplateUpsertRequest) {
+  return requestJson<InstanceTemplate>(`/v1/instance-templates/${encodeURIComponent(templateKey)}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteInstanceTemplate(templateKey: string) {
+  return requestVoid(`/v1/instance-templates/${encodeURIComponent(templateKey)}`, {
+    method: "DELETE",
+  });
 }
 
 export async function listAgentBaselines() {

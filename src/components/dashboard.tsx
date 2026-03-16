@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import {
+  listInstanceTemplates,
   deleteInstanceMainAgentGuidance,
   deleteInstance,
   getInstanceMainAgentGuidance,
@@ -19,11 +20,10 @@ import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { InstanceTaskPanel } from "@/components/instance-task-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
 import { SkillBaselinePanel } from "@/components/skill-baseline-panel";
-import { TemplateLibraryPanel } from "@/components/template-library-panel";
+import { TemplateManagementPanel } from "@/components/template-management-panel";
 import { appConfig } from "@/config/app-config";
-import { getDefaultInstanceTemplate, getInstanceTemplate, instanceTemplates } from "@/config/instance-templates";
 import { ManagedInstanceTemplateError, createManagedInstanceFromTemplate, resolveTemplateImagePreset } from "@/lib/instance-template";
-import { ClawInstance, DesiredState, ImagePreset, InstanceActionType, InstanceAgentBinding, InstanceMainAgentGuidance, PairingCodeResponse } from "@/types/contracts";
+import { ClawInstance, DesiredState, ImagePreset, InstanceActionType, InstanceAgentBinding, InstanceMainAgentGuidance, InstanceTemplate, PairingCodeResponse } from "@/types/contracts";
 import {
   type AgentChatMessage,
   type AgentChatRole,
@@ -139,12 +139,14 @@ export function Dashboard() {
   const [createForm] = Form.useForm<CreateInstanceFormValues>();
   const [instances, setInstances] = useState<ClawInstance[]>([]);
   const [images, setImages] = useState<ImagePreset[]>([]);
+  const [instanceTemplates, setInstanceTemplates] = useState<InstanceTemplate[]>([]);
   const selectedTemplateKey = Form.useWatch("templateKey", createForm);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>();
   const [activeView, setActiveView] = useState<ConsoleView>("instances");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loadingInstances, setLoadingInstances] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<Exclude<InstanceActionType, "START">>();
@@ -210,12 +212,16 @@ export function Dashboard() {
   const [terminalConnected, setTerminalConnected] = useState(false);
   const terminalOutputRef = useRef<HTMLDivElement | null>(null);
 
+  const defaultCreateTemplate = useMemo(
+    () => instanceTemplates.find((item) => item.enabled) ?? instanceTemplates[0],
+    [instanceTemplates]
+  );
   const selectedCreateTemplate = useMemo(
-    () => getInstanceTemplate(selectedTemplateKey) ?? getDefaultInstanceTemplate(),
-    [selectedTemplateKey]
+    () => instanceTemplates.find((item) => item.templateKey === selectedTemplateKey) ?? defaultCreateTemplate,
+    [defaultCreateTemplate, instanceTemplates, selectedTemplateKey]
   );
   const selectedCreateTemplateImage = useMemo(
-    () => resolveTemplateImagePreset(selectedCreateTemplate, images),
+    () => (selectedCreateTemplate ? resolveTemplateImagePreset(selectedCreateTemplate, images) : undefined),
     [images, selectedCreateTemplate]
   );
 
@@ -366,6 +372,34 @@ export function Dashboard() {
     }
   }, [messageApi]);
 
+  const loadTemplates = useCallback(async (preferredTemplateKey?: string) => {
+    setLoadingTemplates(true);
+    try {
+      const response = await listInstanceTemplates();
+      setInstanceTemplates(response.items);
+      if (response.items.length === 0) {
+        createForm.setFieldsValue({
+          templateKey: undefined,
+          desiredState: "RUNNING",
+        });
+        return;
+      }
+      const defaultTemplate = response.items.find((item) => item.enabled) ?? response.items[0];
+      const currentTemplateKey = preferredTemplateKey ?? createForm.getFieldValue("templateKey");
+      const resolvedTemplate = response.items.find((item) => item.templateKey === currentTemplateKey) ?? defaultTemplate;
+      if (resolvedTemplate) {
+        createForm.setFieldsValue({
+          templateKey: resolvedTemplate.templateKey,
+          desiredState: resolvedTemplate.desiredState,
+        });
+      }
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.loadTemplatesFailed);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, [createForm, messageApi]);
+
   const loadAgents = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
       setAgents([]);
@@ -488,6 +522,10 @@ export function Dashboard() {
   }, [loadInstances]);
 
   useEffect(() => {
+    void loadTemplates();
+  }, [loadTemplates]);
+
+  useEffect(() => {
     void loadAgents(selectedInstanceId);
     void loadMainAgentGuidance(selectedInstanceId);
   }, [loadAgents, loadMainAgentGuidance, selectedInstanceId]);
@@ -603,12 +641,16 @@ export function Dashboard() {
   }, [clearQueuedAgentSessionDeltas, clearQueuedStructuredAgentSessionMessages, selectedInstanceId]);
 
   const openCreateModal = (templateKey?: string) => {
-    const template = getInstanceTemplate(templateKey) ?? getDefaultInstanceTemplate();
+    const template = instanceTemplates.find((item) => item.templateKey === templateKey)
+      ?? defaultCreateTemplate;
     setCreateModalOpen(true);
-    createForm.setFieldsValue({
-      templateKey: template.key,
-      desiredState: template.desiredState,
-    });
+    if (template) {
+      createForm.setFieldsValue({
+        templateKey: template.templateKey,
+        desiredState: template.desiredState,
+      });
+    }
+    void loadTemplates(template?.templateKey);
     void loadImages();
   };
 
@@ -675,7 +717,13 @@ export function Dashboard() {
     const progressMessageKey = "template-managed-create";
     try {
       const values = await createForm.validateFields();
-      const template = getInstanceTemplate(values.templateKey) ?? getDefaultInstanceTemplate();
+      const template = instanceTemplates.find((item) => item.templateKey === values.templateKey);
+      if (!template) {
+        throw new Error(uiText.templateRequired);
+      }
+      if (!template.enabled) {
+        throw new Error(uiText.noTemplatesAvailable);
+      }
       setCreatingInstance(true);
       messageApi.open({
         key: progressMessageKey,
@@ -2120,9 +2168,10 @@ export function Dashboard() {
       setInstanceDetailTab("claw");
     }
     if (view === "templates") {
+      void loadTemplates();
       void loadImages();
     }
-  }, [loadImages]);
+  }, [loadImages, loadTemplates]);
 
   const mainAgentGuidanceSection = selectedInstance ? (
     <div className="main-prompt-section">
@@ -3028,9 +3077,12 @@ export function Dashboard() {
                   </Space>
                 ) : null}
                 {activeView === "templates" ? (
-                  <TemplateLibraryPanel
+                  <TemplateManagementPanel
+                    templates={instanceTemplates}
+                    loadingTemplates={loadingTemplates}
                     images={images}
                     loadingImages={loadingImages}
+                    onRefreshTemplates={() => void loadTemplates()}
                     onRefreshImages={() => void loadImages()}
                     onUseTemplate={openCreateModal}
                   />
@@ -3065,6 +3117,7 @@ export function Dashboard() {
         onOk={() => void handleCreateInstance()}
         okText={uiText.create}
         confirmLoading={creatingInstance}
+        okButtonProps={{ disabled: loadingTemplates || instanceTemplates.length === 0 || !selectedCreateTemplate || !selectedCreateTemplate.enabled }}
       >
         <Form<CreateInstanceFormValues> form={createForm} layout="vertical">
           <Form.Item
@@ -3106,16 +3159,23 @@ export function Dashboard() {
             rules={[{ required: true, message: uiText.templateRequired }]}
           >
             <Select
+              loading={loadingTemplates}
               options={instanceTemplates.map((template) => ({
-                value: template.key,
-                label: `${template.displayName} · ${template.key}`,
+                value: template.templateKey,
+                label: `${template.displayName} · ${template.templateKey}${template.enabled ? "" : "（已停用）"}`,
+                disabled: !template.enabled,
               }))}
               onChange={(value) => {
-                const template = getInstanceTemplate(value) ?? getDefaultInstanceTemplate();
-                createForm.setFieldValue("desiredState", template.desiredState);
+                const template = instanceTemplates.find((item) => item.templateKey === value);
+                if (template) {
+                  createForm.setFieldValue("desiredState", template.desiredState);
+                }
               }}
             />
           </Form.Item>
+          {!loadingTemplates && instanceTemplates.length === 0 ? (
+            <Alert type="warning" showIcon message={uiText.noTemplatesAvailable} style={{ marginBottom: 16 }} />
+          ) : null}
           {selectedCreateTemplate ? (
             <Card size="small" style={{ marginBottom: 16 }} title={selectedCreateTemplate.displayName}>
               <Space direction="vertical" size="small" style={{ width: "100%" }}>

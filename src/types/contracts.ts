@@ -308,6 +308,99 @@ export interface InstanceChannelsConfig {
   overrideUpdatedBy?: string | null;
 }
 
+export interface InstanceTemplateAgentBinding {
+  agentKey: string;
+  provider?: string | null;
+  model?: string | null;
+  temperature?: number | null;
+  agentic?: boolean | null;
+  systemPrompt?: string | null;
+  allowedTools: string[];
+  allowedSkills: string[];
+}
+
+export interface InstanceTemplateChannelsConfig {
+  cliEnabled: boolean;
+  messageTimeoutSecs: number;
+  dingtalkEnabled: boolean;
+  dingtalkClientId?: string | null;
+  dingtalkClientSecret?: string | null;
+  dingtalkAllowedUsers: string[];
+  qqEnabled: boolean;
+  qqAppId?: string | null;
+  qqAppSecret?: string | null;
+  qqAllowedUsers: string[];
+}
+
+export interface InstanceTemplateDefaultModelConfig {
+  apiKey?: string | null;
+  defaultProvider?: string | null;
+  defaultModel?: string | null;
+  defaultTemperature?: number | null;
+}
+
+export interface InstanceTemplateRoutingConfig {
+  queryClassificationEnabled: boolean;
+  modelRoutes: ModelRouteConfigItem[];
+  queryClassificationRules: QueryClassificationRuleConfigItem[];
+}
+
+export interface InstanceTemplateMainAgentGuidance {
+  prompt?: string | null;
+  enabled?: boolean | null;
+}
+
+export interface InstanceTemplate {
+  templateKey: string;
+  displayName: string;
+  description?: string | null;
+  summary?: string | null;
+  enabled: boolean;
+  imagePresetId: string;
+  desiredState: DesiredState;
+  mainAgent: InstanceTemplateAgentBinding;
+  skillKeys: string[];
+  lockedScopes: string[];
+  tags: string[];
+  runtimeConfigToml?: string | null;
+  channelsConfig?: InstanceTemplateChannelsConfig | null;
+  defaultModelConfig?: InstanceTemplateDefaultModelConfig | null;
+  routingConfig?: InstanceTemplateRoutingConfig | null;
+  mainAgentGuidance?: InstanceTemplateMainAgentGuidance | null;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InstanceTemplateUpsertRequest {
+  templateKey?: string | null;
+  displayName?: string | null;
+  description?: string | null;
+  summary?: string | null;
+  enabled?: boolean | null;
+  imagePresetId?: string | null;
+  desiredState?: DesiredState | null;
+  mainAgent?: {
+    agentKey: string;
+    provider?: string | null;
+    model?: string | null;
+    temperature?: number | null;
+    agentic?: boolean | null;
+    systemPrompt?: string | null;
+    allowedTools?: string[] | null;
+    allowedSkills?: string[] | null;
+  } | null;
+  skillKeys?: string[] | null;
+  lockedScopes?: string[] | null;
+  tags?: string[] | null;
+  runtimeConfigToml?: string | null;
+  channelsConfig?: InstanceTemplateChannelsConfig | null;
+  defaultModelConfig?: InstanceTemplateDefaultModelConfig | null;
+  routingConfig?: InstanceTemplateRoutingConfig | null;
+  mainAgentGuidance?: InstanceTemplateMainAgentGuidance | null;
+  updatedBy?: string | null;
+}
+
 export interface OpenClientApp {
   appId: string;
   name: string;

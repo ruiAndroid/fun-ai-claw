@@ -4,6 +4,7 @@
 export const uiText = {
   loadFailed: "加载claw实例失败",
   loadImagesFailed: "加载镜像列表失败",
+  loadTemplatesFailed: "加载模板列表失败",
   createInstanceFailed: "创建实例失败",
   actionSubmittedPrefix: "动作已提交：",
   instanceCreatedPrefix: "实例创建成功：",
@@ -100,6 +101,7 @@ export const uiText = {
   templateRequired: "请选择模板",
   templateManagedCreateHint: "当前实例按模板托管创建",
   templateManagedCreateDescription: "模板会自动下发主 Agent、Skills 与默认运行配置，实例详情页暂时只读。",
+  noTemplatesAvailable: "当前没有可用模板，请先到模板中心创建或启用模板。",
   templateDefaultImageLabel: "默认镜像：",
   templateMainAgentLabel: "主 Agent：",
   templateSkillCountLabel: "Skills 数量：",

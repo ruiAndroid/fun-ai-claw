@@ -38,6 +38,15 @@ export function resolveTemplateImagePreset(
   return availableImages.find((image) => image.recommended) ?? availableImages[0];
 }
 
+function resolveTemplateAgentKeys(template: InstanceTemplate): string[] {
+  const explicitAgentKeys = Array.from(new Set((template.agentKeys ?? []).map((value) => value.trim()).filter(Boolean)));
+  if (explicitAgentKeys.length > 0) {
+    return explicitAgentKeys;
+  }
+  const legacyMainAgentKey = template.mainAgent?.agentKey?.trim();
+  return legacyMainAgentKey ? [legacyMainAgentKey] : [];
+}
+
 type CreateManagedInstanceFromTemplateOptions = {
   hostId: string;
   name: string;
@@ -74,11 +83,12 @@ export async function createManagedInstanceFromTemplate({
 
   try {
     onProgress?.("正在绑定主 Agent…");
-    await upsertInstanceAgentBinding(instance.id, template.mainAgent.agentKey, {
-      ...template.mainAgent,
-      allowedSkills: template.mainAgent.allowedSkills ?? template.skillKeys,
-      updatedBy: TEMPLATE_UPDATED_BY,
-    });
+    const agentKeys = resolveTemplateAgentKeys(template);
+    for (const agentKey of agentKeys) {
+      await upsertInstanceAgentBinding(instance.id, agentKey, {
+        updatedBy: TEMPLATE_UPDATED_BY,
+      });
+    }
 
     for (const skillKey of template.skillKeys) {
       onProgress?.(`正在安装 Skill：${skillKey}`);

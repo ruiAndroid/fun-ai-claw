@@ -103,7 +103,7 @@ export const uiText = {
   templateManagedCreateDescription: "模板会自动下发主 Agent、Skills 与默认运行配置，实例详情页暂时只读。",
   noTemplatesAvailable: "当前没有可用模板，请先到模板中心创建或启用模板。",
   templateDefaultImageLabel: "默认镜像：",
-  templateMainAgentLabel: "主 Agent：",
+  templateAgentCountLabel: "预装 Agent 数量：",
   templateSkillCountLabel: "Skills 数量：",
   templateImageUnavailable: "当前模板没有命中可用镜像，请先检查镜像预设。",
   templateCreateStarting: "正在按模板创建实例…",

@@ -1,17 +1,14 @@
 ﻿"use client";
 
-import { buildAgentToolOptions, emptyAgentToolCatalog } from "@/lib/agent-tool-catalog";
 import {
   createInstanceTemplate,
   deleteInstanceTemplate,
-  getAgentToolCatalog,
   listAgentBaselines,
   listSkillBaselines,
   upsertInstanceTemplate,
 } from "@/lib/control-api";
 import type {
   AgentBaselineSummary,
-  AgentToolCatalog,
   ImagePreset,
   InstanceTemplate,
   InstanceTemplateChannelsConfig,
@@ -177,6 +174,7 @@ function buildEmptyTemplate(templateKey = "", displayName = ""): InstanceTemplat
       allowedTools: [],
       allowedSkills: [],
     },
+    agentKeys: [],
     skillKeys: [],
     lockedScopes: [],
     tags: [],
@@ -189,6 +187,28 @@ function buildEmptyTemplate(templateKey = "", displayName = ""): InstanceTemplat
     createdAt: now,
     updatedAt: now,
   };
+}
+
+function hydrateTemplateDraft(template: InstanceTemplate): InstanceTemplate {
+  const draft = cloneTemplate(template);
+  const legacyMainAgentKey = draft.mainAgent?.agentKey?.trim();
+  draft.agentKeys = normalizeStringValues([
+    ...(draft.agentKeys ?? []),
+    ...(legacyMainAgentKey ? [legacyMainAgentKey] : []),
+  ]);
+  draft.mainAgent = {
+    agentKey: "",
+    provider: "",
+    model: "",
+    temperature: null,
+    agentic: null,
+    systemPrompt: "",
+    allowedTools: [],
+    allowedSkills: [],
+  };
+  draft.summary = draft.description ?? draft.summary ?? "";
+  draft.description = draft.description ?? draft.summary ?? "";
+  return draft;
 }
 
 function normalizeRoute(route: ModelRouteConfigItem): ModelRouteConfigItem {
@@ -268,20 +288,13 @@ function snapshotTemplate(template?: InstanceTemplate | null): string {
     templateKey: template.templateKey,
     displayName: template.displayName,
     description: normalizeOptionalText(template.description),
-    summary: normalizeOptionalText(template.summary),
     enabled: template.enabled,
     imagePresetId: template.imagePresetId,
     desiredState: template.desiredState,
-    mainAgent: {
-      agentKey: template.mainAgent.agentKey,
-      provider: normalizeOptionalText(template.mainAgent.provider).trim(),
-      model: normalizeOptionalText(template.mainAgent.model).trim(),
-      temperature: template.mainAgent.temperature ?? null,
-      agentic: template.mainAgent.agentic ?? null,
-      systemPrompt: normalizeOptionalText(template.mainAgent.systemPrompt),
-      allowedTools: normalizeStringValues(template.mainAgent.allowedTools),
-      allowedSkills: normalizeStringValues(template.mainAgent.allowedSkills),
-    },
+    agentKeys: normalizeStringValues([
+      ...(template.agentKeys ?? []),
+      ...(template.mainAgent?.agentKey?.trim() ? [template.mainAgent.agentKey.trim()] : []),
+    ]),
     skillKeys: normalizeStringValues(template.skillKeys),
     lockedScopes: normalizeStringValues(template.lockedScopes),
     tags: normalizeStringValues(template.tags),
@@ -385,20 +398,21 @@ function toUpsertRequest(draft: InstanceTemplate): InstanceTemplateUpsertRequest
     templateKey: draft.templateKey,
     displayName: draft.displayName,
     description: trimToNull(draft.description),
-    summary: trimToNull(draft.summary),
+    summary: trimToNull(draft.description),
     enabled: draft.enabled,
     imagePresetId: draft.imagePresetId,
     desiredState: draft.desiredState,
     mainAgent: {
-      agentKey: draft.mainAgent.agentKey,
-      provider: trimToNull(draft.mainAgent.provider),
-      model: trimToNull(draft.mainAgent.model),
-      temperature: draft.mainAgent.temperature ?? null,
-      agentic: draft.mainAgent.agentic ?? null,
-      systemPrompt: bodyToNull(draft.mainAgent.systemPrompt),
-      allowedTools: normalizeStringValues(draft.mainAgent.allowedTools),
-      allowedSkills: normalizeStringValues(draft.mainAgent.allowedSkills),
+      agentKey: "",
+      provider: null,
+      model: null,
+      temperature: null,
+      agentic: null,
+      systemPrompt: null,
+      allowedTools: [],
+      allowedSkills: [],
     },
+    agentKeys: normalizeStringValues(draft.agentKeys),
     skillKeys: normalizeStringValues(draft.skillKeys),
     lockedScopes: normalizeStringValues(draft.lockedScopes),
     tags: normalizeStringValues(draft.tags),
@@ -436,7 +450,6 @@ export function TemplateManagementPanel({
   const [error, setError] = useState<string>();
   const [agentBaselines, setAgentBaselines] = useState<AgentBaselineSummary[]>([]);
   const [skillBaselines, setSkillBaselines] = useState<SkillBaselineSummary[]>([]);
-  const [toolCatalog, setToolCatalog] = useState<AgentToolCatalog>(emptyAgentToolCatalog());
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [skillSearch, setSkillSearch] = useState("");
@@ -446,11 +459,9 @@ export function TemplateManagementPanel({
     void Promise.allSettled([
       listAgentBaselines(),
       listSkillBaselines(),
-      getAgentToolCatalog(),
-    ]).then(([agentResult, skillResult, toolResult]) => {
+    ]).then(([agentResult, skillResult]) => {
       setAgentBaselines(agentResult.status === "fulfilled" ? agentResult.value.items : []);
       setSkillBaselines(skillResult.status === "fulfilled" ? skillResult.value.items : []);
-      setToolCatalog(toolResult.status === "fulfilled" ? toolResult.value : emptyAgentToolCatalog());
     });
   }, []);
 
@@ -467,7 +478,7 @@ export function TemplateManagementPanel({
   }, [selectedTemplateKey, templates]);
   useEffect(() => {
     const selected = templates.find((item) => item.templateKey === selectedTemplateKey);
-    setDraft(selected ? cloneTemplate(selected) : undefined);
+    setDraft(selected ? hydrateTemplateDraft(selected) : undefined);
     setSkillSearch("");
   }, [selectedTemplateKey, templates]);
 
@@ -507,25 +518,10 @@ export function TemplateManagementPanel({
         options.set(key, key);
       }
     }
-    for (const key of draft?.mainAgent.allowedSkills ?? []) {
-      if (!options.has(key)) {
-        options.set(key, key);
-      }
-    }
     return Array.from(options.entries())
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([value, label]) => ({ value, label }));
-  }, [draft?.mainAgent.allowedSkills, draft?.skillKeys, skillBaselines]);
-
-  const toolOptions = useMemo(
-    () => buildAgentToolOptions(toolCatalog.tools, draft?.mainAgent.allowedTools),
-    [draft?.mainAgent.allowedTools, toolCatalog.tools],
-  );
-
-  const selectedAgentBaseline = useMemo(
-    () => agentBaselines.find((item) => item.agentKey === draft?.mainAgent.agentKey),
-    [agentBaselines, draft?.mainAgent.agentKey],
-  );
+  }, [draft?.skillKeys, skillBaselines]);
 
   const mountedSkillSet = useMemo(
     () => new Set(draft?.skillKeys ?? []),
@@ -547,20 +543,6 @@ export function TemplateManagementPanel({
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }, []);
 
-  const updateMainAgent = useCallback((patch: Partial<InstanceTemplate["mainAgent"]>) => {
-    setDraft((current) => (
-      current
-        ? {
-            ...current,
-            mainAgent: {
-              ...current.mainAgent,
-              ...patch,
-            },
-          }
-        : current
-    ));
-  }, []);
-
   const setMountedSkills = useCallback((nextSkillKeys: string[]) => {
     const normalizedSkillKeys = normalizeStringValues(nextSkillKeys);
     setDraft((current) => {
@@ -570,11 +552,6 @@ export function TemplateManagementPanel({
       return {
         ...current,
         skillKeys: normalizedSkillKeys,
-        mainAgent: {
-          ...current.mainAgent,
-          allowedSkills: normalizeStringValues(current.mainAgent.allowedSkills)
-            .filter((skillKey) => normalizedSkillKeys.includes(skillKey)),
-        },
       };
     });
   }, []);
@@ -701,11 +678,12 @@ export function TemplateManagementPanel({
         templateKey: initial.templateKey,
         displayName: initial.displayName,
         description: initial.description,
-        summary: initial.summary,
+        summary: initial.description,
         enabled: initial.enabled,
         imagePresetId: initial.imagePresetId,
         desiredState: initial.desiredState,
         mainAgent: initial.mainAgent,
+        agentKeys: initial.agentKeys,
         skillKeys: initial.skillKeys,
         lockedScopes: initial.lockedScopes,
         tags: initial.tags,
@@ -775,7 +753,7 @@ export function TemplateManagementPanel({
           type="info"
           showIcon
           message="模板中心已成为实例配置的来源"
-          description="现在可直接在模板内维护主 Agent、预装 Skills、默认模型、路由配置，以及部分运行时高级配置。实例创建时将按模板下发。"
+          description="现在可直接在模板内维护预装子 Agent、预装 Skills、默认模型、路由配置，以及部分运行时高级配置。实例创建时将按模板下发。"
         />
 
         <Card
@@ -817,7 +795,7 @@ export function TemplateManagementPanel({
                       </Space>
                       <Text type="secondary">{template.templateKey}</Text>
                       <Paragraph style={{ marginBottom: 0 }} ellipsis={{ rows: 2 }}>
-                        {template.summary || template.description || "-"}
+                        {template.description || template.summary || "-"}
                       </Paragraph>
                       <Space size={[8, 8]} wrap>
                         {template.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
@@ -894,13 +872,7 @@ export function TemplateManagementPanel({
                                 rows={2}
                                 value={draft.description ?? ""}
                                 placeholder="模板描述"
-                                onChange={(event) => updateDraft({ description: event.target.value })}
-                              />
-                              <Input.TextArea
-                                rows={2}
-                                value={draft.summary ?? ""}
-                                placeholder="模板摘要"
-                                onChange={(event) => updateDraft({ summary: event.target.value })}
+                                onChange={(event) => updateDraft({ description: event.target.value, summary: event.target.value })}
                               />
 
                               <div className="agent-detail-grid">
@@ -911,6 +883,7 @@ export function TemplateManagementPanel({
                                 <div className="agent-detail-prop">
                                   <span className="agent-detail-prop-label">默认启动状态</span>
                                   <Select
+                                    style={{ width: "100%" }}
                                     value={draft.desiredState}
                                     options={[
                                       { value: "RUNNING", label: "运行" },
@@ -922,6 +895,7 @@ export function TemplateManagementPanel({
                               </div>
 
                               <Select
+                                style={{ width: "100%" }}
                                 value={draft.imagePresetId}
                                 options={imageOptions}
                                 placeholder="镜像预设"
@@ -931,6 +905,7 @@ export function TemplateManagementPanel({
 
                               <Select
                                 mode="tags"
+                                style={{ width: "100%" }}
                                 value={draft.tags}
                                 options={draft.tags.map((value) => ({ value, label: value }))}
                                 placeholder="标签"
@@ -939,6 +914,7 @@ export function TemplateManagementPanel({
 
                               <Select
                                 mode="tags"
+                                style={{ width: "100%" }}
                                 value={draft.lockedScopes}
                                 options={draft.lockedScopes.map((value) => ({ value, label: value }))}
                                 placeholder="锁定范围"
@@ -977,85 +953,48 @@ export function TemplateManagementPanel({
                               <Alert
                                 type="info"
                                 showIcon
-                                message="单机器人模板只维护一个主 Agent"
-                                description="这里对应实例页的 Agent 装载与主 Agent 运行参数。实例创建时，会按此模板自动绑定主 Agent。"
+                                message="主 Agent 固定使用 ZeroClaw 内置主 Agent"
+                                description="模板里不再配置主 Agent 参数。这里仅维护实例创建时需要预装的子 Agent。"
                               />
 
-                              <Card type="inner" title="主 Agent">
+                              <Card
+                                type="inner"
+                                title={`预装子 Agent（${draft.agentKeys.length}）`}
+                                extra={draft.agentKeys.length > 0 ? (
+                                  <Button size="small" onClick={() => updateDraft({ agentKeys: [] })}>
+                                    清空
+                                  </Button>
+                                ) : null}
+                              >
                                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
                                   <Select
+                                    mode="multiple"
                                     allowClear
-                                    value={draft.mainAgent.agentKey || undefined}
+                                    style={{ width: "100%" }}
+                                    value={draft.agentKeys}
                                     options={agentOptions}
-                                    placeholder="选择主 Agent"
-                                    onChange={(value) => updateMainAgent({ agentKey: value ?? "" })}
+                                    placeholder="选择需要随实例预装的子 Agent"
+                                    onChange={(value) => updateDraft({ agentKeys: normalizeStringValues(value) })}
                                   />
-
-                                  {selectedAgentBaseline ? (
-                                    <Alert
-                                      type="success"
-                                      showIcon
-                                      message={selectedAgentBaseline.displayName || selectedAgentBaseline.agentKey}
-                                      description={selectedAgentBaseline.sourceRef || "已选主 Agent"}
-                                    />
+                                  <Text type="secondary">这些 Agent 会在实例创建后自动装载，主入口仍然是 ZeroClaw 内置主 Agent。</Text>
+                                  {draft.agentKeys.length > 0 ? (
+                                    <Space size={[8, 8]} wrap>
+                                      {draft.agentKeys.map((agentKey) => (
+                                        <Tag
+                                          key={agentKey}
+                                          closable
+                                          onClose={(event) => {
+                                            event.preventDefault();
+                                            updateDraft({ agentKeys: draft.agentKeys.filter((item) => item !== agentKey) });
+                                          }}
+                                        >
+                                          {agentOptions.find((item) => item.value === agentKey)?.label ?? agentKey}
+                                        </Tag>
+                                      ))}
+                                    </Space>
                                   ) : (
-                                    <Text type="secondary">当前未选择主 Agent。</Text>
+                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前模板还没有预装子 Agent" />
                                   )}
-
-                                  <Input
-                                    value={draft.mainAgent.provider ?? ""}
-                                    addonBefore="Provider"
-                                    onChange={(event) => updateMainAgent({ provider: event.target.value })}
-                                  />
-                                  <Input
-                                    value={draft.mainAgent.model ?? ""}
-                                    addonBefore="Model"
-                                    onChange={(event) => updateMainAgent({ model: event.target.value })}
-                                  />
-
-                                  <div>
-                                    <Text type="secondary">Temperature</Text>
-                                    <InputNumber
-                                      style={{ width: "100%", marginTop: 8 }}
-                                      value={draft.mainAgent.temperature ?? null}
-                                      min={0}
-                                      max={2}
-                                      step={0.1}
-                                      onChange={(value) => updateMainAgent({ temperature: typeof value === "number" ? value : null })}
-                                    />
-                                  </div>
-
-                                  <Space size="small">
-                                    <Text>Agentic</Text>
-                                    <Switch checked={draft.mainAgent.agentic === true} onChange={(checked) => updateMainAgent({ agentic: checked })} />
-                                  </Space>
-
-                                  <Select
-                                    mode="multiple"
-                                    allowClear
-                                    value={draft.mainAgent.allowedTools}
-                                    options={toolOptions}
-                                    placeholder="allowed_tools"
-                                    onChange={(value) => updateMainAgent({ allowedTools: normalizeStringValues(value) })}
-                                  />
-                                  <Text type="secondary">这里控制主 Agent 在 ZeroClaw 运行时可见的工具集合。</Text>
-
-                                  <Select
-                                    mode="multiple"
-                                    allowClear
-                                    value={draft.mainAgent.allowedSkills}
-                                    options={mountedSkillOptions}
-                                    placeholder="留空表示主 Agent 可访问全部预装 Skills"
-                                    onChange={(value) => updateMainAgent({ allowedSkills: normalizeStringValues(value) })}
-                                  />
-                                  <Text type="secondary">推荐只从当前模板已预装的 Skills 中选择。</Text>
-
-                                  <Input.TextArea
-                                    rows={14}
-                                    value={draft.mainAgent.systemPrompt ?? ""}
-                                    placeholder="主 Agent system prompt"
-                                    onChange={(event) => updateMainAgent({ systemPrompt: event.target.value })}
-                                  />
                                 </Space>
                               </Card>
                             </Space>
@@ -1070,7 +1009,7 @@ export function TemplateManagementPanel({
                                 type="info"
                                 showIcon
                                 message="这里维护模板的预装 Skills"
-                                description="实例创建时会自动装载这里选中的 Skills。主 Agent 能访问哪些 Skills，请在 Agent 页的 allowed_skills 里控制。"
+                                description="实例创建时会自动装载这里选中的 Skills，供内置主 Agent 和预装子 Agent 在运行时使用。"
                               />
 
                               <Card

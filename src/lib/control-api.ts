@@ -305,10 +305,6 @@ export async function upsertInstanceChannelsConfig(
     qqAppId?: string;
     qqAppSecret?: string;
     qqAllowedUsers?: string[];
-    feishuEnabled: boolean;
-    feishuAppId?: string;
-    feishuAppSecret?: string;
-    feishuAllowedUsers?: string[];
     updatedBy?: string;
   }
 ) {

@@ -13,10 +13,6 @@ const CHANNEL_PLATFORM_LINKS = {
     consoleUrl: "https://open-dev.dingtalk.com/",
     docsUrl: "https://open.dingtalk.com/doc-mobile",
   },
-  feishu: {
-    consoleUrl: "https://open.feishu.cn/app",
-    docsUrl: "https://open.feishu.cn/document/",
-  },
   qq: {
     consoleUrl: "https://q.qq.com/",
     docsUrl: "https://q.qq.com/wiki",
@@ -34,10 +30,6 @@ type ChannelsDraft = {
   qqAppId: string;
   qqAppSecret: string;
   qqAllowedUsersText: string;
-  feishuEnabled: boolean;
-  feishuAppId: string;
-  feishuAppSecret: string;
-  feishuAllowedUsersText: string;
 };
 
 function toDraft(config: InstanceChannelsConfig): ChannelsDraft {
@@ -52,10 +44,6 @@ function toDraft(config: InstanceChannelsConfig): ChannelsDraft {
     qqAppId: config.qqAppId ?? "",
     qqAppSecret: config.qqAppSecret ?? "",
     qqAllowedUsersText: (config.qqAllowedUsers ?? []).join("\n"),
-    feishuEnabled: config.feishuEnabled,
-    feishuAppId: config.feishuAppId ?? "",
-    feishuAppSecret: config.feishuAppSecret ?? "",
-    feishuAllowedUsersText: (config.feishuAllowedUsers ?? []).join("\n"),
   };
 }
 
@@ -78,10 +66,6 @@ function comparableDraft(draft: ChannelsDraft) {
     qqAppId: draft.qqAppId.trim(),
     qqAppSecret: draft.qqAppSecret,
     qqAllowedUsers: normalizeUsers(draft.qqAllowedUsersText),
-    feishuEnabled: draft.feishuEnabled,
-    feishuAppId: draft.feishuAppId.trim(),
-    feishuAppSecret: draft.feishuAppSecret,
-    feishuAllowedUsers: normalizeUsers(draft.feishuAllowedUsersText),
   };
 }
 
@@ -129,10 +113,6 @@ export function InstanceChannelsConfigPanel({
     qqAppId: "",
     qqAppSecret: "",
     qqAllowedUsersText: "",
-    feishuEnabled: false,
-    feishuAppId: "",
-    feishuAppSecret: "",
-    feishuAllowedUsersText: "",
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -144,31 +124,32 @@ export function InstanceChannelsConfigPanel({
     setDraft(toDraft(response));
   }, []);
 
-  const loadConfig = useCallback(async (showSuccess?: boolean) => {
-    setLoading(true);
-    setError(undefined);
-    try {
-      const response = await getInstanceChannelsConfig(instanceId);
-      applyResponse(response);
-      if (showSuccess) {
-        messageApi.success("渠道配置已刷新");
+  const loadConfig = useCallback(
+    async (showSuccess?: boolean) => {
+      setLoading(true);
+      setError(undefined);
+      try {
+        const response = await getInstanceChannelsConfig(instanceId);
+        applyResponse(response);
+        if (showSuccess) {
+          messageApi.success("渠道配置已刷新");
+        }
+      } catch (apiError) {
+        const messageText = apiError instanceof Error ? apiError.message : String(apiError);
+        setConfig(undefined);
+        setError(messageText);
+      } finally {
+        setLoading(false);
       }
-    } catch (apiError) {
-      setConfig(undefined);
-      setError(apiError instanceof Error ? apiError.message : String(apiError));
-    } finally {
-      setLoading(false);
-    }
-  }, [applyResponse, instanceId, messageApi]);
+    },
+    [applyResponse, instanceId, messageApi]
+  );
 
   useEffect(() => {
     void loadConfig();
   }, [loadConfig]);
 
-  const baseline = useMemo(
-    () => (config ? JSON.stringify(comparableDraft(toDraft(config))) : ""),
-    [config]
-  );
+  const baseline = useMemo(() => (config ? JSON.stringify(comparableDraft(toDraft(config))) : ""), [config]);
   const current = useMemo(() => JSON.stringify(comparableDraft(draft)), [draft]);
   const dirty = Boolean(config) && baseline !== current;
 
@@ -201,15 +182,6 @@ export function InstanceChannelsConfigPanel({
       return;
     }
 
-    if (draft.feishuEnabled && !draft.feishuAppId.trim()) {
-      messageApi.warning("请填写飞书应用 App ID");
-      return;
-    }
-    if (draft.feishuEnabled && !draft.feishuAppSecret.trim()) {
-      messageApi.warning("请填写飞书应用 App Secret");
-      return;
-    }
-
     setSaving(true);
     setError(undefined);
     try {
@@ -224,10 +196,6 @@ export function InstanceChannelsConfigPanel({
         qqAppId: draft.qqAppId.trim(),
         qqAppSecret: draft.qqAppSecret,
         qqAllowedUsers: normalizeUsers(draft.qqAllowedUsersText),
-        feishuEnabled: draft.feishuEnabled,
-        feishuAppId: draft.feishuAppId.trim(),
-        feishuAppSecret: draft.feishuAppSecret,
-        feishuAllowedUsers: normalizeUsers(draft.feishuAllowedUsersText),
         updatedBy: "console",
       });
       applyResponse(response);
@@ -253,61 +221,42 @@ export function InstanceChannelsConfigPanel({
     <>
       {contextHolder}
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-        {error ? (
-          <Alert
-            type="error"
-            showIcon
-            message="加载渠道配置失败"
-            description={error}
-            action={(
-              <Button size="small" onClick={() => void loadConfig()}>
-                重试
-              </Button>
-            )}
-          />
-        ) : null}
-
         <Card
-          className="sub-glass-card"
-          size="small"
-          title="渠道接入配置"
-          extra={(
-            <Space size="small">
-              <Text type="secondary">{metaText}</Text>
-              <Button onClick={() => void loadConfig(true)} loading={loading} disabled={saving}>
-                刷新
-              </Button>
-            </Space>
-          )}
+          title="渠道配置"
+          extra={
+            <Button onClick={() => void loadConfig(true)} disabled={loading || saving}>
+              刷新
+            </Button>
+          }
         >
-          {(loading && !config) ? (
-            <Skeleton active paragraph={{ rows: 4 }} />
-          ) : (
-            <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-              <Card
-                type="inner"
-                size="small"
-                title="全局设置"
-              >
-                <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
-                  <div>
-                    <Text type="secondary">本地命令行入口（cli）</Text>
-                    <div style={{ marginTop: 8 }}>
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Text type="secondary">{metaText}</Text>
+
+            {error ? <Alert type="error" showIcon message="加载失败" description={error} /> : null}
+
+            {loading && !config ? (
+              <Skeleton active paragraph={{ rows: 8 }} />
+            ) : !config ? (
+              <Alert type="warning" showIcon message="未获取到渠道配置" />
+            ) : (
+              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                <Card type="inner" size="small" title="基础">
+                  <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                    <Space size="small">
+                      <Text>启用 CLI</Text>
                       <Switch
                         checked={draft.cliEnabled}
                         disabled={loading || saving}
                         onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, cliEnabled: checked }))}
                       />
-                    </div>
-                  </div>
-                  <div>
-                    <Text type="secondary">消息超时时间（秒）</Text>
-                    <div style={{ marginTop: 8 }}>
+                    </Space>
+                    <div>
+                      <Text type="secondary">消息超时（秒）</Text>
                       <InputNumber
                         min={1}
+                        style={{ width: "100%", marginTop: 8 }}
                         value={draft.messageTimeoutSecs}
                         disabled={loading || saving}
-                        style={{ width: "100%" }}
                         onChange={(value) =>
                           setDraft((currentDraft) => ({
                             ...currentDraft,
@@ -316,191 +265,134 @@ export function InstanceChannelsConfigPanel({
                         }
                       />
                     </div>
-                  </div>
-                </div>
-              </Card>
+                  </Space>
+                </Card>
 
-              <Card
-                type="inner"
-                size="small"
-                title="钉钉"
-                extra={(
-                  <Space size="small">
-                    <Text type="secondary">启用</Text>
-                    <Switch
-                      checked={draft.dingtalkEnabled}
-                      disabled={loading || saving}
-                      onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, dingtalkEnabled: checked }))}
+                <Card
+                  type="inner"
+                  size="small"
+                  title="钉钉"
+                  extra={
+                    <Space size="small">
+                      <Text type="secondary">启用</Text>
+                      <Switch
+                        checked={draft.dingtalkEnabled}
+                        disabled={loading || saving}
+                        onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, dingtalkEnabled: checked }))}
+                      />
+                    </Space>
+                  }
+                >
+                  <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                    <Text type="secondary">对应 `config.toml` 中的 `channels_config.dingtalk`。</Text>
+                    <Space size="middle" wrap>
+                      <a href={CHANNEL_PLATFORM_LINKS.dingtalk.consoleUrl} target="_blank" rel="noreferrer">
+                        前往钉钉开放平台
+                      </a>
+                      <a href={CHANNEL_PLATFORM_LINKS.dingtalk.docsUrl} target="_blank" rel="noreferrer">
+                        查看钉钉开发文档
+                      </a>
+                    </Space>
+                    {!draft.dingtalkEnabled ? (
+                      <Text type="secondary">当前未启用。开启后可配置应用 ID、应用密钥和允许访问的用户。</Text>
+                    ) : null}
+                    <Input
+                      addonBefore="应用 ID"
+                      value={draft.dingtalkClientId}
+                      disabled={loading || saving || !draft.dingtalkEnabled}
+                      onChange={(event) =>
+                        setDraft((currentDraft) => ({ ...currentDraft, dingtalkClientId: event.target.value }))
+                      }
+                      placeholder="请输入钉钉开放平台的 AppKey / client_id"
+                    />
+                    <Password
+                      addonBefore="应用密钥"
+                      value={draft.dingtalkClientSecret}
+                      disabled={loading || saving || !draft.dingtalkEnabled}
+                      onChange={(event) =>
+                        setDraft((currentDraft) => ({ ...currentDraft, dingtalkClientSecret: event.target.value }))
+                      }
+                      placeholder="请输入钉钉开放平台的 AppSecret / client_secret"
+                    />
+                    <TextArea
+                      rows={4}
+                      value={draft.dingtalkAllowedUsersText}
+                      disabled={loading || saving || !draft.dingtalkEnabled}
+                      onChange={(event) =>
+                        setDraft((currentDraft) => ({ ...currentDraft, dingtalkAllowedUsersText: event.target.value }))
+                      }
+                      placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
                     />
                   </Space>
-                )}
-              >
-                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                  <Text type="secondary">对应 config.toml 中的 `channels_config.dingtalk`。</Text>
-                  <Space size="middle" wrap>
-                    <a href={CHANNEL_PLATFORM_LINKS.dingtalk.consoleUrl} target="_blank" rel="noreferrer">
-                      前往钉钉开发者后台
-                    </a>
-                    <a href={CHANNEL_PLATFORM_LINKS.dingtalk.docsUrl} target="_blank" rel="noreferrer">
-                      查看钉钉开发文档
-                    </a>
-                  </Space>
-                  {!draft.dingtalkEnabled ? (
-                    <Text type="secondary">当前未启用。开启后即可配置钉钉应用 ID、应用密钥和允许访问的用户。</Text>
-                  ) : null}
-                  <Input
-                    addonBefore="应用 ID"
-                    value={draft.dingtalkClientId}
-                    disabled={loading || saving || !draft.dingtalkEnabled}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, dingtalkClientId: event.target.value }))}
-                    placeholder="请输入钉钉开放平台的 AppKey / client_id"
-                  />
-                  <Password
-                    addonBefore="应用密钥"
-                    value={draft.dingtalkClientSecret}
-                    disabled={loading || saving || !draft.dingtalkEnabled}
-                    onChange={(event) =>
-                      setDraft((currentDraft) => ({ ...currentDraft, dingtalkClientSecret: event.target.value }))
-                    }
-                    placeholder="请输入钉钉开放平台的 AppSecret / client_secret"
-                  />
-                  <TextArea
-                    rows={4}
-                    value={draft.dingtalkAllowedUsersText}
-                    disabled={loading || saving || !draft.dingtalkEnabled}
-                    onChange={(event) =>
-                      setDraft((currentDraft) => ({ ...currentDraft, dingtalkAllowedUsersText: event.target.value }))
-                    }
-                    placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
-                  />
-                </Space>
-              </Card>
+                </Card>
 
-              <Card
-                type="inner"
-                size="small"
-                title="飞书"
-                extra={(
-                  <Space size="small">
-                    <Text type="secondary">启用</Text>
-                    <Switch
-                      checked={draft.feishuEnabled}
-                      disabled={loading || saving}
-                      onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, feishuEnabled: checked }))}
+                <Card
+                  type="inner"
+                  size="small"
+                  title="QQ"
+                  extra={
+                    <Space size="small">
+                      <Text type="secondary">启用</Text>
+                      <Switch
+                        checked={draft.qqEnabled}
+                        disabled={loading || saving}
+                        onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, qqEnabled: checked }))}
+                      />
+                    </Space>
+                  }
+                >
+                  <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                    <Text type="secondary">对应 `config.toml` 中的 `channels_config.qq`。</Text>
+                    <Space size="middle" wrap>
+                      <a href={CHANNEL_PLATFORM_LINKS.qq.consoleUrl} target="_blank" rel="noreferrer">
+                        前往 QQ 开放平台
+                      </a>
+                      <a href={CHANNEL_PLATFORM_LINKS.qq.docsUrl} target="_blank" rel="noreferrer">
+                        查看 QQ 开发文档
+                      </a>
+                    </Space>
+                    {!draft.qqEnabled ? (
+                      <Text type="secondary">当前未启用。开启后可配置应用 ID、应用密钥和允许访问的用户。</Text>
+                    ) : null}
+                    <Input
+                      addonBefore="应用 ID"
+                      value={draft.qqAppId}
+                      disabled={loading || saving || !draft.qqEnabled}
+                      onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, qqAppId: event.target.value }))}
+                      placeholder="请输入 QQ 机器人的 app_id"
+                    />
+                    <Password
+                      addonBefore="应用密钥"
+                      value={draft.qqAppSecret}
+                      disabled={loading || saving || !draft.qqEnabled}
+                      onChange={(event) =>
+                        setDraft((currentDraft) => ({ ...currentDraft, qqAppSecret: event.target.value }))
+                      }
+                      placeholder="请输入 QQ 机器人的 app_secret"
+                    />
+                    <TextArea
+                      rows={4}
+                      value={draft.qqAllowedUsersText}
+                      disabled={loading || saving || !draft.qqEnabled}
+                      onChange={(event) =>
+                        setDraft((currentDraft) => ({ ...currentDraft, qqAllowedUsersText: event.target.value }))
+                      }
+                      placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
                     />
                   </Space>
-                )}
-              >
-                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                  <Text type="secondary">对应 `config.toml` 中的 `channels_config.feishu`。</Text>
-                  <Text type="secondary">
-                    参考 OpenClaw 的默认接入方式，控制台当前按“应用模式 + WebSocket 长连接”维护，不需要公网回调地址；如需更高级的 webhook 字段，可继续在 Config 页手工补充。
-                  </Text>
-                  <Space size="middle" wrap>
-                    <a href={CHANNEL_PLATFORM_LINKS.feishu.consoleUrl} target="_blank" rel="noreferrer">
-                      前往飞书开放平台
-                    </a>
-                    <a href={CHANNEL_PLATFORM_LINKS.feishu.docsUrl} target="_blank" rel="noreferrer">
-                      查看飞书开发文档
-                    </a>
-                  </Space>
-                  {!draft.feishuEnabled ? (
-                    <Text type="secondary">当前未启用。开启后即可配置飞书应用 App ID、App Secret 和允许访问的用户。</Text>
-                  ) : null}
-                  <Input
-                    addonBefore="App ID"
-                    value={draft.feishuAppId}
-                    disabled={loading || saving || !draft.feishuEnabled}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, feishuAppId: event.target.value }))}
-                    placeholder="请输入飞书应用的 App ID"
-                  />
-                  <Password
-                    addonBefore="App Secret"
-                    value={draft.feishuAppSecret}
-                    disabled={loading || saving || !draft.feishuEnabled}
-                    onChange={(event) =>
-                      setDraft((currentDraft) => ({ ...currentDraft, feishuAppSecret: event.target.value }))
-                    }
-                    placeholder="请输入飞书应用的 App Secret"
-                  />
-                  <TextArea
-                    rows={4}
-                    value={draft.feishuAllowedUsersText}
-                    disabled={loading || saving || !draft.feishuEnabled}
-                    onChange={(event) =>
-                      setDraft((currentDraft) => ({ ...currentDraft, feishuAllowedUsersText: event.target.value }))
-                    }
-                    placeholder={"允许访问的用户 open_id / union_id，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
-                  />
-                </Space>
-              </Card>
+                </Card>
 
-              <Card
-                type="inner"
-                size="small"
-                title="QQ"
-                extra={(
-                  <Space size="small">
-                    <Text type="secondary">启用</Text>
-                    <Switch
-                      checked={draft.qqEnabled}
-                      disabled={loading || saving}
-                      onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, qqEnabled: checked }))}
-                    />
-                  </Space>
-                )}
-              >
-                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                  <Text type="secondary">对应 config.toml 中的 `channels_config.qq`。</Text>
-                  <Space size="middle" wrap>
-                    <a href={CHANNEL_PLATFORM_LINKS.qq.consoleUrl} target="_blank" rel="noreferrer">
-                      前往 QQ 开放平台
-                    </a>
-                    <a href={CHANNEL_PLATFORM_LINKS.qq.docsUrl} target="_blank" rel="noreferrer">
-                      查看 QQ 平台文档
-                    </a>
-                  </Space>
-                  {!draft.qqEnabled ? (
-                    <Text type="secondary">当前未启用。开启后即可配置 QQ 应用 ID、应用密钥和允许访问的用户。</Text>
-                  ) : null}
-                  <Input
-                    addonBefore="应用 ID"
-                    value={draft.qqAppId}
-                    disabled={loading || saving || !draft.qqEnabled}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, qqAppId: event.target.value }))}
-                    placeholder="请输入 QQ 机器人的 app_id"
-                  />
-                  <Password
-                    addonBefore="应用密钥"
-                    value={draft.qqAppSecret}
-                    disabled={loading || saving || !draft.qqEnabled}
-                    onChange={(event) =>
-                      setDraft((currentDraft) => ({ ...currentDraft, qqAppSecret: event.target.value }))
-                    }
-                    placeholder="请输入 QQ 机器人的 app_secret"
-                  />
-                  <TextArea
-                    rows={4}
-                    value={draft.qqAllowedUsersText}
-                    disabled={loading || saving || !draft.qqEnabled}
-                    onChange={(event) =>
-                      setDraft((currentDraft) => ({ ...currentDraft, qqAllowedUsersText: event.target.value }))
-                    }
-                    placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
-                  />
+                <Space wrap>
+                  <Button onClick={handleReset} disabled={!dirty || loading || saving}>
+                    重置
+                  </Button>
+                  <Button type="primary" loading={saving} disabled={!dirty || loading || saving} onClick={() => void handleSave()}>
+                    保存
+                  </Button>
                 </Space>
-              </Card>
-
-              <Space wrap>
-                <Button onClick={handleReset} disabled={!dirty || loading || saving}>
-                  重置
-                </Button>
-                <Button type="primary" loading={saving} disabled={!dirty || loading || saving} onClick={() => void handleSave()}>
-                  保存
-                </Button>
               </Space>
-            </Space>
-          )}
+            )}
+          </Space>
         </Card>
       </Space>
     </>

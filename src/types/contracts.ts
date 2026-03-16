@@ -304,10 +304,6 @@ export interface InstanceChannelsConfig {
   qqAppId: string;
   qqAppSecret: string;
   qqAllowedUsers: string[];
-  feishuEnabled: boolean;
-  feishuAppId: string;
-  feishuAppSecret: string;
-  feishuAllowedUsers: string[];
   overrideUpdatedAt?: string | null;
   overrideUpdatedBy?: string | null;
 }

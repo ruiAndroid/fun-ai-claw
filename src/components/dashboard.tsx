@@ -166,7 +166,7 @@ export function Dashboard() {
   const [agentsError, setAgentsError] = useState<string>();
   const [selectedAgentId, setSelectedAgentId] = useState<string>();
   const [instanceConfigReloadToken, setInstanceConfigReloadToken] = useState(0);
-  const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("direct");
+  const [agentSessionMode, setAgentSessionMode] = useState<AgentSessionMode>("auto");
   const [agentMessageInput, setAgentMessageInput] = useState("");
   const [agentComposerInteractionDraft, setAgentComposerInteractionDraft] = useState<AgentComposerInteractionDraft>();
   const agentSessionSocketRef = useRef<WebSocket | null>(null);
@@ -529,6 +529,12 @@ export function Dashboard() {
     void loadAgents(selectedInstanceId);
     void loadMainAgentGuidance(selectedInstanceId);
   }, [loadAgents, loadMainAgentGuidance, selectedInstanceId]);
+
+  useEffect(() => {
+    if (agentSessionMode === "direct" && agents.length === 0) {
+      setAgentSessionMode("auto");
+    }
+  }, [agentSessionMode, agents.length]);
 
   const handleInstalledAgentsChange = useCallback((nextAgents: InstanceAgentBinding[]) => {
     setAgents(nextAgents);
@@ -2694,9 +2700,10 @@ export function Dashboard() {
                                                   <span>{uiText.agentSessionRouteModeDirect}</span>
                                                 </div>
                                                </div>
-                                            ),
-                                            value: "direct",
-                                          },
+                                              ),
+                                              value: "direct",
+                                              disabled: agents.length === 0,
+                                            },
                                           {
                                             label: (
                                               <div className="agent-session-mode-option">

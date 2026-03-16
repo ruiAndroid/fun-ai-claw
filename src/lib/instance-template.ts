@@ -47,6 +47,10 @@ type CreateManagedInstanceFromTemplateOptions = {
   onProgress?: (message: string) => void;
 };
 
+function undefinedWhenNull<T>(value: T | null | undefined): T | undefined {
+  return value ?? undefined;
+}
+
 export async function createManagedInstanceFromTemplate({
   hostId,
   name,
@@ -92,7 +96,16 @@ export async function createManagedInstanceFromTemplate({
     if (template.channelsConfig) {
       onProgress?.("正在写入渠道配置…");
       await upsertInstanceChannelsConfig(instance.id, {
-        ...template.channelsConfig,
+        cliEnabled: template.channelsConfig.cliEnabled,
+        messageTimeoutSecs: template.channelsConfig.messageTimeoutSecs,
+        dingtalkEnabled: template.channelsConfig.dingtalkEnabled,
+        dingtalkClientId: undefinedWhenNull(template.channelsConfig.dingtalkClientId),
+        dingtalkClientSecret: undefinedWhenNull(template.channelsConfig.dingtalkClientSecret),
+        dingtalkAllowedUsers: template.channelsConfig.dingtalkAllowedUsers,
+        qqEnabled: template.channelsConfig.qqEnabled,
+        qqAppId: undefinedWhenNull(template.channelsConfig.qqAppId),
+        qqAppSecret: undefinedWhenNull(template.channelsConfig.qqAppSecret),
+        qqAllowedUsers: template.channelsConfig.qqAllowedUsers,
         updatedBy: TEMPLATE_UPDATED_BY,
       });
     }
@@ -107,7 +120,10 @@ export async function createManagedInstanceFromTemplate({
     ) {
       onProgress?.("正在写入默认模型配置…");
       await upsertInstanceDefaultModelConfig(instance.id, {
-        ...template.defaultModelConfig,
+        apiKey: template.defaultModelConfig.apiKey,
+        defaultProvider: template.defaultModelConfig.defaultProvider,
+        defaultModel: template.defaultModelConfig.defaultModel,
+        defaultTemperature: template.defaultModelConfig.defaultTemperature,
         updatedBy: TEMPLATE_UPDATED_BY,
       });
     }
@@ -123,7 +139,8 @@ export async function createManagedInstanceFromTemplate({
     if (template.mainAgentGuidance) {
       onProgress?.("正在同步主 Agent Guidance…");
       await upsertInstanceMainAgentGuidance(instance.id, {
-        ...template.mainAgentGuidance,
+        prompt: undefinedWhenNull(template.mainAgentGuidance.prompt),
+        enabled: undefinedWhenNull(template.mainAgentGuidance.enabled),
         updatedBy: TEMPLATE_UPDATED_BY,
       });
     }

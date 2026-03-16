@@ -1720,12 +1720,12 @@ export function Dashboard() {
 
     if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
       const wsBase = apiBase.replace(/^http/i, "ws").replace(/\/$/, "");
-      return `${wsBase}/v1/agent-session/ws?${query}`;
+      return `${wsBase}/ops/v1/agent-session/ws?${query}`;
     }
 
     const normalizedApiBase = apiBase.startsWith("/") ? apiBase : `/${apiBase}`;
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${protocol}://${window.location.host}${normalizedApiBase}/v1/agent-session/ws?${query}`;
+    return `${protocol}://${window.location.host}${normalizedApiBase}/ops/v1/agent-session/ws?${query}`;
   }, []);
 
   const disconnectAgentSession = useCallback(() => {
@@ -1982,12 +1982,12 @@ export function Dashboard() {
 
     if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
       const wsBase = apiBase.replace(/^http/i, "ws").replace(/\/$/, "");
-      return `${wsBase}/v1/terminal/ws?${query}`;
+      return `${wsBase}/ops/v1/terminal/ws?${query}`;
     }
 
     const normalizedApiBase = apiBase.startsWith("/") ? apiBase : `/${apiBase}`;
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    return `${protocol}://${window.location.host}${normalizedApiBase}/v1/terminal/ws?${query}`;
+    return `${protocol}://${window.location.host}${normalizedApiBase}/ops/v1/terminal/ws?${query}`;
   }, []);
 
   const disconnectTerminal = useCallback(() => {

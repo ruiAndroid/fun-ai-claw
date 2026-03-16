@@ -1,5 +1,5 @@
 export const appConfig = {
   controlApiBaseUrl: "/fun-claw/api",
-  uiControllerBaseUrl: "/fun-claw/ui-controller",
+  uiControllerBaseUrl: "/fun-claw/ops/ui-controller",
   defaultHostId: "00000000-0000-0000-0000-000000000108",
 } as const;

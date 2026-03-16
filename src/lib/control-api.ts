@@ -31,8 +31,15 @@ import { appConfig } from "@/config/app-config";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
 
+function normalizeControlPath(path: string): string {
+  if (path.startsWith("/v1/")) {
+    return `/ops${path}`;
+  }
+  return path;
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${BASE_URL}${normalizeControlPath(path)}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -48,7 +55,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function requestVoid(path: string, init?: RequestInit): Promise<void> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${BASE_URL}${normalizeControlPath(path)}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -63,7 +70,7 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
 }
 
 async function requestFormJson<T>(path: string, formData: FormData, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(`${BASE_URL}${normalizeControlPath(path)}`, {
     ...init,
     method: init?.method ?? "POST",
     body: formData,

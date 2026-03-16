@@ -62,7 +62,7 @@ const serverB = [
 ];
 
 const protocols = [
-  { label: "REST API", path: "/v1/**" },
+  { label: "REST API", path: "/ops/v1/**" },
   { label: "Open API", path: "/open/v1/**" },
   { label: "WebSocket", path: "实时通信" },
 ];

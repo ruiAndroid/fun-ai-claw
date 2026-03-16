@@ -51,8 +51,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`HTTP ${response.status}: ${body || response.statusText}`);
+    throw await buildRequestError(response);
   }
   return (await response.json()) as T;
 }
@@ -67,8 +66,7 @@ async function requestVoid(path: string, init?: RequestInit): Promise<void> {
     cache: "no-store",
   });
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`HTTP ${response.status}: ${body || response.statusText}`);
+    throw await buildRequestError(response);
   }
 }
 
@@ -80,10 +78,36 @@ async function requestFormJson<T>(path: string, formData: FormData, init?: Reque
     cache: "no-store",
   });
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`HTTP ${response.status}: ${body || response.statusText}`);
+    throw await buildRequestError(response);
   }
   return (await response.json()) as T;
+}
+
+async function buildRequestError(response: Response): Promise<Error> {
+  const body = await response.text();
+  let detail = body || response.statusText;
+
+  if (body) {
+    try {
+      const parsed = JSON.parse(body) as {
+        message?: string;
+        detail?: string;
+        error?: string;
+        path?: string;
+      };
+      if (typeof parsed.message === "string" && parsed.message.trim()) {
+        detail = parsed.message.trim();
+      } else if (typeof parsed.detail === "string" && parsed.detail.trim()) {
+        detail = parsed.detail.trim();
+      } else if (typeof parsed.error === "string" && parsed.error.trim()) {
+        detail = parsed.error.trim();
+      }
+    } catch {
+      detail = body;
+    }
+  }
+
+  return new Error(`HTTP ${response.status}: ${detail}`);
 }
 
 export async function listInstances() {

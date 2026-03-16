@@ -21,10 +21,6 @@ const CHANNEL_PLATFORM_LINKS = {
     consoleUrl: "https://q.qq.com/",
     docsUrl: "https://q.qq.com/wiki",
   },
-  wecom: {
-    consoleUrl: "https://work.weixin.qq.com/wework_admin/frame",
-    docsUrl: "https://developer.work.weixin.qq.com/document",
-  },
 } as const;
 
 type ChannelsDraft = {
@@ -38,13 +34,6 @@ type ChannelsDraft = {
   qqAppId: string;
   qqAppSecret: string;
   qqAllowedUsersText: string;
-  wecomEnabled: boolean;
-  wecomCorpId: string;
-  wecomAgentId: string;
-  wecomSecret: string;
-  wecomToken: string;
-  wecomEncodingAesKey: string;
-  wecomAllowedUsersText: string;
   feishuEnabled: boolean;
   feishuAppId: string;
   feishuAppSecret: string;
@@ -63,13 +52,6 @@ function toDraft(config: InstanceChannelsConfig): ChannelsDraft {
     qqAppId: config.qqAppId ?? "",
     qqAppSecret: config.qqAppSecret ?? "",
     qqAllowedUsersText: (config.qqAllowedUsers ?? []).join("\n"),
-    wecomEnabled: config.wecomEnabled,
-    wecomCorpId: config.wecomCorpId ?? "",
-    wecomAgentId: config.wecomAgentId ?? "",
-    wecomSecret: config.wecomSecret ?? "",
-    wecomToken: config.wecomToken ?? "",
-    wecomEncodingAesKey: config.wecomEncodingAesKey ?? "",
-    wecomAllowedUsersText: (config.wecomAllowedUsers ?? []).join("\n"),
     feishuEnabled: config.feishuEnabled,
     feishuAppId: config.feishuAppId ?? "",
     feishuAppSecret: config.feishuAppSecret ?? "",
@@ -96,13 +78,6 @@ function comparableDraft(draft: ChannelsDraft) {
     qqAppId: draft.qqAppId.trim(),
     qqAppSecret: draft.qqAppSecret,
     qqAllowedUsers: normalizeUsers(draft.qqAllowedUsersText),
-    wecomEnabled: draft.wecomEnabled,
-    wecomCorpId: draft.wecomCorpId.trim(),
-    wecomAgentId: draft.wecomAgentId.trim(),
-    wecomSecret: draft.wecomSecret,
-    wecomToken: draft.wecomToken,
-    wecomEncodingAesKey: draft.wecomEncodingAesKey,
-    wecomAllowedUsers: normalizeUsers(draft.wecomAllowedUsersText),
     feishuEnabled: draft.feishuEnabled,
     feishuAppId: draft.feishuAppId.trim(),
     feishuAppSecret: draft.feishuAppSecret,
@@ -154,13 +129,6 @@ export function InstanceChannelsConfigPanel({
     qqAppId: "",
     qqAppSecret: "",
     qqAllowedUsersText: "",
-    wecomEnabled: false,
-    wecomCorpId: "",
-    wecomAgentId: "",
-    wecomSecret: "",
-    wecomToken: "",
-    wecomEncodingAesKey: "",
-    wecomAllowedUsersText: "",
     feishuEnabled: false,
     feishuAppId: "",
     feishuAppSecret: "",
@@ -233,27 +201,6 @@ export function InstanceChannelsConfigPanel({
       return;
     }
 
-    if (draft.wecomEnabled && !draft.wecomCorpId.trim()) {
-      messageApi.warning("请填写企业微信 Corp ID");
-      return;
-    }
-    if (draft.wecomEnabled && !draft.wecomAgentId.trim()) {
-      messageApi.warning("请填写企业微信 Agent ID");
-      return;
-    }
-    if (draft.wecomEnabled && !draft.wecomSecret.trim()) {
-      messageApi.warning("请填写企业微信 Secret");
-      return;
-    }
-    if (draft.wecomEnabled && !draft.wecomToken.trim()) {
-      messageApi.warning("请填写企业微信 Token");
-      return;
-    }
-    if (draft.wecomEnabled && !draft.wecomEncodingAesKey.trim()) {
-      messageApi.warning("请填写企业微信 EncodingAESKey");
-      return;
-    }
-
     if (draft.feishuEnabled && !draft.feishuAppId.trim()) {
       messageApi.warning("请填写飞书应用 App ID");
       return;
@@ -277,13 +224,6 @@ export function InstanceChannelsConfigPanel({
         qqAppId: draft.qqAppId.trim(),
         qqAppSecret: draft.qqAppSecret,
         qqAllowedUsers: normalizeUsers(draft.qqAllowedUsersText),
-        wecomEnabled: draft.wecomEnabled,
-        wecomCorpId: draft.wecomCorpId.trim(),
-        wecomAgentId: draft.wecomAgentId.trim(),
-        wecomSecret: draft.wecomSecret,
-        wecomToken: draft.wecomToken,
-        wecomEncodingAesKey: draft.wecomEncodingAesKey,
-        wecomAllowedUsers: normalizeUsers(draft.wecomAllowedUsersText),
         feishuEnabled: draft.feishuEnabled,
         feishuAppId: draft.feishuAppId.trim(),
         feishuAppSecret: draft.feishuAppSecret,
@@ -430,85 +370,6 @@ export function InstanceChannelsConfigPanel({
                     disabled={loading || saving || !draft.dingtalkEnabled}
                     onChange={(event) =>
                       setDraft((currentDraft) => ({ ...currentDraft, dingtalkAllowedUsersText: event.target.value }))
-                    }
-                    placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
-                  />
-                </Space>
-              </Card>
-
-              <Card
-                type="inner"
-                size="small"
-                title="企业微信"
-                extra={(
-                  <Space size="small">
-                    <Text type="secondary">启用</Text>
-                    <Switch
-                      checked={draft.wecomEnabled}
-                      disabled={loading || saving}
-                      onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, wecomEnabled: checked }))}
-                    />
-                  </Space>
-                )}
-              >
-                <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                  <Text type="secondary">对应 `config.toml` 中的 `channels_config.wecom`。</Text>
-                  <Space size="middle" wrap>
-                    <a href={CHANNEL_PLATFORM_LINKS.wecom.consoleUrl} target="_blank" rel="noreferrer">
-                      前往企业微信管理后台
-                    </a>
-                    <a href={CHANNEL_PLATFORM_LINKS.wecom.docsUrl} target="_blank" rel="noreferrer">
-                      查看企业微信开发文档
-                    </a>
-                  </Space>
-                  {!draft.wecomEnabled ? (
-                    <Text type="secondary">
-                      当前未启用。开启后即可配置企业微信应用的 Corp ID、Agent ID、Secret、Token、EncodingAESKey 和允许访问的用户。
-                    </Text>
-                  ) : null}
-                  <Input
-                    addonBefore="Corp ID"
-                    value={draft.wecomCorpId}
-                    disabled={loading || saving || !draft.wecomEnabled}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, wecomCorpId: event.target.value }))}
-                    placeholder="请输入企业微信 corpid"
-                  />
-                  <Input
-                    addonBefore="Agent ID"
-                    value={draft.wecomAgentId}
-                    disabled={loading || saving || !draft.wecomEnabled}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, wecomAgentId: event.target.value }))}
-                    placeholder="请输入企业微信应用的 agentid"
-                  />
-                  <Password
-                    addonBefore="Secret"
-                    value={draft.wecomSecret}
-                    disabled={loading || saving || !draft.wecomEnabled}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, wecomSecret: event.target.value }))}
-                    placeholder="请输入企业微信应用 Secret / corpsecret"
-                  />
-                  <Password
-                    addonBefore="Token"
-                    value={draft.wecomToken}
-                    disabled={loading || saving || !draft.wecomEnabled}
-                    onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, wecomToken: event.target.value }))}
-                    placeholder="请输入企业微信回调 Token"
-                  />
-                  <Password
-                    addonBefore="EncodingAESKey"
-                    value={draft.wecomEncodingAesKey}
-                    disabled={loading || saving || !draft.wecomEnabled}
-                    onChange={(event) =>
-                      setDraft((currentDraft) => ({ ...currentDraft, wecomEncodingAesKey: event.target.value }))
-                    }
-                    placeholder="请输入企业微信回调 EncodingAESKey"
-                  />
-                  <TextArea
-                    rows={4}
-                    value={draft.wecomAllowedUsersText}
-                    disabled={loading || saving || !draft.wecomEnabled}
-                    onChange={(event) =>
-                      setDraft((currentDraft) => ({ ...currentDraft, wecomAllowedUsersText: event.target.value }))
                     }
                     placeholder={"允许访问的用户 ID，每行一个，也可以用英文逗号分隔\n输入 * 表示全部允许"}
                   />

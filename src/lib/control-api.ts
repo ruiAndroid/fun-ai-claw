@@ -305,13 +305,6 @@ export async function upsertInstanceChannelsConfig(
     qqAppId?: string;
     qqAppSecret?: string;
     qqAllowedUsers?: string[];
-    wecomEnabled: boolean;
-    wecomCorpId?: string;
-    wecomAgentId?: string;
-    wecomSecret?: string;
-    wecomToken?: string;
-    wecomEncodingAesKey?: string;
-    wecomAllowedUsers?: string[];
     feishuEnabled: boolean;
     feishuAppId?: string;
     feishuAppSecret?: string;

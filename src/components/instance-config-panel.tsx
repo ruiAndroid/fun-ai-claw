@@ -2,6 +2,7 @@
 
 import { InstanceDefaultModelConfigPanel } from "@/components/instance-default-model-config-panel";
 import { InstanceRoutingConfigPanel } from "@/components/instance-routing-config-panel";
+import { uiText } from "@/constants/ui-text";
 import { deleteInstanceConfig, getInstanceConfig, upsertInstanceConfig } from "@/lib/control-api";
 import type { ClawInstance, InstanceConfig } from "@/types/contracts";
 import {
@@ -61,10 +62,12 @@ export function InstanceConfigPanel({
   instance,
   topSection,
   reloadToken,
+  readOnly,
 }: {
   instance: ClawInstance;
   topSection?: ReactNode;
   reloadToken?: number;
+  readOnly?: boolean;
 }) {
   const [config, setConfig] = useState<InstanceConfig>();
   const [draft, setDraft] = useState("");
@@ -120,6 +123,9 @@ export function InstanceConfigPanel({
   const lineCount = useMemo(() => (draft ? draft.split("\n").length : 0), [draft]);
 
   const handleSave = useCallback(async () => {
+    if (readOnly) {
+      return;
+    }
     if (!draft.trim()) {
       messageApi.warning("config.toml 不能为空");
       return;
@@ -141,9 +147,12 @@ export function InstanceConfigPanel({
     } finally {
       setSaving(false);
     }
-  }, [draft, instance.id, messageApi]);
+  }, [draft, instance.id, messageApi, readOnly]);
 
   const handleRestoreDefault = useCallback(async () => {
+    if (readOnly) {
+      return;
+    }
     setResetting(true);
     setError(undefined);
     try {
@@ -158,7 +167,7 @@ export function InstanceConfigPanel({
     } finally {
       setResetting(false);
     }
-  }, [instance.id, messageApi]);
+  }, [instance.id, messageApi, readOnly]);
 
   const handleResetDraft = useCallback(() => {
     setDraft(baselineConfigToml);
@@ -207,6 +216,14 @@ export function InstanceConfigPanel({
       {contextHolder}
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {topSection ?? null}
+        {readOnly ? (
+          <Alert
+            type="info"
+            showIcon
+            message={uiText.instanceReadonlyNoticeTitle}
+            description={uiText.instanceReadonlyNoticeDescription}
+          />
+        ) : null}
 
         {error ? (
           <Alert
@@ -247,13 +264,13 @@ export function InstanceConfigPanel({
 
         <InstanceDefaultModelConfigPanel
           instanceId={instance.id}
-          disabled={dirty || loading || saving || resetting}
+          disabled={readOnly || dirty || loading || saving || resetting}
           onSaved={() => loadConfig()}
         />
 
         <InstanceRoutingConfigPanel
           instanceId={instance.id}
-          disabled={dirty || loading || saving || resetting}
+          disabled={readOnly || dirty || loading || saving || resetting}
           onSaved={() => loadConfig()}
         />
 
@@ -292,6 +309,7 @@ export function InstanceConfigPanel({
                 onChange={(event) => setDraft(event.target.value)}
                 rows={30}
                 spellCheck={false}
+                readOnly={readOnly}
                 disabled={loading || saving || resetting}
                 placeholder="配置内容加载中..."
                 style={{
@@ -301,35 +319,37 @@ export function InstanceConfigPanel({
                 }}
               />
 
-              <Space wrap>
-                <Button onClick={handleResetDraft} disabled={!dirty || saving || resetting || loading}>
-                  撤销未保存修改
-                </Button>
-                <Popconfirm
-                  title="恢复默认模板"
-                  description="这会删除当前实例的 config 覆盖，并回退到系统默认模板。"
-                  okText="确认恢复"
-                  cancelText="取消"
-                  disabled={!config?.overrideExists || saving || resetting || loading}
-                  onConfirm={() => void handleRestoreDefault()}
-                >
-                  <Button
-                    danger
-                    loading={resetting}
-                    disabled={!config?.overrideExists || saving || resetting || loading}
-                  >
-                    恢复默认模板
+              {!readOnly ? (
+                <Space wrap>
+                  <Button onClick={handleResetDraft} disabled={!dirty || saving || resetting || loading}>
+                    撤销未保存修改
                   </Button>
-                </Popconfirm>
-                <Button
-                  type="primary"
-                  loading={saving}
-                  disabled={!dirty || loading || saving || resetting}
-                  onClick={() => void handleSave()}
-                >
-                  保存配置
-                </Button>
-              </Space>
+                  <Popconfirm
+                    title="恢复默认模板"
+                    description="这会删除当前实例的 config 覆盖，并回退到系统默认模板。"
+                    okText="确认恢复"
+                    cancelText="取消"
+                    disabled={!config?.overrideExists || saving || resetting || loading}
+                    onConfirm={() => void handleRestoreDefault()}
+                  >
+                    <Button
+                      danger
+                      loading={resetting}
+                      disabled={!config?.overrideExists || saving || resetting || loading}
+                    >
+                      恢复默认模板
+                    </Button>
+                  </Popconfirm>
+                  <Button
+                    type="primary"
+                    loading={saving}
+                    disabled={!dirty || loading || saving || resetting}
+                    onClick={() => void handleSave()}
+                  >
+                    保存配置
+                  </Button>
+                </Space>
+              ) : null}
             </Space>
           )}
         </Card>

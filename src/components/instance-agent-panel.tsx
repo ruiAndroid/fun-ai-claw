@@ -1,5 +1,6 @@
 "use client";
 
+import { uiText } from "@/constants/ui-text";
 import {
   getAgentToolCatalog,
   getAgentBaseline,
@@ -105,9 +106,10 @@ function formatTimestamp(value?: string | null): string {
 type InstanceAgentPanelProps = {
   instanceId: string;
   onInstalledAgentsChange?: (bindings: InstanceAgentBinding[]) => void;
+  readOnly?: boolean;
 };
 
-export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: InstanceAgentPanelProps) {
+export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOnly }: InstanceAgentPanelProps) {
   const [baselines, setBaselines] = useState<AgentBaselineSummary[]>([]);
   const [bindings, setBindings] = useState<InstanceAgentBinding[]>([]);
   const [skillBindings, setSkillBindings] = useState<InstanceSkillBinding[]>([]);
@@ -244,8 +246,12 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
   }, [draft?.allowedSkills, skillBindings]);
 
   const draftDirty = snapshotDraft(draft) !== snapshotDraft(selectedBinding ? toDraft(selectedBinding) : undefined);
+  const actionDisabled = readOnly || saving;
 
   const handleInstall = useCallback(async (agentKey?: string) => {
+    if (readOnly) {
+      return;
+    }
     const targetAgentKey = agentKey ?? selectedAgentKey;
     if (!targetAgentKey) {
       return;
@@ -266,9 +272,12 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadAll, messageApi, selectedAgentKey]);
+  }, [instanceId, loadAll, messageApi, readOnly, selectedAgentKey]);
 
   const handleSave = useCallback(async () => {
+    if (readOnly) {
+      return;
+    }
     if (!selectedBinding || !draft) {
       return;
     }
@@ -295,9 +304,12 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
     } finally {
       setSaving(false);
     }
-  }, [draft, instanceId, messageApi, selectedBinding]);
+  }, [draft, instanceId, messageApi, readOnly, selectedBinding]);
 
   const handleUninstall = useCallback(async (agentKey?: string) => {
+    if (readOnly) {
+      return;
+    }
     const targetAgentKey = agentKey ?? selectedBinding?.agentKey ?? selectedAgentKey;
     if (!targetAgentKey) {
       return;
@@ -316,7 +328,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadAll, messageApi, selectedAgentKey, selectedBinding]);
+  }, [instanceId, loadAll, messageApi, readOnly, selectedAgentKey, selectedBinding]);
 
   const selectedBaselineSummary = useMemo(
     () => candidateAgents.find((item) => item.agentKey === selectedAgentKey),
@@ -349,6 +361,14 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
           </Space>
         </div>
 
+        {readOnly ? (
+          <Alert
+            type="info"
+            showIcon
+            message={uiText.instanceReadonlyNoticeTitle}
+            description={uiText.instanceReadonlyNoticeDescription}
+          />
+        ) : null}
         {error ? <Alert type="error" showIcon message={error} /> : null}
 
         {installedAgents.length > 0 ? (
@@ -386,7 +406,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         icon={<Trash2 size={14} />}
                         className="selector-card-hover-action"
                         loading={saving && selectedAgentKey === item.agentKey}
-                        disabled={saving}
+                        disabled={actionDisabled}
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleUninstall(item.agentKey);
@@ -444,7 +464,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         icon={<Download size={14} />}
                         className="selector-card-hover-action"
                         loading={saving && selectedAgentKey === item.agentKey}
-                        disabled={saving}
+                        disabled={actionDisabled}
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleInstall(item.agentKey);
@@ -480,7 +500,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                       type="primary"
                       size="small"
                       icon={<Save size={12} />}
-                      disabled={!draftDirty}
+                      disabled={readOnly || !draftDirty}
                       loading={saving}
                       onClick={() => void handleSave()}
                     >
@@ -491,6 +511,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                       size="small"
                       icon={<Trash2 size={12} />}
                       loading={saving}
+                      disabled={readOnly}
                       onClick={() => void handleUninstall()}
                     >
                       卸载
@@ -521,6 +542,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         <span className="agent-detail-prop-label">服务提供方</span>
                         <Input
                           value={draft?.provider ?? ""}
+                          disabled={readOnly}
                           onChange={(event) => {
                             setDraft((current) => (current ? { ...current, provider: event.target.value } : current));
                           }}
@@ -531,6 +553,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         <span className="agent-detail-prop-label">模型</span>
                         <Input
                           value={draft?.model ?? ""}
+                          disabled={readOnly}
                           onChange={(event) => {
                             setDraft((current) => (current ? { ...current, model: event.target.value } : current));
                           }}
@@ -545,6 +568,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                           min={0}
                           max={2}
                           step={0.1}
+                          disabled={readOnly}
                           onChange={(value) => {
                             setDraft((current) => (
                               current
@@ -558,6 +582,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                         <span className="agent-detail-prop-label">自主模式</span>
                         <Switch
                           checked={draft?.agentic ?? false}
+                          disabled={readOnly}
                           onChange={(checked) => {
                             setDraft((current) => (current ? { ...current, agentic: checked } : current));
                           }}
@@ -573,6 +598,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                             options={runtimeToolOptions}
                             style={{ width: "100%" }}
                             value={draft?.allowedTools ?? []}
+                            disabled={readOnly}
                             onChange={(value) => {
                               setDraft((current) => (current ? { ...current, allowedTools: value } : current));
                             }}
@@ -591,6 +617,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                           options={allowedSkillOptions}
                           style={{ width: "100%" }}
                           value={draft?.allowedSkills ?? []}
+                          disabled={readOnly}
                           onChange={(value) => {
                             setDraft((current) => (
                               current ? { ...current, allowedSkills: normalizeStringValues(value) } : current
@@ -632,6 +659,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                     <Input.TextArea
                       className="prompt-textarea prompt-textarea-agent"
                       rows={18}
+                      readOnly={readOnly}
                       value={draft?.systemPrompt ?? ""}
                       onChange={(event) => {
                         setDraft((current) => (current ? { ...current, systemPrompt: event.target.value } : current));
@@ -655,7 +683,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange }: Inst
                   type="primary"
                   size="small"
                   loading={saving}
-                  disabled={!selectedBaselineSummary}
+                  disabled={readOnly || !selectedBaselineSummary}
                   onClick={() => void handleInstall(selectedAgentKey)}
                 >
                   装载

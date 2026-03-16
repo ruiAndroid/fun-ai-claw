@@ -1,5 +1,6 @@
 "use client";
 
+import { uiText } from "@/constants/ui-text";
 import { getInstanceChannelsConfig, upsertInstanceChannelsConfig } from "@/lib/control-api";
 import type { InstanceChannelsConfig } from "@/types/contracts";
 import { Alert, Button, Card, Input, InputNumber, Skeleton, Space, Switch, Typography, message } from "antd";
@@ -97,9 +98,11 @@ function formatSourceLabel(source?: string): string {
 export function InstanceChannelsConfigPanel({
   instanceId,
   onSaved,
+  readOnly,
 }: {
   instanceId: string;
   onSaved?: () => void | Promise<void>;
+  readOnly?: boolean;
 }) {
   const [config, setConfig] = useState<InstanceChannelsConfig>();
   const [draft, setDraft] = useState<ChannelsDraft>({
@@ -152,6 +155,7 @@ export function InstanceChannelsConfigPanel({
   const baseline = useMemo(() => (config ? JSON.stringify(comparableDraft(toDraft(config))) : ""), [config]);
   const current = useMemo(() => JSON.stringify(comparableDraft(draft)), [draft]);
   const dirty = Boolean(config) && baseline !== current;
+  const controlsDisabled = readOnly || loading || saving;
 
   const handleReset = useCallback(() => {
     if (!config) {
@@ -161,6 +165,9 @@ export function InstanceChannelsConfigPanel({
   }, [config]);
 
   const handleSave = useCallback(async () => {
+    if (readOnly) {
+      return;
+    }
     if (!Number.isFinite(draft.messageTimeoutSecs) || draft.messageTimeoutSecs <= 0) {
       messageApi.warning("消息超时时间必须大于 0");
       return;
@@ -208,7 +215,7 @@ export function InstanceChannelsConfigPanel({
     } finally {
       setSaving(false);
     }
-  }, [applyResponse, draft, instanceId, messageApi, onSaved]);
+  }, [applyResponse, draft, instanceId, messageApi, onSaved, readOnly]);
 
   const metaText = useMemo(() => {
     if (!config) {
@@ -224,13 +231,21 @@ export function InstanceChannelsConfigPanel({
         <Card
           title="渠道配置"
           extra={
-            <Button onClick={() => void loadConfig(true)} disabled={loading || saving}>
+            <Button onClick={() => void loadConfig(true)} disabled={controlsDisabled}>
               刷新
             </Button>
           }
         >
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <Text type="secondary">{metaText}</Text>
+            {readOnly ? (
+              <Alert
+                type="info"
+                showIcon
+                message={uiText.instanceReadonlyNoticeTitle}
+                description={uiText.instanceReadonlyNoticeDescription}
+              />
+            ) : null}
 
             {error ? <Alert type="error" showIcon message="加载失败" description={error} /> : null}
 
@@ -246,7 +261,7 @@ export function InstanceChannelsConfigPanel({
                       <Text>启用 CLI</Text>
                       <Switch
                         checked={draft.cliEnabled}
-                        disabled={loading || saving}
+                        disabled={controlsDisabled}
                         onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, cliEnabled: checked }))}
                       />
                     </Space>
@@ -256,7 +271,7 @@ export function InstanceChannelsConfigPanel({
                         min={1}
                         style={{ width: "100%", marginTop: 8 }}
                         value={draft.messageTimeoutSecs}
-                        disabled={loading || saving}
+                        disabled={controlsDisabled}
                         onChange={(value) =>
                           setDraft((currentDraft) => ({
                             ...currentDraft,
@@ -277,7 +292,7 @@ export function InstanceChannelsConfigPanel({
                       <Text type="secondary">启用</Text>
                       <Switch
                         checked={draft.dingtalkEnabled}
-                        disabled={loading || saving}
+                        disabled={controlsDisabled}
                         onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, dingtalkEnabled: checked }))}
                       />
                     </Space>
@@ -299,7 +314,7 @@ export function InstanceChannelsConfigPanel({
                     <Input
                       addonBefore="应用 ID"
                       value={draft.dingtalkClientId}
-                      disabled={loading || saving || !draft.dingtalkEnabled}
+                      disabled={controlsDisabled || !draft.dingtalkEnabled}
                       onChange={(event) =>
                         setDraft((currentDraft) => ({ ...currentDraft, dingtalkClientId: event.target.value }))
                       }
@@ -308,7 +323,7 @@ export function InstanceChannelsConfigPanel({
                     <Password
                       addonBefore="应用密钥"
                       value={draft.dingtalkClientSecret}
-                      disabled={loading || saving || !draft.dingtalkEnabled}
+                      disabled={controlsDisabled || !draft.dingtalkEnabled}
                       onChange={(event) =>
                         setDraft((currentDraft) => ({ ...currentDraft, dingtalkClientSecret: event.target.value }))
                       }
@@ -317,7 +332,7 @@ export function InstanceChannelsConfigPanel({
                     <TextArea
                       rows={4}
                       value={draft.dingtalkAllowedUsersText}
-                      disabled={loading || saving || !draft.dingtalkEnabled}
+                      disabled={controlsDisabled || !draft.dingtalkEnabled}
                       onChange={(event) =>
                         setDraft((currentDraft) => ({ ...currentDraft, dingtalkAllowedUsersText: event.target.value }))
                       }
@@ -335,7 +350,7 @@ export function InstanceChannelsConfigPanel({
                       <Text type="secondary">启用</Text>
                       <Switch
                         checked={draft.qqEnabled}
-                        disabled={loading || saving}
+                        disabled={controlsDisabled}
                         onChange={(checked) => setDraft((currentDraft) => ({ ...currentDraft, qqEnabled: checked }))}
                       />
                     </Space>
@@ -357,14 +372,14 @@ export function InstanceChannelsConfigPanel({
                     <Input
                       addonBefore="应用 ID"
                       value={draft.qqAppId}
-                      disabled={loading || saving || !draft.qqEnabled}
+                      disabled={controlsDisabled || !draft.qqEnabled}
                       onChange={(event) => setDraft((currentDraft) => ({ ...currentDraft, qqAppId: event.target.value }))}
                       placeholder="请输入 QQ 机器人的 app_id"
                     />
                     <Password
                       addonBefore="应用密钥"
                       value={draft.qqAppSecret}
-                      disabled={loading || saving || !draft.qqEnabled}
+                      disabled={controlsDisabled || !draft.qqEnabled}
                       onChange={(event) =>
                         setDraft((currentDraft) => ({ ...currentDraft, qqAppSecret: event.target.value }))
                       }
@@ -373,7 +388,7 @@ export function InstanceChannelsConfigPanel({
                     <TextArea
                       rows={4}
                       value={draft.qqAllowedUsersText}
-                      disabled={loading || saving || !draft.qqEnabled}
+                      disabled={controlsDisabled || !draft.qqEnabled}
                       onChange={(event) =>
                         setDraft((currentDraft) => ({ ...currentDraft, qqAllowedUsersText: event.target.value }))
                       }
@@ -382,14 +397,16 @@ export function InstanceChannelsConfigPanel({
                   </Space>
                 </Card>
 
-                <Space wrap>
-                  <Button onClick={handleReset} disabled={!dirty || loading || saving}>
-                    重置
-                  </Button>
-                  <Button type="primary" loading={saving} disabled={!dirty || loading || saving} onClick={() => void handleSave()}>
-                    保存
-                  </Button>
-                </Space>
+                {!readOnly ? (
+                  <Space wrap>
+                    <Button onClick={handleReset} disabled={!dirty || loading || saving}>
+                      重置
+                    </Button>
+                    <Button type="primary" loading={saving} disabled={!dirty || loading || saving} onClick={() => void handleSave()}>
+                      保存
+                    </Button>
+                  </Space>
+                ) : null}
               </Space>
             )}
           </Space>

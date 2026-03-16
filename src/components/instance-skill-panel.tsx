@@ -1,5 +1,6 @@
 "use client";
 
+import { uiText } from "@/constants/ui-text";
 import {
   getSkillBaseline,
   installInstanceSkill,
@@ -37,8 +38,10 @@ function formatTimestamp(value?: string | null): string {
 
 export function InstanceSkillPanel({
   instanceId,
+  readOnly,
 }: {
   instanceId: string;
+  readOnly?: boolean;
 }) {
   const [availableSkills, setAvailableSkills] = useState<SkillBaselineSummary[]>([]);
   const [bindings, setBindings] = useState<InstanceSkillBinding[]>([]);
@@ -156,8 +159,12 @@ export function InstanceSkillPanel({
 
   const selectedBinding = selectedSkillKey ? bindingMap.get(selectedSkillKey) : undefined;
   const selectedRuntimeSkill = selectedSkillKey ? runtimeSkillMap.get(selectedSkillKey) : undefined;
+  const actionDisabled = readOnly || saving;
 
   const handleInstall = useCallback(async (skillKey?: string) => {
+    if (readOnly) {
+      return;
+    }
     const targetSkillKey = skillKey ?? selectedSkillKey;
     if (!targetSkillKey) {
       return;
@@ -180,9 +187,12 @@ export function InstanceSkillPanel({
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, selectedSkillKey]);
+  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, readOnly, selectedSkillKey]);
 
   const handleUninstall = useCallback(async (skillKey?: string) => {
+    if (readOnly) {
+      return;
+    }
     const targetSkillKey = skillKey ?? selectedSkillKey;
     if (!targetSkillKey) {
       return;
@@ -205,12 +215,20 @@ export function InstanceSkillPanel({
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, selectedSkillKey]);
+  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, readOnly, selectedSkillKey]);
 
   return (
     <>
       {contextHolder}
       <Space direction="vertical" style={{ width: "100%" }} size="middle">
+        {readOnly ? (
+          <Alert
+            type="info"
+            showIcon
+            message={uiText.instanceReadonlyNoticeTitle}
+            description={uiText.instanceReadonlyNoticeDescription}
+          />
+        ) : null}
         <div className="tab-section-header">
           <div className="tab-section-title">
             <span className="tab-section-icon is-skill"><Wrench size={16} /></span>
@@ -280,7 +298,7 @@ export function InstanceSkillPanel({
                         icon={<Trash2 size={14} />}
                         className="selector-card-hover-action"
                         loading={saving && selectedSkillKey === item.skillKey}
-                        disabled={saving}
+                        disabled={actionDisabled}
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleUninstall(item.skillKey);
@@ -335,7 +353,7 @@ export function InstanceSkillPanel({
                         icon={<Download size={14} />}
                         className="selector-card-hover-action"
                         loading={saving && selectedSkillKey === item.skillKey}
-                        disabled={saving}
+                        disabled={actionDisabled}
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleInstall(item.skillKey);
@@ -369,7 +387,7 @@ export function InstanceSkillPanel({
                 </span>
                 <Space size="small" wrap>
                   {selectedBinding ? (
-                    <Button danger size="small" loading={saving} onClick={() => void handleUninstall()}>
+                    <Button danger size="small" loading={saving} disabled={readOnly} onClick={() => void handleUninstall()}>
                       卸载
                     </Button>
                   ) : (
@@ -377,7 +395,7 @@ export function InstanceSkillPanel({
                       type="primary"
                       size="small"
                       loading={saving}
-                      disabled={!selectedSkillDetail.enabled}
+                      disabled={readOnly || !selectedSkillDetail.enabled}
                       onClick={() => void handleInstall(selectedSkillDetail.skillKey)}
                     >
                       装载

@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import {
-  createInstance,
   deleteInstanceMainAgentGuidance,
   deleteInstance,
   getInstanceMainAgentGuidance,
@@ -20,8 +19,11 @@ import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { InstanceTaskPanel } from "@/components/instance-task-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
 import { SkillBaselinePanel } from "@/components/skill-baseline-panel";
+import { TemplateLibraryPanel } from "@/components/template-library-panel";
 import { appConfig } from "@/config/app-config";
-import { ClawInstance, CreateInstanceRequest, ImagePreset, InstanceActionType, InstanceAgentBinding, InstanceMainAgentGuidance, PairingCodeResponse } from "@/types/contracts";
+import { getDefaultInstanceTemplate, getInstanceTemplate, instanceTemplates } from "@/config/instance-templates";
+import { ManagedInstanceTemplateError, createManagedInstanceFromTemplate, resolveTemplateImagePreset } from "@/lib/instance-template";
+import { ClawInstance, DesiredState, ImagePreset, InstanceActionType, InstanceAgentBinding, InstanceMainAgentGuidance, PairingCodeResponse } from "@/types/contracts";
 import {
   type AgentChatMessage,
   type AgentChatRole,
@@ -42,7 +44,6 @@ import {
   getAgentInteractionStateLabel,
   getAgentTimingNow,
   isAgentSessionPlaceholderValue,
-  isImagePresetAvailable,
   normalizeAgentChatMessage,
   normalizeStructuredAgentChatMessage,
   parseAgentInteractionPayload,
@@ -57,8 +58,12 @@ import { motion, useSpring, useTransform, useMotionValue } from "framer-motion";
 
 const { Header, Content } = Layout;
 const { Text, Paragraph } = Typography;
-type CreateInstanceFormValues = Omit<CreateInstanceRequest, "hostId">;
-type ConsoleView = "instances" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
+type CreateInstanceFormValues = {
+  name: string;
+  templateKey: string;
+  desiredState: DesiredState;
+};
+type ConsoleView = "instances" | "templates" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
 type InstanceDetailTabKey = "claw" | "config" | "channels" | "agents" | "skills" | "tasks";
 type AgentMessageSendOptions = {
   displayText?: string;
@@ -69,6 +74,8 @@ type QueuedAgentSessionMessage = {
   normalizedMessage: string;
   options?: AgentMessageSendOptions;
 };
+
+const INSTANCE_TEMPLATE_MANAGED_MODE = true;
 
 function AnimatedNumber({ value, className }: { value: number; className?: string }) {
   const motionValue = useMotionValue(0);
@@ -132,6 +139,7 @@ export function Dashboard() {
   const [createForm] = Form.useForm<CreateInstanceFormValues>();
   const [instances, setInstances] = useState<ClawInstance[]>([]);
   const [images, setImages] = useState<ImagePreset[]>([]);
+  const selectedTemplateKey = Form.useWatch("templateKey", createForm);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>();
   const [activeView, setActiveView] = useState<ConsoleView>("instances");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -201,6 +209,15 @@ export function Dashboard() {
   const [terminalConnecting, setTerminalConnecting] = useState(false);
   const [terminalConnected, setTerminalConnected] = useState(false);
   const terminalOutputRef = useRef<HTMLDivElement | null>(null);
+
+  const selectedCreateTemplate = useMemo(
+    () => getInstanceTemplate(selectedTemplateKey) ?? getDefaultInstanceTemplate(),
+    [selectedTemplateKey]
+  );
+  const selectedCreateTemplateImage = useMemo(
+    () => resolveTemplateImagePreset(selectedCreateTemplate, images),
+    [images, selectedCreateTemplate]
+  );
 
   const selectedInstance = useMemo(
     () => instances.find((item) => item.id === selectedInstanceId),
@@ -342,21 +359,12 @@ export function Dashboard() {
     try {
       const response = await listImages();
       setImages(response.items);
-      if (response.items.length > 0) {
-        const availableImages = response.items.filter(isImagePresetAvailable);
-        const defaultImage = availableImages.find((item) => item.recommended)?.image
-          ?? availableImages[0]?.image
-          ?? undefined;
-        createForm.setFieldValue("image", defaultImage);
-      } else {
-        createForm.setFieldValue("image", undefined);
-      }
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.loadImagesFailed);
     } finally {
       setLoadingImages(false);
     }
-  }, [createForm, messageApi]);
+  }, [messageApi]);
 
   const loadAgents = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
@@ -594,10 +602,12 @@ export function Dashboard() {
     agentSessionDebugEntrySeqRef.current = 0;
   }, [clearQueuedAgentSessionDeltas, clearQueuedStructuredAgentSessionMessages, selectedInstanceId]);
 
-  const openCreateModal = () => {
+  const openCreateModal = (templateKey?: string) => {
+    const template = getInstanceTemplate(templateKey) ?? getDefaultInstanceTemplate();
     setCreateModalOpen(true);
     createForm.setFieldsValue({
-      desiredState: "RUNNING",
+      templateKey: template.key,
+      desiredState: template.desiredState,
     });
     void loadImages();
   };
@@ -662,24 +672,53 @@ export function Dashboard() {
   }, [messageApi]);
 
   const handleCreateInstance = async () => {
+    const progressMessageKey = "template-managed-create";
     try {
       const values = await createForm.validateFields();
-      const request: CreateInstanceRequest = {
-        ...values,
-        hostId: appConfig.defaultHostId,
-      };
+      const template = getInstanceTemplate(values.templateKey) ?? getDefaultInstanceTemplate();
       setCreatingInstance(true);
-      const instance = await createInstance(request);
+      messageApi.open({
+        key: progressMessageKey,
+        type: "loading",
+        content: uiText.templateCreateStarting,
+        duration: 0,
+      });
+      const instance = await createManagedInstanceFromTemplate({
+        hostId: appConfig.defaultHostId,
+        name: values.name,
+        desiredState: values.desiredState,
+        template,
+        images,
+        onProgress: (content) => {
+          messageApi.open({
+            key: progressMessageKey,
+            type: "loading",
+            content,
+            duration: 0,
+          });
+        },
+      });
+      messageApi.destroy(progressMessageKey);
       closeCreateModal();
       await loadInstances();
       setSelectedInstanceId(instance.id);
+      setActiveView("instance-detail");
       messageApi.success(`${uiText.instanceCreatedPrefix}${instance.name}`);
     } catch (apiError) {
+      messageApi.destroy(progressMessageKey);
       const hasValidationError =
         typeof apiError === "object" &&
         apiError !== null &&
         "errorFields" in apiError;
       if (hasValidationError) {
+        return;
+      }
+      if (apiError instanceof ManagedInstanceTemplateError && apiError.instance) {
+        closeCreateModal();
+        await loadInstances();
+        setSelectedInstanceId(apiError.instance.id);
+        setActiveView("instance-detail");
+        messageApi.error(`${uiText.templateApplyFailedPrefix}${apiError.message}`);
         return;
       }
       if (apiError instanceof Error && apiError.message.includes("HTTP 409")) {
@@ -2080,7 +2119,10 @@ export function Dashboard() {
     if (view === "instances") {
       setInstanceDetailTab("claw");
     }
-  }, []);
+    if (view === "templates") {
+      void loadImages();
+    }
+  }, [loadImages]);
 
   const mainAgentGuidanceSection = selectedInstance ? (
     <div className="main-prompt-section">
@@ -2100,13 +2142,13 @@ export function Dashboard() {
           </Button>
           <Button
             size="small"
-            disabled={mainAgentGuidanceEditing}
+            disabled={mainAgentGuidanceEditing && !INSTANCE_TEMPLATE_MANAGED_MODE}
             onClick={() => setMainAgentGuidanceCollapsed((current) => !current)}
             icon={mainAgentGuidanceCollapsed ? <Eye size={12} /> : <ChevronLeft size={12} />}
           >
             {mainAgentGuidanceCollapsed ? uiText.mainAgentGuidanceExpand : uiText.mainAgentGuidanceCollapse}
           </Button>
-          {!mainAgentGuidanceCollapsed && mainAgentGuidanceEditing ? (
+          {!INSTANCE_TEMPLATE_MANAGED_MODE && !mainAgentGuidanceCollapsed && mainAgentGuidanceEditing ? (
             <>
               <Button
                 type="primary"
@@ -2131,7 +2173,7 @@ export function Dashboard() {
               </Button>
             </>
           ) : null}
-          {!mainAgentGuidanceCollapsed && !mainAgentGuidanceEditing ? (
+          {!INSTANCE_TEMPLATE_MANAGED_MODE && !mainAgentGuidanceCollapsed && !mainAgentGuidanceEditing ? (
             <>
               <Button
                 size="small"
@@ -2156,11 +2198,20 @@ export function Dashboard() {
       {mainAgentGuidanceCollapsed ? (
         <div className="main-prompt-collapsed">
           <FileText size={16} style={{ opacity: 0.4 }} />
-          默认折叠，展开后可查看或编辑当前主 Agent 提示词。
+          默认折叠，展开后可查看当前主 Agent 提示词。
         </div>
       ) : (
         <div className="main-prompt-body">
           {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} style={{ marginBottom: 16 }} /> : null}
+          {INSTANCE_TEMPLATE_MANAGED_MODE ? (
+            <Alert
+              type="info"
+              showIcon
+              message={uiText.mainAgentGuidanceReadonlyTitle}
+              description={uiText.mainAgentGuidanceReadonlyDescription}
+              style={{ marginBottom: 16 }}
+            />
+          ) : null}
           <div className="main-prompt-meta-grid">
             <div className="main-prompt-meta-item">
               <span className="main-prompt-meta-label">{uiText.mainAgentGuidanceSource}</span>
@@ -2191,7 +2242,7 @@ export function Dashboard() {
               </span>
             </div>
           </div>
-          {mainAgentGuidanceEditing ? (
+          {mainAgentGuidanceEditing && !INSTANCE_TEMPLATE_MANAGED_MODE ? (
             <Space direction="vertical" style={{ width: "100%" }} size="middle">
               <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
                 <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
@@ -2252,6 +2303,15 @@ export function Dashboard() {
                 >
                   <span className="sidebar-icon-wrap"><Server size={16} /></span>
                   {!sidebarCollapsed ? <span>{uiText.menuInstances}</span> : null}
+                </button>
+                <button
+                  type="button"
+                  className={`sidebar-item ${activeMenuView === "templates" ? "is-active" : ""}`}
+                  onClick={() => openMenuView("templates")}
+                  title={uiText.menuTemplates}
+                >
+                  <span className="sidebar-icon-wrap"><Layers size={16} /></span>
+                  {!sidebarCollapsed ? <span>{uiText.menuTemplates}</span> : null}
                 </button>
                 <button
                   type="button"
@@ -2343,7 +2403,7 @@ export function Dashboard() {
                       extra={(
                         <Space>
                           <Button loading={loadingInstances} onClick={() => void loadInstances()}>{uiText.refresh}</Button>
-                          <Button type="primary" onClick={openCreateModal}>
+                          <Button type="primary" onClick={() => openCreateModal()}>
                             {uiText.create}
                           </Button>
                         </Space>
@@ -2407,6 +2467,14 @@ export function Dashboard() {
                     </Button>
                     {selectedInstance ? (
                       <>
+                    {INSTANCE_TEMPLATE_MANAGED_MODE ? (
+                      <Alert
+                        type="info"
+                        showIcon
+                        message={uiText.instanceReadonlyNoticeTitle}
+                        description={uiText.instanceReadonlyNoticeDescription}
+                      />
+                    ) : null}
                     <motion.div
                       className="instance-detail-hero"
                       initial={{ opacity: 0, y: 20 }}
@@ -2907,6 +2975,7 @@ export function Dashboard() {
                               instance={selectedInstance}
                               topSection={mainAgentGuidanceSection}
                               reloadToken={instanceConfigReloadToken}
+                              readOnly={INSTANCE_TEMPLATE_MANAGED_MODE}
                             />
                           ),
                         },
@@ -2917,6 +2986,7 @@ export function Dashboard() {
                             <InstanceChannelsConfigPanel
                               instanceId={selectedInstance.id}
                               onSaved={() => setInstanceConfigReloadToken((current) => current + 1)}
+                              readOnly={INSTANCE_TEMPLATE_MANAGED_MODE}
                             />
                           ),
                         },
@@ -2927,6 +2997,7 @@ export function Dashboard() {
                             <InstanceAgentPanel
                               instanceId={selectedInstance.id}
                               onInstalledAgentsChange={handleInstalledAgentsChange}
+                              readOnly={INSTANCE_TEMPLATE_MANAGED_MODE}
                             />
                           ),
                         },
@@ -2936,6 +3007,7 @@ export function Dashboard() {
                           children: (
                             <InstanceSkillPanel
                               instanceId={selectedInstance.id}
+                              readOnly={INSTANCE_TEMPLATE_MANAGED_MODE}
                             />
                           ),
                         },
@@ -2954,6 +3026,14 @@ export function Dashboard() {
                       <div className="empty-panel">{uiText.selectInstanceFirst}</div>
                     )}
                   </Space>
+                ) : null}
+                {activeView === "templates" ? (
+                  <TemplateLibraryPanel
+                    images={images}
+                    loadingImages={loadingImages}
+                    onRefreshImages={() => void loadImages()}
+                    onUseTemplate={openCreateModal}
+                  />
                 ) : null}
                 {activeView === "agents" ? (
                   <AgentBaselinePanel />
@@ -3012,44 +3092,55 @@ export function Dashboard() {
           >
             <Input placeholder="zeroclaw-instance-01" />
           </Form.Item>
+          <Alert
+            type="info"
+            showIcon
+            message={uiText.templateManagedCreateHint}
+            description={uiText.templateManagedCreateDescription}
+            style={{ marginBottom: 16 }}
+          />
           <Alert type="info" showIcon message={`${uiText.fixedHostTipPrefix}${appConfig.defaultHostId}`} style={{ marginBottom: 16 }} />
           <Form.Item
-            name="image"
-            label={uiText.image}
-            rules={[
-              { required: true, message: uiText.requiredImage },
-              {
-                validator: (_, value) => {
-                  if (!value) {
-                    return Promise.resolve();
-                  }
-                  const selectedPreset = images.find((item) => item.image === value);
-                  if (selectedPreset && !isImagePresetAvailable(selectedPreset)) {
-                    return Promise.reject(new Error(uiText.imagePresetUpgrading));
-                  }
-                  return Promise.resolve();
-                },
-              },
-            ]}
+            name="templateKey"
+            label={uiText.templateSelectLabel}
+            rules={[{ required: true, message: uiText.templateRequired }]}
           >
             <Select
-              loading={loadingImages}
-              options={images.map((item) => ({
-                value: item.image,
-                label: isImagePresetAvailable(item)
-                  ? (item.recommended ? `${item.name} (recommended) - ${item.image}` : `${item.name} - ${item.image}`)
-                  : `${item.name} - ${item.image} · ${uiText.imagePresetUpgrading}`,
-                disabled: !isImagePresetAvailable(item),
+              options={instanceTemplates.map((template) => ({
+                value: template.key,
+                label: `${template.displayName} · ${template.key}`,
               }))}
+              onChange={(value) => {
+                const template = getInstanceTemplate(value) ?? getDefaultInstanceTemplate();
+                createForm.setFieldValue("desiredState", template.desiredState);
+              }}
             />
           </Form.Item>
-          {images.some((item) => !isImagePresetAvailable(item)) ? (
-            <Alert type="warning" showIcon message={uiText.imagePresetShellOnlyHint} style={{ marginBottom: 16 }} />
+          {selectedCreateTemplate ? (
+            <Card size="small" style={{ marginBottom: 16 }} title={selectedCreateTemplate.displayName}>
+              <Space direction="vertical" size="small" style={{ width: "100%" }}>
+                <Text>{selectedCreateTemplate.description}</Text>
+                <Text type="secondary">{selectedCreateTemplate.summary}</Text>
+                <Text>{`${uiText.templateDefaultImageLabel}${selectedCreateTemplateImage ? `${selectedCreateTemplateImage.name} · ${selectedCreateTemplateImage.image}` : uiText.templateImageUnavailable}`}</Text>
+                <Text>{`${uiText.templateMainAgentLabel}${selectedCreateTemplate.mainAgent.agentKey}`}</Text>
+                <Text>{`${uiText.templateSkillCountLabel}${selectedCreateTemplate.skillKeys.length}`}</Text>
+                <Space size={[8, 8]} wrap>
+                  {selectedCreateTemplate.lockedScopes.map((scope) => (
+                    <Tag key={scope} color="gold">
+                      {scope}
+                    </Tag>
+                  ))}
+                </Space>
+              </Space>
+            </Card>
           ) : null}
           {images.length === 0 && !loadingImages ? (
             <Alert type="warning" showIcon message={uiText.noPresetImage} />
           ) : null}
-          <Form.Item name="desiredState" label={uiText.desiredState} initialValue="RUNNING">
+          {!selectedCreateTemplateImage && !loadingImages ? (
+            <Alert type="warning" showIcon message={uiText.templateImageUnavailable} style={{ marginBottom: 16 }} />
+          ) : null}
+          <Form.Item name="desiredState" label={uiText.desiredState}>
             <Select
               options={[
                 { value: "RUNNING", label: uiText.desiredStateRunning },

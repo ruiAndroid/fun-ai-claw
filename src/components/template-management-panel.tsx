@@ -5,6 +5,7 @@ import {
   deleteInstanceTemplate,
   listAgentBaselines,
   listSkillBaselines,
+  previewInstanceTemplateConfig,
   upsertInstanceTemplate,
 } from "@/lib/control-api";
 import type {
@@ -38,7 +39,7 @@ import {
   Typography,
   message,
 } from "antd";
-import { Layers, PlayCircle, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { PlayCircle, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Paragraph, Text } = Typography;
@@ -453,6 +454,9 @@ export function TemplateManagementPanel({
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [skillSearch, setSkillSearch] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewConfigToml, setPreviewConfigToml] = useState("");
   const [createForm] = Form.useForm<CreateTemplateForm>();
 
   useEffect(() => {
@@ -745,6 +749,25 @@ export function TemplateManagementPanel({
     }
   }, [messageApi, onRefreshTemplates, selectedTemplate]);
 
+  const handlePreviewConfig = useCallback(async () => {
+    if (!draft) {
+      return;
+    }
+    try {
+      setPreviewLoading(true);
+      setError(undefined);
+      const response = await previewInstanceTemplateConfig(toUpsertRequest(draft));
+      setPreviewConfigToml(response.configToml);
+      setPreviewOpen(true);
+    } catch (apiError) {
+      const messageText = apiError instanceof Error ? apiError.message : "生成模板 config 预览失败";
+      setError(messageText);
+      messageApi.error(messageText);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [draft, messageApi]);
+
   return (
     <>
       {contextHolder}
@@ -753,7 +776,7 @@ export function TemplateManagementPanel({
           type="info"
           showIcon
           message="模板中心已成为实例配置的来源"
-          description="现在可直接在模板内维护预装子 Agent、预装 Skills、默认模型、路由配置，以及部分运行时高级配置。实例创建时将按模板下发。"
+          description="现在可直接在模板内维护预装子 Agent、预装 Skills、默认模型和路由配置，并可预览实例最终生成的 config.toml。"
         />
 
         <Card
@@ -827,6 +850,9 @@ export function TemplateManagementPanel({
                   title={draft.displayName || draft.templateKey}
                   extra={(
                     <Space wrap>
+                      <Button loading={previewLoading} onClick={() => void handlePreviewConfig()}>
+                        预览 config.toml
+                      </Button>
                       <Button type="primary" icon={<Save size={14} />} loading={saving} disabled={!dirty} onClick={() => void handleSave()}>
                         保存模板
                       </Button>
@@ -911,37 +937,6 @@ export function TemplateManagementPanel({
                                 placeholder="标签"
                                 onChange={(value) => updateDraft({ tags: normalizeStringValues(value) })}
                               />
-
-                              <Select
-                                mode="tags"
-                                style={{ width: "100%" }}
-                                value={draft.lockedScopes}
-                                options={draft.lockedScopes.map((value) => ({ value, label: value }))}
-                                placeholder="锁定范围"
-                                onChange={(value) => updateDraft({ lockedScopes: normalizeStringValues(value) })}
-                              />
-
-                              <Card type="inner" title="运行配置">
-                                <Input.TextArea
-                                  rows={12}
-                                  value={draft.runtimeConfigToml ?? ""}
-                                  placeholder="config.toml 模板内容，可留空"
-                                  onChange={(event) => updateDraft({ runtimeConfigToml: event.target.value })}
-                                />
-                              </Card>
-
-                              <Card type="inner" title="当前锁定范围">
-                                <Space size={[8, 8]} wrap>
-                                  {draft.lockedScopes.length === 0 ? <Text type="secondary">未设置</Text> : draft.lockedScopes.map((scope) => (
-                                    <Tag key={scope} color="gold">
-                                      <Space size="small">
-                                        <Layers size={12} />
-                                        <span>{scope}</span>
-                                      </Space>
-                                    </Tag>
-                                  ))}
-                                </Space>
-                              </Card>
                             </Space>
                           ),
                         },
@@ -1493,6 +1488,29 @@ export function TemplateManagementPanel({
           </div>
         </Card>
       </Space>
+
+      <Modal
+        title="模板 config.toml 预览"
+        open={previewOpen}
+        width={960}
+        footer={(
+          <Button onClick={() => setPreviewOpen(false)}>
+            关闭
+          </Button>
+        )}
+        onCancel={() => setPreviewOpen(false)}
+      >
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Text type="secondary">该预览基于当前未保存草稿生成，可用于核对模板配置是否已经同步到最终运行配置。</Text>
+          <Input.TextArea
+            rows={24}
+            readOnly
+            value={previewConfigToml}
+            style={{ fontFamily: "monospace" }}
+            placeholder="点击“预览 config.toml”后生成"
+          />
+        </Space>
+      </Modal>
 
       <Modal
         title="新建模板"

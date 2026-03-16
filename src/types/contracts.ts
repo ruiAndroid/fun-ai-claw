@@ -403,6 +403,11 @@ export interface InstanceTemplateUpsertRequest {
   updatedBy?: string | null;
 }
 
+export interface InstanceTemplateConfigPreview {
+  templateKey: string;
+  configToml: string;
+}
+
 export interface OpenClientApp {
   appId: string;
   name: string;

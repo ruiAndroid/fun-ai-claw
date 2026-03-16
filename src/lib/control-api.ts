@@ -16,6 +16,7 @@ import {
   InstanceRoutingConfig,
   InstanceSkillBinding,
   InstanceTemplate,
+  InstanceTemplateConfigPreview,
   InstanceTemplateUpsertRequest,
   InstanceActionType,
   ListResponse,
@@ -99,6 +100,13 @@ export async function getInstanceTemplate(templateKey: string) {
 
 export async function createInstanceTemplate(request: InstanceTemplateUpsertRequest) {
   return requestJson<InstanceTemplate>("/v1/instance-templates", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function previewInstanceTemplateConfig(request: InstanceTemplateUpsertRequest) {
+  return requestJson<InstanceTemplateConfigPreview>("/v1/instance-templates/config-preview", {
     method: "POST",
     body: JSON.stringify(request),
   });

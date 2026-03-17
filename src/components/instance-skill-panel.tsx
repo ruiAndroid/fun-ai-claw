@@ -65,7 +65,6 @@ export function InstanceSkillPanel({
     try {
       const response = await listInstanceSkills(instanceId);
       setRuntimeSkills(response.items);
-      await onSaved?.();
     } catch (apiError) {
       setRuntimeSkills([]);
       setRuntimeError(apiError instanceof Error ? apiError.message : String(apiError));
@@ -182,6 +181,7 @@ export function InstanceSkillPanel({
         loadRuntimeSkills(),
         loadSelectedSkillDetail(targetSkillKey),
       ]);
+      await onSaved?.();
       messageApi.success("Skill 已装载到当前实例");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);

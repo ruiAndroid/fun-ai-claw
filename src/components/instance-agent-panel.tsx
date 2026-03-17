@@ -159,7 +159,6 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
       if (showSuccess) {
         messageApi.success("Agent 列表已刷新");
       }
-      await onSaved?.();
     } catch (apiError) {
       setBaselines([]);
       setBindings([]);
@@ -299,7 +298,6 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
       });
       setBindings((current) => current.map((item) => (item.agentKey === saved.agentKey ? saved : item)));
       setDraft(toDraft(saved));
-      await onSaved?.();
       messageApi.success("实例 Agent 配置已保存");
       await onSaved?.();
     } catch (apiError) {
@@ -325,7 +323,6 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
     try {
       await uninstallInstanceAgentBinding(instanceId, targetAgentKey);
       await loadAll();
-      await onSaved?.();
       messageApi.success("Agent 已从当前实例卸载");
       await onSaved?.();
     } catch (apiError) {

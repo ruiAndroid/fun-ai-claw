@@ -28,17 +28,15 @@ export function LoginShowcase() {
           </div>
           <div className="text-4xl font-black tracking-[-0.04em]">FunClaw</div>
         </div>
-        <div className="text-3xl font-black text-slate-400">·</div>
-        <div className="text-3xl font-black tracking-[-0.04em]">用户中心接入版</div>
       </div>
 
       <h2 className="mt-18 text-5xl font-black tracking-[-0.05em] text-slate-950 sm:text-6xl">
-        登录能力交给统一用户系统
+        让内容流动更简单
       </h2>
 
       <div className="mt-18 rounded-[28px] bg-[linear-gradient(135deg,#ff6a00_0%,#ff4d00_42%,#ff7d00_100%)] p-6 text-white shadow-[0_28px_70px_rgba(249,115,22,0.34)]">
         <div className="text-center text-xl font-black tracking-[-0.03em] sm:text-[32px]">
-          前端保留页面体验，底层改为请求外部用户中心能力
+          搭载多个专用Skills的智能体平台
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-3">

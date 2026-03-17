@@ -129,14 +129,14 @@ export const sidebarNavItems: SidebarNavItem[] = [
   {
     icon: CalendarClock,
     label: "定时任务",
-    href: "/console",
+    href: "/tasks",
     badge: "3",
     summary: "2 个待执行，1 个刚完成",
   },
   {
     icon: House,
     label: "社区",
-    href: "/docs",
+    href: "/community",
     badge: "12",
     summary: "今日新增 12 条精选动态",
   },

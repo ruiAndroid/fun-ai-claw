@@ -38,6 +38,16 @@ const nextConfig: NextConfig = {
         destination: "/docs/:path*",
         permanent: true,
       },
+      {
+        source: "/fun-claw/tasks",
+        destination: "/tasks",
+        permanent: true,
+      },
+      {
+        source: "/fun-claw/community",
+        destination: "/community",
+        permanent: true,
+      },
     ];
   },
 };

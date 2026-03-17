@@ -8,6 +8,7 @@ import {
   ClawInstance,
   ConsumerMe,
   ConsumerInviteCode,
+  ConsumerRefreshTokenRequest,
   ConsumerSmsSendCodeRequest,
   ConsumerSmsSendCodeResponse,
   ConsumerSmsVerifyRequest,
@@ -42,6 +43,8 @@ import {
 import { appConfig } from "@/config/app-config";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
+let consumerAccessToken: string | null = null;
+let consumerRefreshPromise: Promise<ConsumerSmsVerifyResponse> | null = null;
 
 function normalizeControlPath(path: string): string {
   if (path.startsWith("/v1/")) {
@@ -59,6 +62,81 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     },
     cache: "no-store",
   });
+  if (!response.ok) {
+    throw await buildRequestError(response);
+  }
+  return (await response.json()) as T;
+}
+
+function setConsumerAccessToken(token?: string | null) {
+  consumerAccessToken = token?.trim() ? token.trim() : null;
+}
+
+function clearConsumerAccessToken() {
+  consumerAccessToken = null;
+}
+
+async function refreshConsumerAccessToken(request?: ConsumerRefreshTokenRequest): Promise<ConsumerSmsVerifyResponse> {
+  if (!consumerRefreshPromise) {
+    consumerRefreshPromise = requestJson<ConsumerSmsVerifyResponse>("/app/v1/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify(request ?? {}),
+      credentials: "include",
+    }).then((response) => {
+      setConsumerAccessToken(response.accessToken);
+      return response;
+    }).finally(() => {
+      consumerRefreshPromise = null;
+    });
+  }
+  return consumerRefreshPromise;
+}
+
+async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetried = false): Promise<T> {
+  let token = consumerAccessToken;
+  if (!token && path !== "/app/v1/auth/refresh") {
+    try {
+      const refreshed = await refreshConsumerAccessToken();
+      token = refreshed.accessToken;
+    } catch {
+      clearConsumerAccessToken();
+    }
+  }
+
+  const headers = new Headers(init?.headers ?? {});
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${BASE_URL}${normalizeControlPath(path)}`, {
+    ...init,
+    headers,
+    cache: "no-store",
+    credentials: "include",
+  });
+
+  if (response.status === 401 && !hasRetried && path !== "/app/v1/auth/refresh") {
+    try {
+      const refreshed = await refreshConsumerAccessToken();
+      return requestConsumerJson<T>(
+        path,
+        {
+          ...init,
+          headers: {
+            ...(init?.headers ?? {}),
+            Authorization: `Bearer ${refreshed.accessToken}`,
+          },
+        },
+        true
+      );
+    } catch {
+      clearConsumerAccessToken();
+    }
+  }
+
   if (!response.ok) {
     throw await buildRequestError(response);
   }
@@ -132,24 +210,41 @@ export async function sendConsumerSmsCode(request: ConsumerSmsSendCodeRequest) {
 }
 
 export async function verifyConsumerSmsCode(request: ConsumerSmsVerifyRequest) {
-  return requestJson<ConsumerSmsVerifyResponse>("/app/v1/auth/sms/verify", {
+  const response = await requestJson<ConsumerSmsVerifyResponse>("/app/v1/auth/sms/verify", {
     method: "POST",
     body: JSON.stringify(request),
     credentials: "include",
   });
+  setConsumerAccessToken(response.accessToken);
+  return response;
+}
+
+export async function refreshConsumerToken(request?: ConsumerRefreshTokenRequest) {
+  return refreshConsumerAccessToken(request);
 }
 
 export async function logoutConsumer() {
-  return requestVoid("/app/v1/auth/logout", {
-    method: "POST",
-    credentials: "include",
-  });
+  try {
+    await requestVoid("/app/v1/auth/logout", {
+      method: "POST",
+      credentials: "include",
+      headers: consumerAccessToken
+        ? {
+            Authorization: `Bearer ${consumerAccessToken}`,
+          }
+        : undefined,
+    });
+  } finally {
+    clearConsumerAccessToken();
+  }
+}
+
+export function clearConsumerAuthState() {
+  clearConsumerAccessToken();
 }
 
 export async function getConsumerMe() {
-  return requestJson<ConsumerMe>("/app/v1/me", {
-    credentials: "include",
-  });
+  return requestConsumerJson<ConsumerMe>("/app/v1/me");
 }
 
 export async function listConsumerInviteCodes() {

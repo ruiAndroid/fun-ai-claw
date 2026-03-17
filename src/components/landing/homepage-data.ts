@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  CalendarClock,
   BookOpen,
   Bot,
   BrainCircuit,
+  CalendarClock,
   House,
   Radar,
   WandSparkles,
@@ -54,7 +54,7 @@ export const secondaryCards: FeatureCard[] = [
   {
     icon: Workflow,
     title: "产品化机器人入口",
-    description: "首页不仅展示能力，更承担品牌说明、入口承接与转化导流的职责。",
+    description: "首页不只展示能力，更承担品牌说明、入口承接与转化导流的职责。",
     href: "/",
     ctaLabel: "浏览首页",
     accent: "from-sky-500/18 via-cyan-500/12 to-transparent",
@@ -119,15 +119,15 @@ export type SidebarMessageItem = {
 
 export const sidebarNavItems: SidebarNavItem[] = [
   {
-    icon: CalendarClock,
-    label: "定时任务",
-    href: "/console",
-  },
-  {
     icon: Bot,
     label: "机器人",
     href: "/console",
     active: true,
+  },
+  {
+    icon: CalendarClock,
+    label: "定时任务",
+    href: "/console",
   },
   {
     icon: House,

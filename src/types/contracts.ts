@@ -64,7 +64,15 @@ export interface ConsumerSmsVerifyRequest {
 export interface ConsumerSmsVerifyResponse {
   me: ConsumerMe;
   newUser: boolean;
-  sessionExpiresAt: string;
+  tokenType: string;
+  accessToken: string;
+  accessTokenExpiresAt: string;
+  refreshToken: string;
+  refreshTokenExpiresAt: string;
+}
+
+export interface ConsumerRefreshTokenRequest {
+  refreshToken?: string | null;
 }
 
 export interface ConsumerInviteCode {

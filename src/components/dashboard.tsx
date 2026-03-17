@@ -3204,13 +3204,7 @@ export function Dashboard() {
           >
             <Input placeholder="zeroclaw-instance-01" />
           </Form.Item>
-          <Alert
-            type="info"
-            showIcon
-            message={uiText.templateManagedCreateHint}
-            description={uiText.templateManagedCreateDescription}
-            style={{ marginBottom: 16 }}
-          />
+
           <Alert type="info" showIcon message={`${uiText.fixedHostTipPrefix}${appConfig.defaultHostId}`} style={{ marginBottom: 16 }} />
           <Form.Item
             name="templateKey"

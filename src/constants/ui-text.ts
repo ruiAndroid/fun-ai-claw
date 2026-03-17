@@ -99,7 +99,6 @@ export const uiText = {
   createModalTitle: "创建新实例",
   templateSelectLabel: "创建模板",
   templateRequired: "请选择模板",
-  templateManagedCreateHint: "当前实例按模板托管创建",
   templateManagedCreateDescription: "模板会自动下发主 Agent、Skills 与默认运行配置，实例详情页暂时只读。",
   noTemplatesAvailable: "当前没有可用模板，请先到模板中心创建或启用模板。",
   templateDefaultImageLabel: "默认镜像：",

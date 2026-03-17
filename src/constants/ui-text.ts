@@ -259,6 +259,7 @@ export const uiText = {
   configRestartRequiredDescriptionStopped: "ZeroClaw 需要重新启动实例后才会加载最新配置，是否现在启动当前实例？",
   configRestartNow: "立即重启",
   configRestartLater: "稍后处理",
+  instanceReadonlyPartialDescription: "当前仍处于模板托管分阶段放开模式，部分区域暂不支持前端编辑。",
   // Task tab
   noTasks: "暂无定时任务",
   createTask: "创建任务",

@@ -226,7 +226,7 @@ export function InstanceSkillPanel({
             type="info"
             showIcon
             message={uiText.instanceReadonlyNoticeTitle}
-            description={uiText.instanceReadonlyNoticeDescription}
+            description={uiText.instanceReadonlyPartialDescription}
           />
         ) : null}
         <div className="tab-section-header">

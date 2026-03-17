@@ -366,7 +366,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOn
             type="info"
             showIcon
             message={uiText.instanceReadonlyNoticeTitle}
-            description={uiText.instanceReadonlyNoticeDescription}
+            description={uiText.instanceReadonlyPartialDescription}
           />
         ) : null}
         {error ? <Alert type="error" showIcon message={error} /> : null}

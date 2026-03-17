@@ -77,6 +77,9 @@ type QueuedAgentSessionMessage = {
 
 const INSTANCE_TEMPLATE_MANAGED_MODE = true;
 const INSTANCE_TEMPLATE_MANAGED_GUIDANCE_READONLY = false;
+const INSTANCE_TEMPLATE_MANAGED_CHANNELS_READONLY = false;
+const INSTANCE_TEMPLATE_MANAGED_STRUCTURED_CONFIG_READONLY = false;
+const INSTANCE_TEMPLATE_MANAGED_RAW_CONFIG_READONLY = true;
 
 function AnimatedNumber({ value, className }: { value: number; className?: string }) {
   const motionValue = useMotionValue(0);
@@ -456,21 +459,27 @@ export function Dashboard() {
   }, [actionLabelMap, loadInstances, messageApi, selectedInstance?.name, selectedInstanceId]);
 
   const promptRestartAfterConfigChange = useCallback(() => {
+    const restartAction: InstanceActionType = selectedStatus === "STOPPED" ? "START" : "RESTART";
     Modal.confirm({
       title: uiText.configRestartRequiredTitle,
       content: selectedStatus === "STOPPED"
         ? uiText.configRestartRequiredDescriptionStopped
         : uiText.configRestartRequiredDescription,
-      okText: uiText.configRestartNow,
+      okText: restartAction === "START" ? uiText.start : uiText.configRestartNow,
       cancelText: uiText.configRestartLater,
       onOk: async () => {
-        const restarted = await handleAction("RESTART");
+        const restarted = await handleAction(restartAction);
         if (!restarted) {
           throw new Error("instance restart failed");
         }
       },
     });
   }, [handleAction, selectedStatus]);
+
+  const handleManagedConfigSaved = useCallback(async () => {
+    setInstanceConfigReloadToken((current) => current + 1);
+    promptRestartAfterConfigChange();
+  }, [promptRestartAfterConfigChange]);
 
   const loadMainAgentGuidance = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
@@ -2547,7 +2556,7 @@ export function Dashboard() {
                         type="info"
                         showIcon
                         message={uiText.instanceReadonlyNoticeTitle}
-                        description="当前仍处于模板托管分阶段放开模式：主 Agent 提示词覆盖已开放编辑，Agent、Skills、渠道与运行配置暂不支持前端修改。"
+                        description="当前仍处于模板托管分阶段放开模式：主 Agent 提示词、渠道配置、默认模型与路由配置已开放编辑；原始 config.toml、Agent、Skills 暂不支持前端修改。"
                       />
                     ) : null}
                     <motion.div
@@ -3051,7 +3060,9 @@ export function Dashboard() {
                               instance={selectedInstance}
                               topSection={mainAgentGuidanceSection}
                               reloadToken={instanceConfigReloadToken}
-                              readOnly={INSTANCE_TEMPLATE_MANAGED_MODE}
+                              readOnly={INSTANCE_TEMPLATE_MANAGED_MODE && INSTANCE_TEMPLATE_MANAGED_STRUCTURED_CONFIG_READONLY}
+                              rawConfigReadOnly={INSTANCE_TEMPLATE_MANAGED_MODE && INSTANCE_TEMPLATE_MANAGED_RAW_CONFIG_READONLY}
+                              onConfigSaved={handleManagedConfigSaved}
                             />
                           ),
                         },
@@ -3061,8 +3072,8 @@ export function Dashboard() {
                           children: (
                             <InstanceChannelsConfigPanel
                               instanceId={selectedInstance.id}
-                              onSaved={() => setInstanceConfigReloadToken((current) => current + 1)}
-                              readOnly={INSTANCE_TEMPLATE_MANAGED_MODE}
+                              onSaved={handleManagedConfigSaved}
+                              readOnly={INSTANCE_TEMPLATE_MANAGED_MODE && INSTANCE_TEMPLATE_MANAGED_CHANNELS_READONLY}
                             />
                           ),
                         },

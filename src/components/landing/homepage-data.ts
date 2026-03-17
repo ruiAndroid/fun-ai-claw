@@ -1,8 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  CalendarClock,
   BookOpen,
   Bot,
   BrainCircuit,
+  House,
   Radar,
   WandSparkles,
   Workflow,
@@ -102,3 +104,34 @@ export const capabilityMap = [
 ] as const;
 
 export const capabilityTags = ["消息入口", "机器人矩阵", "控制台", "文档中心", "Open API"] as const;
+
+export type SidebarNavItem = {
+  icon: LucideIcon;
+  label: string;
+  href: string;
+  active?: boolean;
+};
+
+export const sidebarNavItems: SidebarNavItem[] = [
+  {
+    icon: CalendarClock,
+    label: "定时任务",
+    href: "/console",
+  },
+  {
+    icon: Bot,
+    label: "机器人",
+    href: "/console",
+    active: true,
+  },
+  {
+    icon: House,
+    label: "社区",
+    href: "/docs",
+  },
+] as const;
+
+export const sidebarMessagePlaceholders = Array.from({ length: 7 }, (_, index) => ({
+  id: `placeholder-${index + 1}`,
+  label: `placeholder-${index + 1}`,
+}));

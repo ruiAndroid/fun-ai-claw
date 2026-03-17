@@ -143,8 +143,8 @@ export function InstanceDefaultModelConfigPanel({
         updatedBy: "console",
       });
       applyResponse(response);
-      await onSaved?.();
       messageApi.success("实例默认模型配置已保存");
+      await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);

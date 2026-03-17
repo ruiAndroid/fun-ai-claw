@@ -63,11 +63,15 @@ export function InstanceConfigPanel({
   topSection,
   reloadToken,
   readOnly,
+  rawConfigReadOnly,
+  onConfigSaved,
 }: {
   instance: ClawInstance;
   topSection?: ReactNode;
   reloadToken?: number;
   readOnly?: boolean;
+  rawConfigReadOnly?: boolean;
+  onConfigSaved?: () => void | Promise<void>;
 }) {
   const [config, setConfig] = useState<InstanceConfig>();
   const [draft, setDraft] = useState("");
@@ -121,9 +125,16 @@ export function InstanceConfigPanel({
   const dirty = draft !== baselineConfigToml;
   const sourceMeta = getSourceMeta(config?.source);
   const lineCount = useMemo(() => (draft ? draft.split("\n").length : 0), [draft]);
+  const structuredConfigReadOnly = Boolean(readOnly);
+  const effectiveRawConfigReadOnly = rawConfigReadOnly ?? readOnly;
+
+  const handleStructuredConfigSaved = useCallback(async () => {
+    await loadConfig();
+    await onConfigSaved?.();
+  }, [loadConfig, onConfigSaved]);
 
   const handleSave = useCallback(async () => {
-    if (readOnly) {
+    if (effectiveRawConfigReadOnly) {
       return;
     }
     if (!draft.trim()) {
@@ -139,6 +150,7 @@ export function InstanceConfigPanel({
       });
       setConfig(response);
       setDraft(response.configToml ?? "");
+      await onConfigSaved?.();
       messageApi.success("实例配置已保存");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
@@ -147,10 +159,10 @@ export function InstanceConfigPanel({
     } finally {
       setSaving(false);
     }
-  }, [draft, instance.id, messageApi, readOnly]);
+  }, [draft, effectiveRawConfigReadOnly, instance.id, messageApi, onConfigSaved]);
 
   const handleRestoreDefault = useCallback(async () => {
-    if (readOnly) {
+    if (effectiveRawConfigReadOnly) {
       return;
     }
     setResetting(true);
@@ -167,7 +179,7 @@ export function InstanceConfigPanel({
     } finally {
       setResetting(false);
     }
-  }, [instance.id, messageApi, readOnly]);
+  }, [effectiveRawConfigReadOnly, instance.id, messageApi]);
 
   const handleResetDraft = useCallback(() => {
     setDraft(baselineConfigToml);
@@ -216,12 +228,12 @@ export function InstanceConfigPanel({
       {contextHolder}
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         {topSection ?? null}
-        {readOnly ? (
+        {structuredConfigReadOnly || effectiveRawConfigReadOnly ? (
           <Alert
             type="info"
             showIcon
             message={uiText.instanceReadonlyNoticeTitle}
-            description={uiText.instanceReadonlyNoticeDescription}
+            description={uiText.instanceReadonlyPartialDescription}
           />
         ) : null}
 
@@ -264,14 +276,14 @@ export function InstanceConfigPanel({
 
         <InstanceDefaultModelConfigPanel
           instanceId={instance.id}
-          disabled={readOnly || dirty || loading || saving || resetting}
-          onSaved={() => loadConfig()}
+          disabled={structuredConfigReadOnly || dirty || loading || saving || resetting}
+          onSaved={handleStructuredConfigSaved}
         />
 
         <InstanceRoutingConfigPanel
           instanceId={instance.id}
-          disabled={readOnly || dirty || loading || saving || resetting}
-          onSaved={() => loadConfig()}
+          disabled={structuredConfigReadOnly || dirty || loading || saving || resetting}
+          onSaved={handleStructuredConfigSaved}
         />
 
         <Card
@@ -309,7 +321,7 @@ export function InstanceConfigPanel({
                 onChange={(event) => setDraft(event.target.value)}
                 rows={30}
                 spellCheck={false}
-                readOnly={readOnly}
+                readOnly={effectiveRawConfigReadOnly}
                 disabled={loading || saving || resetting}
                 placeholder="配置内容加载中..."
                 style={{
@@ -319,7 +331,7 @@ export function InstanceConfigPanel({
                 }}
               />
 
-              {!readOnly ? (
+              {!effectiveRawConfigReadOnly ? (
                 <Space wrap>
                   <Button onClick={handleResetDraft} disabled={!dirty || saving || resetting || loading}>
                     撤销未保存修改

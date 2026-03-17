@@ -206,8 +206,8 @@ export function InstanceChannelsConfigPanel({
         updatedBy: "console",
       });
       applyResponse(response);
-      await onSaved?.();
       messageApi.success("渠道配置已保存");
+      await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
@@ -243,7 +243,7 @@ export function InstanceChannelsConfigPanel({
                 type="info"
                 showIcon
                 message={uiText.instanceReadonlyNoticeTitle}
-                description={uiText.instanceReadonlyNoticeDescription}
+                description={uiText.instanceReadonlyPartialDescription}
               />
             ) : null}
 

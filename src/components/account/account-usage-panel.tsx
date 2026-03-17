@@ -1,0 +1,89 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import type { UsageFilterKey } from "./account-data";
+import { usageEntries, usageFilters } from "./account-data";
+
+export function AccountUsagePanel() {
+  const [activeFilter, setActiveFilter] = useState<UsageFilterKey>("all");
+
+  const filteredEntries = useMemo(() => {
+    if (activeFilter === "all") {
+      return usageEntries;
+    }
+    return usageEntries.filter((item) => item.type === activeFilter);
+  }, [activeFilter]);
+
+  return (
+    <div>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">梦想值</h1>
+
+        <div className="flex flex-wrap gap-4">
+          <button
+            type="button"
+            className="inline-flex h-16 items-center justify-center rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 px-12 text-[22px] font-black text-white shadow-[0_18px_40px_rgba(45,212,191,0.22)] transition-transform duration-300 hover:scale-[1.01]"
+          >
+            刷新
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-16 items-center justify-center rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 px-12 text-[22px] font-black text-white shadow-[0_18px_40px_rgba(45,212,191,0.22)] transition-transform duration-300 hover:scale-[1.01]"
+          >
+            去充值
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-16 text-center">
+        <div className="text-4xl font-black tracking-[-0.04em] text-slate-950">存余</div>
+        <div className="mt-6 flex items-center justify-center gap-4 text-[64px] font-black leading-none tracking-[-0.05em] text-slate-950">
+          <span>3000</span>
+          <span className="text-[52px]">🍊</span>
+        </div>
+      </div>
+
+      <section className="mt-12 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
+        <div className="flex flex-wrap gap-6">
+          {usageFilters.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              onClick={() => setActiveFilter(filter.key)}
+              className={`min-w-[180px] rounded-full px-8 py-4 text-[22px] font-black tracking-[-0.03em] transition-colors duration-300 ${
+                activeFilter === filter.key
+                  ? "bg-slate-200 text-slate-950"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-950"
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-14 space-y-10">
+          {filteredEntries.map((item) => (
+            <div
+              key={`${item.title}-${item.time}`}
+              className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-center"
+            >
+              <div>
+                <div className="text-[20px] font-black tracking-[-0.03em] text-slate-950">
+                  {item.title}
+                </div>
+                <div className="mt-2 text-[18px] font-bold text-slate-400">{item.time}</div>
+              </div>
+              <div
+                className={`text-right text-[22px] font-black tracking-[-0.03em] ${
+                  item.amount >= 0 ? "text-slate-950" : "text-slate-950"
+                }`}
+              >
+                {item.amount >= 0 ? `+${item.amount}` : item.amount}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

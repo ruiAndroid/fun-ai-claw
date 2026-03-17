@@ -13,6 +13,7 @@ import {
   InstanceConfig,
   InstanceDefaultModelConfig,
   InstanceMainAgentGuidance,
+  InstanceOpenSessionOverview,
   InstanceRoutingConfig,
   InstanceSkillBinding,
   InstanceTemplate,
@@ -280,6 +281,10 @@ export async function upsertAgentSystemPrompt(
 
 export async function listInstanceAgentBindings(instanceId: string) {
   return requestJson<ListResponse<InstanceAgentBinding>>(`/v1/instances/${instanceId}/agent-bindings`);
+}
+
+export async function getInstanceOpenSessionOverview(instanceId: string) {
+  return requestJson<InstanceOpenSessionOverview>(`/v1/instances/${instanceId}/open-sessions`);
 }
 
 export async function upsertInstanceAgentBinding(

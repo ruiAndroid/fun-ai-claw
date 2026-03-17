@@ -153,6 +153,33 @@ export interface InstanceAgentBinding {
   updatedAt: string;
 }
 
+export type OpenSessionStatus = "ACTIVE" | "CLOSED";
+
+export interface InstanceOpenSessionItem {
+  sessionId: string;
+  appId: string;
+  appName?: string | null;
+  instanceId: string;
+  agentId?: string | null;
+  externalSessionKey?: string | null;
+  status: OpenSessionStatus;
+  connected: boolean;
+  websocketTokenExpiresAt?: string | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt?: string | null;
+}
+
+export interface InstanceOpenSessionOverview {
+  instanceId: string;
+  totalSessions: number;
+  activeSessions: number;
+  closedSessions: number;
+  connectedSessions: number;
+  items: InstanceOpenSessionItem[];
+}
+
 export interface SkillDescriptor {
   id: string;
   path: string;

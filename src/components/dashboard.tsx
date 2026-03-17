@@ -16,6 +16,7 @@ import { AgentBaselinePanel } from "@/components/agent-baseline-panel";
 import { InstanceAgentPanel } from "@/components/instance-agent-panel";
 import { InstanceChannelsConfigPanel } from "@/components/instance-channels-config-panel";
 import { InstanceConfigPanel } from "@/components/instance-config-panel";
+import { InstanceSessionPanel } from "@/components/instance-session-panel";
 import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { InstanceTaskPanel } from "@/components/instance-task-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
@@ -64,7 +65,7 @@ type CreateInstanceFormValues = {
   desiredState: DesiredState;
 };
 type ConsoleView = "instances" | "templates" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
-type InstanceDetailTabKey = "claw" | "config" | "channels" | "agents" | "skills" | "tasks";
+type InstanceDetailTabKey = "claw" | "config" | "channels" | "agents" | "skills" | "sessions" | "tasks";
 type AgentMessageSendOptions = {
   displayText?: string;
   resolveInteractionMessageId?: string;
@@ -3116,6 +3117,16 @@ export function Dashboard() {
                               instanceId={selectedInstance.id}
                               onSaved={handleManagedConfigSaved}
                               readOnly={INSTANCE_TEMPLATE_MANAGED_MODE && INSTANCE_TEMPLATE_MANAGED_SKILLS_READONLY}
+                            />
+                          ),
+                        },
+                        {
+                          key: "sessions",
+                          label: uiText.tabSession,
+                          children: (
+                            <InstanceSessionPanel
+                              instanceId={selectedInstance.id}
+                              active={instanceDetailTab === "sessions"}
                             />
                           ),
                         },

@@ -128,6 +128,7 @@ export const uiText = {
   tabChannel: "Channel",
   tabAgent: "Agent",
   tabSkill: "Skill",
+  tabSession: "Session",
   tabTask: "Task",
   agentSkillPanelTitle: "Agent / Skill",
   refreshSkills: "刷新 Skill 列表",

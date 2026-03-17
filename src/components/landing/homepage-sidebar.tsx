@@ -6,11 +6,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown,
   ChevronUp,
-  LogIn,
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  UserRound,
 } from "lucide-react";
 import { sidebarMessages, sidebarNavItems } from "./homepage-data";
 
@@ -72,11 +72,11 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
           FC
         </div>
         <Link
-          href="/login"
+          href="/me"
           className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm"
-          aria-label="前往登录页"
+          aria-label="前往我的页面"
         >
-          <LogIn size={16} />
+          <UserRound size={16} />
         </Link>
       </div>
     );
@@ -89,14 +89,14 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-base font-bold text-md-on-surface">FunClaw 用户</div>
-        <div className="truncate text-xs text-md-on-surface-variant">当前未接入用户系统，先展示登录入口</div>
+        <div className="truncate text-xs text-md-on-surface-variant">当前为 UI 预览态，可先查看“我的页面”</div>
       </div>
       <Link
-        href="/login"
+        href="/me"
         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm"
-        aria-label="前往登录页"
+        aria-label="前往我的页面"
       >
-        <LogIn size={16} />
+        <UserRound size={16} />
       </Link>
     </div>
   );

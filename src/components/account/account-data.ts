@@ -11,11 +11,6 @@ export type AccountNavItem = {
 
 export type UsageFilterKey = "all" | "spent" | "added";
 
-export type AccountIdentity = {
-  phone: string | null;
-  uid: string | null;
-};
-
 export type UsageEntry = {
   title: string;
   time: string;
@@ -30,36 +25,17 @@ export type WorkItem = {
 };
 
 export const accountNavItems: AccountNavItem[] = [
-  {
-    key: "settings",
-    label: "基础设置",
-    icon: Settings2,
-  },
-  {
-    key: "usage",
-    label: "虾米账单",
-    icon: CreditCard,
-  },
-  {
-    key: "works",
-    label: "我的作品",
-    icon: FileText,
-  },
+  { key: "settings", label: "账号设置", icon: Settings2 },
+  { key: "usage", label: "积分明细", icon: CreditCard },
+  { key: "works", label: "我的作品", icon: FileText },
 ];
 
 export const usageFilters: Array<{ key: UsageFilterKey; label: string }> = [
   { key: "all", label: "全部" },
-  { key: "spent", label: "已消耗" },
+  { key: "spent", label: "消耗" },
   { key: "added", label: "新增" },
 ];
 
-export const accountIdentity: AccountIdentity = {
-  phone: null,
-  uid: null,
-};
-
-export const accountXiamiBalance: number | null = null;
-
+export const accountBalance: number | null = null;
 export const usageEntries: UsageEntry[] = [];
-
 export const workItems: WorkItem[] = [];

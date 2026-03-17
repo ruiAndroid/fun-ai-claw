@@ -110,6 +110,8 @@ export type SidebarNavItem = {
   label: string;
   href: string;
   active?: boolean;
+  badge?: string;
+  summary?: string;
 };
 
 export type SidebarMessageItem = {
@@ -128,11 +130,15 @@ export const sidebarNavItems: SidebarNavItem[] = [
     icon: CalendarClock,
     label: "定时任务",
     href: "/console",
+    badge: "3",
+    summary: "2 个待执行，1 个刚完成",
   },
   {
     icon: House,
     label: "社区",
     href: "/docs",
+    badge: "12",
+    summary: "今日新增 12 条精选动态",
   },
 ] as const;
 

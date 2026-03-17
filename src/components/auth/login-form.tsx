@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
-import { getConsumerMe, sendConsumerSmsCode, verifyConsumerSmsCode } from "@/lib/control-api";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { getUserCenterMe, sendUserCenterSmsCode, verifyUserCenterSmsCode } from "@/lib/user-center-api";
 
 function normalizePhoneInput(value: string) {
   return value.replace(/[^\d]/g, "").slice(0, 11);
@@ -41,7 +40,7 @@ export function LoginForm() {
 
     async function detectLogin() {
       try {
-        await getConsumerMe();
+        await getUserCenterMe();
         if (active) {
           router.replace("/me");
         }
@@ -100,7 +99,7 @@ export function LoginForm() {
 
     setSending(true);
     try {
-      const response = await sendConsumerSmsCode({ phone: normalizedPhone });
+      const response = await sendUserCenterSmsCode({ phone: normalizedPhone });
       setCountdown(response.cooldownSeconds);
       setNotice(`验证码已发送至 ${response.phoneMasked}`);
       setDebugCode(response.debugCode ?? null);
@@ -137,7 +136,7 @@ export function LoginForm() {
 
       setVerifying(true);
       try {
-        await verifyConsumerSmsCode({
+        await verifyUserCenterSmsCode({
           phone: normalizedPhone,
           code: code.trim(),
           inviteCode: inviteCode.trim() || null,
@@ -157,7 +156,7 @@ export function LoginForm() {
       <div className="max-w-[460px]">
         <h1 className="text-4xl font-black tracking-[-0.04em] text-slate-950 sm:text-5xl">手机号登录</h1>
         <p className="mt-3 text-lg font-semibold text-slate-500">
-          未注册手机号在验证码校验成功后会自动注册并登录。
+          页面仍然保留在本项目，实际短信登录、注册与邀请码校验由统一用户中心提供。
         </p>
 
         <form className="mt-12 space-y-6" onSubmit={handleSubmit}>
@@ -203,7 +202,7 @@ export function LoginForm() {
               type="text"
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 32))}
-              placeholder="内测阶段新用户必填，老用户可留空"
+              placeholder="如统一用户中心仍启用邀请码，可在这里填写"
               disabled={checkingSession || verifying}
               className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium uppercase text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
             />
@@ -253,7 +252,7 @@ export function LoginForm() {
               <Link href="/docs" className="mx-1 font-bold text-cyan-500 hover:text-cyan-600">
                 《隐私政策》
               </Link>
-              ，未注册手机号会在验证码通过后自动创建账号；内测阶段新用户需填写有效邀请码。
+              ，相关登录注册能力由外部用户中心统一提供。
             </span>
           </label>
         </form>

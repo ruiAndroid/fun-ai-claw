@@ -18,12 +18,16 @@ function SidebarNavLink({
   href,
   label,
   active,
+  badge,
+  summary,
   icon: Icon,
   collapsed,
 }: {
   href: string;
   label: string;
   active?: boolean;
+  badge?: string;
+  summary?: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   collapsed: boolean;
 }) {
@@ -31,7 +35,7 @@ function SidebarNavLink({
     return (
       <Link
         href={href}
-        className={`flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all duration-300 ${
+        className={`relative flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all duration-300 ${
           active
             ? "border-cyan-200/70 bg-cyan-200 text-slate-950 shadow-[0_16px_36px_rgba(34,211,238,0.16)]"
             : "border-white/70 bg-white/78 text-md-on-surface shadow-sm"
@@ -39,6 +43,11 @@ function SidebarNavLink({
         aria-label={label}
       >
         <Icon size={18} />
+        {badge ? (
+          <span className="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white">
+            {badge}
+          </span>
+        ) : null}
       </Link>
     );
   }
@@ -59,7 +68,21 @@ function SidebarNavLink({
       >
         <Icon size={18} />
       </span>
-      <span>{label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span>{label}</span>
+          {badge ? (
+            <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-white">
+              {badge}
+            </span>
+          ) : null}
+        </span>
+        {summary ? (
+          <span className="mt-0.5 block truncate text-[11px] font-medium text-md-on-surface-variant">
+            {summary}
+          </span>
+        ) : null}
+      </span>
     </Link>
   );
 }
@@ -155,6 +178,8 @@ export function HomepageSidebar() {
                 href={item.href}
                 label={item.label}
                 active={item.active}
+                badge={item.badge}
+                summary={item.summary}
                 icon={item.icon}
                 collapsed
               />
@@ -232,6 +257,8 @@ export function HomepageSidebar() {
                     href={item.href}
                     label={item.label}
                     active={item.active}
+                    badge={item.badge}
+                    summary={item.summary}
                     icon={item.icon}
                     collapsed={false}
                   />

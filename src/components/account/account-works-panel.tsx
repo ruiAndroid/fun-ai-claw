@@ -34,7 +34,7 @@ export function AccountWorksPanel() {
         <div className="mt-10 rounded-[28px] border border-dashed border-slate-300 bg-white/70 px-8 py-12 text-center shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
           <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950">暂无作品</div>
           <div className="mt-4 text-lg font-semibold text-slate-400">
-            接入真实创作数据后，这里会展示你的脚本、项目和视频产出记录。
+            作品列表后续会和本平台实例、项目与外部用户中心资料做关联展示。
           </div>
         </div>
       )}

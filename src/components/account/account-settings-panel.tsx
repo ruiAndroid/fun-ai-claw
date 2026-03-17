@@ -1,4 +1,4 @@
-import type { ConsumerMe } from "@/types/contracts";
+import type { UserCenterMe } from "@/types/user-center";
 
 function formatDateTime(value?: string | null) {
   if (!value) {
@@ -19,7 +19,7 @@ function formatDateTime(value?: string | null) {
   });
 }
 
-export function AccountSettingsPanel({ me }: { me: ConsumerMe }) {
+export function AccountSettingsPanel({ me }: { me: UserCenterMe }) {
   const rows = [
     { label: "手机号", value: me.phoneMasked },
     { label: "UID", value: me.uid },
@@ -51,12 +51,12 @@ export function AccountSettingsPanel({ me }: { me: ConsumerMe }) {
       </section>
 
       <section>
-        <h2 className="text-4xl font-black tracking-[-0.05em] text-slate-950">第一期已开放能力</h2>
+        <h2 className="text-4xl font-black tracking-[-0.05em] text-slate-950">接入说明</h2>
         <div className="mt-8 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
           <div className="grid gap-5 text-lg font-semibold leading-8 text-slate-500">
-            <div>已支持手机号验证码登录，注册登录一体化，未注册手机号验证通过后会自动创建账号。</div>
-            <div>登录态使用安全 Cookie 保存，退出登录后会立即清除当前会话。</div>
-            <div>虾米账单、作品列表与更多 C 端能力会在后续阶段继续接入。</div>
+            <div>当前页面已改为请求统一用户中心，不再依赖本项目的本地鉴权与邀请码逻辑。</div>
+            <div>后端未来只会同步外部用户资料快照，用于与本平台的实例、积分和作品做绑定。</div>
+            <div>如需切换到真实用户中心，请配置 `NEXT_PUBLIC_USER_CENTER_BASE_URL`。</div>
           </div>
         </div>
       </section>

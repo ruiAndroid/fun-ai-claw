@@ -4,17 +4,17 @@ const showcaseItems = [
   {
     icon: Clapperboard,
     title: "创作层",
-    description: "脚本生成、AI 配音、智能分镜与成片流程统一协作。",
+    description: "脚本生成、分镜制作、角色管理与实例协同统一承载。",
   },
   {
     icon: SendHorizonal,
     title: "分发层",
-    description: "多平台适配、定时发布与内容渠道管理逐步接入。",
+    description: "多平台投放、互动触达与内容编排能力逐步接入。",
   },
   {
     icon: ChartNoAxesCombined,
     title: "增长层",
-    description: "数据分析、用户运营与商业化能力会持续完善。",
+    description: "数据分析、积分体系与用户运营能力后续会继续完善。",
   },
 ] as const;
 
@@ -29,16 +29,16 @@ export function LoginShowcase() {
           <div className="text-4xl font-black tracking-[-0.04em]">FunClaw</div>
         </div>
         <div className="text-3xl font-black text-slate-400">·</div>
-        <div className="text-3xl font-black tracking-[-0.04em]">创作者平台</div>
+        <div className="text-3xl font-black tracking-[-0.04em]">用户中心接入版</div>
       </div>
 
       <h2 className="mt-18 text-5xl font-black tracking-[-0.05em] text-slate-950 sm:text-6xl">
-        让内容生产和陪伴体验更简单
+        登录能力交给统一用户系统
       </h2>
 
       <div className="mt-18 rounded-[28px] bg-[linear-gradient(135deg,#ff6a00_0%,#ff4d00_42%,#ff7d00_100%)] p-6 text-white shadow-[0_28px_70px_rgba(249,115,22,0.34)]">
         <div className="text-center text-xl font-black tracking-[-0.03em] sm:text-[32px]">
-          面向创作者与用户的 AI 龙虾能力底座
+          前端保留页面体验，底层改为请求外部用户中心能力
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-3">

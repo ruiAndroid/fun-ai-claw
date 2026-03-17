@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getConsumerMe, logoutConsumer } from "@/lib/control-api";
-import type { ConsumerMe } from "@/types/contracts";
+import { getUserCenterMe, logoutUserCenter } from "@/lib/user-center-api";
+import type { UserCenterMe } from "@/types/user-center";
 import type { AccountTabKey } from "./account-data";
 import { AccountSidebar } from "./account-sidebar";
 import { AccountSettingsPanel } from "./account-settings-panel";
@@ -21,7 +21,7 @@ function isUnauthorizedError(error: unknown): boolean {
 export function AccountPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AccountTabKey>("settings");
-  const [me, setMe] = useState<ConsumerMe | null>(null);
+  const [me, setMe] = useState<UserCenterMe | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -31,7 +31,7 @@ export function AccountPage() {
     setError(null);
 
     try {
-      const current = await getConsumerMe();
+      const current = await getUserCenterMe();
       setMe(current);
     } catch (requestError) {
       if (isUnauthorizedError(requestError)) {
@@ -51,7 +51,7 @@ export function AccountPage() {
   const handleLogout = useCallback(async () => {
     setLoggingOut(true);
     try {
-      await logoutConsumer();
+      await logoutUserCenter();
     } finally {
       setLoggingOut(false);
       router.replace("/login");

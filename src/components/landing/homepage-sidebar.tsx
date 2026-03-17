@@ -135,20 +135,20 @@ export function HomepageSidebar() {
 
         {isSidebarCollapsed ? (
           <div className="flex h-full flex-col gap-3 overflow-hidden">
-            <button
-              type="button"
+            <Link
+              href="/messages"
               className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-white/82 text-md-on-surface shadow-sm"
               aria-label="消息"
             >
               <MessageCircle size={18} />
-            </button>
-            <button
-              type="button"
+            </Link>
+            <Link
+              href="/messages"
               className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-md-primary text-md-on-primary shadow-md-2"
               aria-label="新建消息"
             >
               <Plus size={18} />
-            </button>
+            </Link>
             {sidebarNavItems.map((item) => (
               <SidebarNavLink
                 key={item.label}
@@ -171,13 +171,13 @@ export function HomepageSidebar() {
                 </span>
                 <div>消息</div>
                 <div className="ml-auto flex items-center gap-2">
-                  <button
-                    type="button"
+                  <Link
+                    href="/messages"
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-transform duration-300 hover:scale-105"
                     aria-label="新建消息"
                   >
                     <Plus size={18} />
-                  </button>
+                  </Link>
                   <button
                     type="button"
                     onClick={() => setIsMessageExpanded((value) => !value)}
@@ -204,7 +204,7 @@ export function HomepageSidebar() {
                         {sidebarMessages.map((item) => (
                           <Link
                             key={item.id}
-                            href="/console"
+                            href="/messages"
                             className="mb-2 flex items-center gap-3 rounded-[20px] px-2 py-2.5 transition-colors duration-300 hover:bg-white/70"
                           >
                             <div className="h-11 w-11 rounded-full bg-slate-200" />

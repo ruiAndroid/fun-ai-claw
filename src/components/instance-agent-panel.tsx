@@ -106,10 +106,11 @@ function formatTimestamp(value?: string | null): string {
 type InstanceAgentPanelProps = {
   instanceId: string;
   onInstalledAgentsChange?: (bindings: InstanceAgentBinding[]) => void;
+  onSaved?: () => void | Promise<void>;
   readOnly?: boolean;
 };
 
-export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOnly }: InstanceAgentPanelProps) {
+export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSaved, readOnly }: InstanceAgentPanelProps) {
   const [baselines, setBaselines] = useState<AgentBaselineSummary[]>([]);
   const [bindings, setBindings] = useState<InstanceAgentBinding[]>([]);
   const [skillBindings, setSkillBindings] = useState<InstanceSkillBinding[]>([]);
@@ -158,6 +159,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOn
       if (showSuccess) {
         messageApi.success("Agent 列表已刷新");
       }
+      await onSaved?.();
     } catch (apiError) {
       setBaselines([]);
       setBindings([]);
@@ -264,6 +266,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOn
         updatedBy: "ui-dashboard",
       });
       await loadAll();
+      await onSaved?.();
       messageApi.success("Agent 已装载到当前实例");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
@@ -272,7 +275,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOn
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadAll, messageApi, readOnly, selectedAgentKey]);
+  }, [instanceId, loadAll, messageApi, onSaved, readOnly, selectedAgentKey]);
 
   const handleSave = useCallback(async () => {
     if (readOnly) {
@@ -296,7 +299,9 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOn
       });
       setBindings((current) => current.map((item) => (item.agentKey === saved.agentKey ? saved : item)));
       setDraft(toDraft(saved));
+      await onSaved?.();
       messageApi.success("实例 Agent 配置已保存");
+      await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
@@ -304,7 +309,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOn
     } finally {
       setSaving(false);
     }
-  }, [draft, instanceId, messageApi, readOnly, selectedBinding]);
+  }, [draft, instanceId, messageApi, onSaved, readOnly, selectedBinding]);
 
   const handleUninstall = useCallback(async (agentKey?: string) => {
     if (readOnly) {
@@ -320,7 +325,9 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOn
     try {
       await uninstallInstanceAgentBinding(instanceId, targetAgentKey);
       await loadAll();
+      await onSaved?.();
       messageApi.success("Agent 已从当前实例卸载");
+      await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
@@ -328,7 +335,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, readOn
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadAll, messageApi, readOnly, selectedAgentKey, selectedBinding]);
+  }, [instanceId, loadAll, messageApi, onSaved, readOnly, selectedAgentKey, selectedBinding]);
 
   const selectedBaselineSummary = useMemo(
     () => candidateAgents.find((item) => item.agentKey === selectedAgentKey),

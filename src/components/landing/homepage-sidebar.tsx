@@ -120,7 +120,7 @@ export function HomepageSidebar() {
         animate={{ width: sidebarWidth }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
         style={{ left: "max(0px, calc((100vw - 1920px) / 2))" }}
-        className="fixed top-0 z-20 hidden h-screen overflow-y-auto border-r border-md-outline-variant/25 bg-white/76 px-4 py-5 backdrop-blur-2xl xl:flex xl:flex-col"
+        className="fixed top-0 z-20 hidden h-screen overflow-y-auto rounded-r-[28px] border border-l-0 border-md-outline-variant/25 bg-white/76 px-4 py-5 shadow-[0_20px_48px_rgba(15,23,42,0.06)] backdrop-blur-2xl xl:flex xl:flex-col"
       >
         <div className="mb-5 flex items-center justify-end">
           <button

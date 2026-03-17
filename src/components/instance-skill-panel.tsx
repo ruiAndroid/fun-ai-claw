@@ -38,9 +38,11 @@ function formatTimestamp(value?: string | null): string {
 
 export function InstanceSkillPanel({
   instanceId,
+  onSaved,
   readOnly,
 }: {
   instanceId: string;
+  onSaved?: () => void | Promise<void>;
   readOnly?: boolean;
 }) {
   const [availableSkills, setAvailableSkills] = useState<SkillBaselineSummary[]>([]);
@@ -63,6 +65,7 @@ export function InstanceSkillPanel({
     try {
       const response = await listInstanceSkills(instanceId);
       setRuntimeSkills(response.items);
+      await onSaved?.();
     } catch (apiError) {
       setRuntimeSkills([]);
       setRuntimeError(apiError instanceof Error ? apiError.message : String(apiError));
@@ -187,7 +190,7 @@ export function InstanceSkillPanel({
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, readOnly, selectedSkillKey]);
+  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, onSaved, readOnly, selectedSkillKey]);
 
   const handleUninstall = useCallback(async (skillKey?: string) => {
     if (readOnly) {
@@ -208,6 +211,7 @@ export function InstanceSkillPanel({
         loadSelectedSkillDetail(targetSkillKey),
       ]);
       messageApi.success("Skill 已从当前实例卸载");
+      await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
@@ -215,7 +219,7 @@ export function InstanceSkillPanel({
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, readOnly, selectedSkillKey]);
+  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, onSaved, readOnly, selectedSkillKey]);
 
   return (
     <>

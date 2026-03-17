@@ -58,12 +58,38 @@ export interface ConsumerSmsSendCodeResponse {
 export interface ConsumerSmsVerifyRequest {
   phone: string;
   code: string;
+  inviteCode?: string | null;
 }
 
 export interface ConsumerSmsVerifyResponse {
   me: ConsumerMe;
   newUser: boolean;
   sessionExpiresAt: string;
+}
+
+export interface ConsumerInviteCode {
+  id: string;
+  code: string;
+  batchNo?: string | null;
+  note?: string | null;
+  status: "UNUSED" | "BOUND" | "DISABLED" | string;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  boundUserId?: string | null;
+  boundPhoneMasked?: string | null;
+  boundAt?: string | null;
+}
+
+export interface CreateConsumerInviteCodesRequest {
+  count?: number;
+  note?: string | null;
+  createdBy?: string | null;
+}
+
+export interface CreateConsumerInviteCodesResponse {
+  batchNo: string;
+  items: ConsumerInviteCode[];
 }
 
 export interface AgentDescriptor {

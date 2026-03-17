@@ -7,10 +7,13 @@ import {
   AgentToolCatalog,
   ClawInstance,
   ConsumerMe,
+  ConsumerInviteCode,
   ConsumerSmsSendCodeRequest,
   ConsumerSmsSendCodeResponse,
   ConsumerSmsVerifyRequest,
   ConsumerSmsVerifyResponse,
+  CreateConsumerInviteCodesRequest,
+  CreateConsumerInviteCodesResponse,
   CreateInstanceRequest,
   ImagePreset,
   InstanceAgentBinding,
@@ -146,6 +149,17 @@ export async function logoutConsumer() {
 export async function getConsumerMe() {
   return requestJson<ConsumerMe>("/app/v1/me", {
     credentials: "include",
+  });
+}
+
+export async function listConsumerInviteCodes() {
+  return requestJson<ListResponse<ConsumerInviteCode>>("/v1/consumer-invite-codes");
+}
+
+export async function createConsumerInviteCodes(request: CreateConsumerInviteCodesRequest) {
+  return requestJson<CreateConsumerInviteCodesResponse>("/v1/consumer-invite-codes", {
+    method: "POST",
+    body: JSON.stringify(request),
   });
 }
 

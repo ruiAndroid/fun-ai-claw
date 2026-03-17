@@ -26,6 +26,7 @@ export function LoginForm() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [agreed, setAgreed] = useState(true);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -136,7 +137,11 @@ export function LoginForm() {
 
       setVerifying(true);
       try {
-        await verifyConsumerSmsCode({ phone: normalizedPhone, code: code.trim() });
+        await verifyConsumerSmsCode({
+          phone: normalizedPhone,
+          code: code.trim(),
+          inviteCode: inviteCode.trim() || null,
+        });
         router.replace("/me");
       } catch (requestError) {
         setError(extractErrorMessage(requestError));
@@ -144,7 +149,7 @@ export function LoginForm() {
         setVerifying(false);
       }
     },
-    [agreed, code, phone, router]
+    [agreed, code, inviteCode, phone, router]
   );
 
   return (
@@ -192,6 +197,18 @@ export function LoginForm() {
             </div>
           </div>
 
+          <div>
+            <label className="mb-3 block text-base font-bold text-slate-950">邀请码</label>
+            <input
+              type="text"
+              value={inviteCode}
+              onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 32))}
+              placeholder="内测阶段新用户必填，老用户可留空"
+              disabled={checkingSession || verifying}
+              className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium uppercase text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+            />
+          </div>
+
           {(notice || error || debugCode) && (
             <div className="space-y-3">
               {notice ? (
@@ -236,7 +253,7 @@ export function LoginForm() {
               <Link href="/docs" className="mx-1 font-bold text-cyan-500 hover:text-cyan-600">
                 《隐私政策》
               </Link>
-              ，未注册手机号在登录时会自动创建新账号。
+              ，未注册手机号会在验证码通过后自动创建账号；内测阶段新用户需填写有效邀请码。
             </span>
           </label>
         </form>

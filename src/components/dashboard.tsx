@@ -20,6 +20,7 @@ import { InstanceSessionPanel } from "@/components/instance-session-panel";
 import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { InstanceTaskPanel } from "@/components/instance-task-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
+import { ConsumerInviteCodePanel } from "@/components/consumer-invite-code-panel";
 import { SkillBaselinePanel } from "@/components/skill-baseline-panel";
 import { TemplateManagementPanel } from "@/components/template-management-panel";
 import { appConfig } from "@/config/app-config";
@@ -52,7 +53,7 @@ import {
   parseAgentSessionFrame,
 } from "@/lib/agent-session-protocol";
 import { uiText } from "@/constants/ui-text";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Trash2, Terminal, Eye, MonitorPlay, RefreshCw, FileText, Copy, Plug } from "lucide-react";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Trash2, Terminal, Eye, MonitorPlay, RefreshCw, FileText, Copy, Plug, Ticket } from "lucide-react";
 import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion, useSpring, useTransform, useMotionValue } from "framer-motion";
@@ -64,7 +65,7 @@ type CreateInstanceFormValues = {
   templateKey: string;
   desiredState: DesiredState;
 };
-type ConsoleView = "instances" | "templates" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
+type ConsoleView = "instances" | "templates" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform" | "invite-codes";
 type InstanceDetailTabKey = "claw" | "config" | "channels" | "agents" | "skills" | "sessions" | "tasks";
 type AgentMessageSendOptions = {
   displayText?: string;
@@ -2432,6 +2433,15 @@ export function Dashboard() {
                 </button>
                 <button
                   type="button"
+                  className={`sidebar-item ${activeMenuView === "invite-codes" ? "is-active" : ""}`}
+                  onClick={() => openMenuView("invite-codes")}
+                  title="邀请码管理"
+                >
+                  <span className="sidebar-icon-wrap"><Ticket size={16} /></span>
+                  {!sidebarCollapsed ? <span>邀请码</span> : null}
+                </button>
+                <button
+                  type="button"
                   className={`sidebar-item ${activeMenuView === "open-platform" ? "is-active" : ""}`}
                   onClick={() => openMenuView("open-platform")}
                   title={uiText.menuOpenPlatform}
@@ -3171,6 +3181,11 @@ export function Dashboard() {
                 {activeView === "open-platform" ? (
                   <Card className="glass-card" title={uiText.menuOpenPlatform}>
                     <OpenPlatformPanel />
+                  </Card>
+                ) : null}
+                {activeView === "invite-codes" ? (
+                  <Card className="glass-card" title="邀请码管理">
+                    <ConsumerInviteCodePanel />
                   </Card>
                 ) : null}
               </Space>

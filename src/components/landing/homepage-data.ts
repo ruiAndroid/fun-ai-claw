@@ -112,6 +112,11 @@ export type SidebarNavItem = {
   active?: boolean;
 };
 
+export type SidebarMessageItem = {
+  id: string;
+  title: string;
+};
+
 export const sidebarNavItems: SidebarNavItem[] = [
   {
     icon: CalendarClock,
@@ -131,7 +136,4 @@ export const sidebarNavItems: SidebarNavItem[] = [
   },
 ] as const;
 
-export const sidebarMessagePlaceholders = Array.from({ length: 7 }, (_, index) => ({
-  id: `placeholder-${index + 1}`,
-  label: `placeholder-${index + 1}`,
-}));
+export const sidebarMessages: SidebarMessageItem[] = [];

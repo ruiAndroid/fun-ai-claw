@@ -12,23 +12,7 @@ import {
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
-import { sidebarMessagePlaceholders, sidebarNavItems } from "./homepage-data";
-
-function SidebarThreadSkeleton({ index }: { index: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.25, delay: index * 0.04 }}
-      className="flex items-center gap-3 rounded-[20px] px-2 py-2.5 transition-colors duration-300 hover:bg-white/70"
-    >
-      <div className="h-11 w-11 rounded-full bg-slate-200" />
-      <div className="min-w-0 flex-1">
-        <div className="h-4 w-24 rounded-full bg-slate-200" />
-      </div>
-    </motion.div>
-  );
-}
+import { sidebarMessages, sidebarNavItems } from "./homepage-data";
 
 function SidebarNavLink({
   href,
@@ -121,13 +105,14 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
 export function HomepageSidebar() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMessageExpanded, setIsMessageExpanded] = useState(true);
+  const hasMessages = sidebarMessages.length > 0;
 
   return (
     <motion.aside
       initial={false}
       animate={{ width: isSidebarCollapsed ? 104 : 292 }}
       transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-      className="hidden shrink-0 border-r border-md-outline-variant/25 bg-white/76 px-4 py-5 backdrop-blur-2xl xl:flex xl:flex-col"
+      className="hidden shrink-0 self-start overflow-hidden border-r border-md-outline-variant/25 bg-white/76 px-4 py-5 backdrop-blur-2xl xl:sticky xl:top-0 xl:flex xl:h-screen xl:flex-col"
     >
       <div className="mb-5 flex items-center justify-end">
         <button
@@ -170,7 +155,7 @@ export function HomepageSidebar() {
           <SidebarUserCard collapsed />
         </div>
       ) : (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex items-center gap-3 px-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm">
               <MessageCircle size={16} />
@@ -205,11 +190,28 @@ export function HomepageSidebar() {
                 transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
                 className="mt-5 overflow-hidden"
               >
-                <div className="max-h-[460px] overflow-y-auto pr-2">
-                  {sidebarMessagePlaceholders.map((item, index) => (
-                    <SidebarThreadSkeleton key={item.id} index={index} />
-                  ))}
-                </div>
+                {hasMessages ? (
+                  <div className="max-h-[460px] overflow-y-auto pr-2">
+                    {sidebarMessages.map((item) => (
+                      <Link
+                        key={item.id}
+                        href="/console"
+                        className="mb-2 flex items-center gap-3 rounded-[20px] px-2 py-2.5 transition-colors duration-300 hover:bg-white/70"
+                      >
+                        <div className="h-11 w-11 rounded-full bg-slate-200" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold text-md-on-surface">
+                            {item.title}
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[24px] border border-dashed border-md-outline-variant/40 bg-white/60 px-4 py-5 text-sm text-md-on-surface-variant">
+                    暂无消息，接入真实会话后这里才会显示内容。
+                  </div>
+                )}
               </motion.div>
             ) : null}
           </AnimatePresence>
@@ -228,7 +230,7 @@ export function HomepageSidebar() {
           </div>
 
           <SidebarUserCard collapsed={false} />
-        </>
+        </div>
       )}
     </motion.aside>
   );

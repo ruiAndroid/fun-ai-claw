@@ -17,7 +17,7 @@ export function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(15,118,110,0.05)_1px,transparent_1px)] [background-size:22px_22px] opacity-30" />
       </div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-[1920px]">
+      <div className="relative mx-auto flex min-h-screen max-w-[1920px] items-start">
         <HomepageSidebar />
 
         <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8 lg:py-6 xl:px-10">

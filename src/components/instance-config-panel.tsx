@@ -90,6 +90,7 @@ export function InstanceConfigPanel({
       const response = await getInstanceConfig(instance.id);
       setConfig(response);
       setDraft(response.configToml ?? "");
+      await onConfigSaved?.();
       if (showSuccess) {
         messageApi.success("已刷新实例配置");
       }

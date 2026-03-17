@@ -79,7 +79,7 @@ const INSTANCE_TEMPLATE_MANAGED_MODE = true;
 const INSTANCE_TEMPLATE_MANAGED_GUIDANCE_READONLY = false;
 const INSTANCE_TEMPLATE_MANAGED_CHANNELS_READONLY = false;
 const INSTANCE_TEMPLATE_MANAGED_STRUCTURED_CONFIG_READONLY = false;
-const INSTANCE_TEMPLATE_MANAGED_RAW_CONFIG_READONLY = true;
+const INSTANCE_TEMPLATE_MANAGED_RAW_CONFIG_READONLY = false;
 
 function AnimatedNumber({ value, className }: { value: number; className?: string }) {
   const motionValue = useMotionValue(0);
@@ -2556,7 +2556,7 @@ export function Dashboard() {
                         type="info"
                         showIcon
                         message={uiText.instanceReadonlyNoticeTitle}
-                        description="当前仍处于模板托管分阶段放开模式：主 Agent 提示词、渠道配置、默认模型与路由配置已开放编辑；原始 config.toml、Agent、Skills 暂不支持前端修改。"
+                        description="当前仍处于模板托管分阶段放开模式：主 Agent 提示词、渠道配置、默认模型、路由配置与原始 config.toml 已开放编辑；Agent、Skills 暂不支持前端修改。"
                       />
                     ) : null}
                     <motion.div

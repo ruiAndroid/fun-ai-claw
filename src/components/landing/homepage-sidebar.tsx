@@ -165,11 +165,11 @@ export function HomepageSidebar() {
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 pr-1">
-              <div className="flex items-center gap-3 px-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm">
+              <div className="flex items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-bold text-md-on-surface">
+                <span className="flex h-9 w-9 items-center justify-center rounded-[14px] bg-white/82 text-md-on-surface shadow-sm">
                   <MessageCircle size={16} />
                 </span>
-                <div className="text-[22px] font-black tracking-[-0.04em] text-md-on-surface">消息</div>
+                <div>消息</div>
                 <div className="ml-auto flex items-center gap-2">
                   <button
                     type="button"

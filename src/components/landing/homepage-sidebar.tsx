@@ -19,19 +19,17 @@ function SidebarBrand() {
   return (
     <Link
       href="/"
-      className="group inline-flex items-center gap-3 rounded-[20px] border border-white/70 bg-white/78 px-3 py-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200/80 hover:shadow-[0_16px_36px_rgba(34,211,238,0.12)]"
+      className="group inline-flex items-center gap-3 rounded-[20px] border border-white/70 bg-white/78 px-3 py-2.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200/80 hover:shadow-[0_16px_36px_rgba(34,211,238,0.12)]"
       aria-label="返回首页"
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[linear-gradient(135deg,rgba(96,165,250,0.96)_0%,rgba(253,224,71,0.92)_100%)] text-slate-950 shadow-[0_14px_28px_rgba(56,189,248,0.18)]">
-        <XiamiIcon size={22} />
+      <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,rgba(96,165,250,0.98)_0%,rgba(253,224,71,0.94)_100%)] text-slate-950 shadow-[0_16px_30px_rgba(56,189,248,0.2)]">
+        <XiamiIcon size={24} />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-black tracking-[-0.03em] text-slate-950">
+        <span className="block bg-[linear-gradient(135deg,#0f172a_0%,#0f766e_52%,#06b6d4_100%)] bg-clip-text text-[15px] font-black tracking-[-0.05em] text-transparent">
           FunClaw
         </span>
-        <span className="block text-[11px] font-medium text-md-on-surface-variant">
-          Brand Home
-        </span>
+        <span className="mt-1 block h-1.5 w-10 rounded-full bg-[linear-gradient(90deg,rgba(14,165,233,0.88)_0%,rgba(20,184,166,0.82)_55%,rgba(250,204,21,0.76)_100%)]" />
       </span>
     </Link>
   );

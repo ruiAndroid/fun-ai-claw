@@ -3,6 +3,7 @@
 import { appConfig } from "@/config/app-config";
 import type {
   UserCenterAuthResponse,
+  UserCenterAuthSnapshot,
   UserCenterMe,
   UserCenterRefreshTokenRequest,
   UserCenterSmsSendCodeRequest,
@@ -13,6 +14,10 @@ import type {
 const USER_CENTER_BASE_URL = appConfig.userCenterBaseUrl;
 const ACCESS_TOKEN_KEY = "fun_claw_uc_access_token";
 const REFRESH_TOKEN_KEY = "fun_claw_uc_refresh_token";
+const TOKEN_TYPE_KEY = "fun_claw_uc_token_type";
+const ACCESS_TOKEN_EXPIRES_AT_KEY = "fun_claw_uc_access_token_expires_at";
+const REFRESH_TOKEN_EXPIRES_AT_KEY = "fun_claw_uc_refresh_token_expires_at";
+const SESSION_KEY = "fun_claw_uc_session_key";
 
 let accessTokenMemoryCache: string | null = null;
 let refreshPromise: Promise<UserCenterAuthResponse> | null = null;
@@ -56,16 +61,63 @@ function getRefreshToken() {
   return getStoredValue(REFRESH_TOKEN_KEY);
 }
 
+function getStoredTokenType() {
+  return getStoredValue(TOKEN_TYPE_KEY);
+}
+
+function getStoredAccessTokenExpiresAt() {
+  return getStoredValue(ACCESS_TOKEN_EXPIRES_AT_KEY);
+}
+
+function getStoredRefreshTokenExpiresAt() {
+  return getStoredValue(REFRESH_TOKEN_EXPIRES_AT_KEY);
+}
+
+function generateSessionKey() {
+  if (typeof window !== "undefined" && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return `uc-${Date.now()}-${Math.random().toString(16).slice(2, 12)}`;
+}
+
+function getOrCreateSessionKey() {
+  const stored = getStoredValue(SESSION_KEY);
+  if (stored) {
+    return stored;
+  }
+  const created = generateSessionKey();
+  setStoredValue(SESSION_KEY, created);
+  return created;
+}
+
 function storeAuthTokens(response: UserCenterAuthResponse) {
   accessTokenMemoryCache = response.accessToken;
   setStoredValue(ACCESS_TOKEN_KEY, response.accessToken);
   setStoredValue(REFRESH_TOKEN_KEY, response.refreshToken);
+  setStoredValue(TOKEN_TYPE_KEY, response.tokenType);
+  setStoredValue(ACCESS_TOKEN_EXPIRES_AT_KEY, response.accessTokenExpiresAt);
+  setStoredValue(REFRESH_TOKEN_EXPIRES_AT_KEY, response.refreshTokenExpiresAt);
+  getOrCreateSessionKey();
 }
 
 export function clearUserCenterAuthState() {
   accessTokenMemoryCache = null;
   setStoredValue(ACCESS_TOKEN_KEY, null);
   setStoredValue(REFRESH_TOKEN_KEY, null);
+  setStoredValue(TOKEN_TYPE_KEY, null);
+  setStoredValue(ACCESS_TOKEN_EXPIRES_AT_KEY, null);
+  setStoredValue(REFRESH_TOKEN_EXPIRES_AT_KEY, null);
+}
+
+export function getUserCenterAuthSnapshot(): UserCenterAuthSnapshot {
+  return {
+    tokenType: getStoredTokenType(),
+    accessToken: getAccessToken(),
+    accessTokenExpiresAt: getStoredAccessTokenExpiresAt(),
+    refreshToken: getRefreshToken(),
+    refreshTokenExpiresAt: getStoredRefreshTokenExpiresAt(),
+    sessionKey: getOrCreateSessionKey(),
+  };
 }
 
 async function buildRequestError(response: Response): Promise<Error> {

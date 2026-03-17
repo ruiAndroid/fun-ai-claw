@@ -1,4 +1,4 @@
-import type { UserCenterMe } from "@/types/user-center";
+import type { ConsumerAccount } from "@/types/consumer";
 
 function formatDateTime(value?: string | null) {
   if (!value) {
@@ -19,14 +19,18 @@ function formatDateTime(value?: string | null) {
   });
 }
 
-export function AccountSettingsPanel({ me }: { me: UserCenterMe }) {
+export function AccountSettingsPanel({ account }: { account: ConsumerAccount }) {
   const rows = [
-    { label: "手机号", value: me.phoneMasked },
-    { label: "UID", value: me.uid },
-    { label: "昵称", value: me.nickname || me.phoneMasked },
-    { label: "状态", value: me.status },
-    { label: "注册时间", value: formatDateTime(me.createdAt) },
-    { label: "最近登录", value: formatDateTime(me.lastLoginAt) },
+    { label: "手机号", value: account.phoneMasked || "暂无" },
+    { label: "外部用户 ID", value: account.externalUserId },
+    { label: "外部 UID", value: account.externalUid || "暂无" },
+    { label: "昵称", value: account.displayName || account.phoneMasked || "暂无" },
+    { label: "状态", value: account.status },
+    { label: "外部注册时间", value: formatDateTime(account.externalCreatedAt) },
+    { label: "最近登录", value: formatDateTime(account.lastLoginAt) },
+    { label: "最近同步", value: formatDateTime(account.lastVerifiedAt) },
+    { label: "活跃登录会话", value: String(account.activeSessionCount) },
+    { label: "已绑定实例数", value: String(account.activeInstanceCount) },
   ];
 
   return (
@@ -54,9 +58,9 @@ export function AccountSettingsPanel({ me }: { me: UserCenterMe }) {
         <h2 className="text-4xl font-black tracking-[-0.05em] text-slate-950">接入说明</h2>
         <div className="mt-8 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
           <div className="grid gap-5 text-lg font-semibold leading-8 text-slate-500">
-            <div>当前页面已改为请求统一用户中心，不再依赖本项目的本地鉴权与邀请码逻辑。</div>
-            <div>后端未来只会同步外部用户资料快照，用于与本平台的实例、积分和作品做绑定。</div>
-            <div>如需切换到真实用户中心，请配置 `NEXT_PUBLIC_USER_CENTER_BASE_URL`。</div>
+            <div>当前页面会先使用外部用户中心 access token 完成鉴权，再由本地业务后端同步用户镜像。</div>
+            <div>本地仅维护用户快照、外部鉴权会话和实例绑定关系，不再承接短信、邀请码或支付逻辑。</div>
+            <div>如需切换真实用户中心，请同时配置 `NEXT_PUBLIC_USER_CENTER_BASE_URL` 和后端 `CONSUMER_AUTH_BASE_URL`。</div>
           </div>
         </div>
       </section>

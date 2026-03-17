@@ -40,3 +40,12 @@ export interface UserCenterAuthResponse {
 export interface UserCenterRefreshTokenRequest {
   refreshToken?: string | null;
 }
+
+export interface UserCenterAuthSnapshot {
+  tokenType?: string | null;
+  accessToken?: string | null;
+  accessTokenExpiresAt?: string | null;
+  refreshToken?: string | null;
+  refreshTokenExpiresAt?: string | null;
+  sessionKey: string;
+}

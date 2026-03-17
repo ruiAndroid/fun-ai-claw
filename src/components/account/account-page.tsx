@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUserCenterMe, logoutUserCenter } from "@/lib/user-center-api";
-import type { UserCenterMe } from "@/types/user-center";
+import { getConsumerAccount } from "@/lib/consumer-api";
+import { logoutUserCenter } from "@/lib/user-center-api";
+import type { ConsumerAccount } from "@/types/consumer";
 import type { AccountTabKey } from "./account-data";
 import { AccountSidebar } from "./account-sidebar";
 import { AccountSettingsPanel } from "./account-settings-panel";
@@ -21,7 +22,7 @@ function isUnauthorizedError(error: unknown): boolean {
 export function AccountPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AccountTabKey>("settings");
-  const [me, setMe] = useState<UserCenterMe | null>(null);
+  const [account, setAccount] = useState<ConsumerAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -31,8 +32,8 @@ export function AccountPage() {
     setError(null);
 
     try {
-      const current = await getUserCenterMe();
-      setMe(current);
+      const current = await getConsumerAccount();
+      setAccount(current);
     } catch (requestError) {
       if (isUnauthorizedError(requestError)) {
         router.replace("/login");
@@ -59,7 +60,7 @@ export function AccountPage() {
   }, [router]);
 
   const content = useMemo(() => {
-    if (!me) {
+    if (!account) {
       return null;
     }
 
@@ -70,9 +71,9 @@ export function AccountPage() {
         return <AccountWorksPanel />;
       case "settings":
       default:
-        return <AccountSettingsPanel me={me} />;
+        return <AccountSettingsPanel account={account} />;
     }
-  }, [activeTab, me]);
+  }, [account, activeTab]);
 
   if (loading) {
     return (
@@ -84,7 +85,7 @@ export function AccountPage() {
     );
   }
 
-  if (error || !me) {
+  if (error || !account) {
     return (
       <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f9fffe_100%)] px-5 py-4 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-[960px] rounded-[28px] bg-white/70 px-8 py-12 text-center shadow-[0_20px_48px_rgba(15,23,42,0.05)]">

@@ -12,7 +12,30 @@ import {
   Plus,
   UserRound,
 } from "lucide-react";
+import { XiamiIcon } from "@/components/ui/xiami-icon";
 import { sidebarMessages, sidebarNavItems } from "./homepage-data";
+
+function SidebarBrand() {
+  return (
+    <Link
+      href="/"
+      className="group inline-flex items-center gap-3 rounded-[20px] border border-white/70 bg-white/78 px-3 py-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200/80 hover:shadow-[0_16px_36px_rgba(34,211,238,0.12)]"
+      aria-label="返回首页"
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[linear-gradient(135deg,rgba(96,165,250,0.96)_0%,rgba(253,224,71,0.92)_100%)] text-slate-950 shadow-[0_14px_28px_rgba(56,189,248,0.18)]">
+        <XiamiIcon size={22} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-black tracking-[-0.03em] text-slate-950">
+          FunClaw
+        </span>
+        <span className="block text-[11px] font-medium text-md-on-surface-variant">
+          Brand Home
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 function SidebarNavLink({
   href,
@@ -145,7 +168,8 @@ export function HomepageSidebar() {
         style={{ left: "max(0px, calc((100vw - 1920px) / 2))" }}
         className="fixed bottom-4 top-4 z-20 hidden overflow-hidden rounded-[28px] border border-md-outline-variant/25 bg-white/76 px-4 py-5 shadow-[0_20px_48px_rgba(15,23,42,0.06)] backdrop-blur-2xl xl:flex xl:flex-col"
       >
-        <div className="mb-5 flex items-center justify-end">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          {!isSidebarCollapsed ? <SidebarBrand /> : <div className="h-10" />}
           <button
             type="button"
             onClick={() => setIsSidebarCollapsed((value) => !value)}

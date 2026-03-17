@@ -360,6 +360,7 @@ export interface InstanceTemplate {
   imagePresetId: string;
   desiredState: DesiredState;
   mainAgent: InstanceTemplateAgentBinding;
+  agentBindings: InstanceTemplateAgentBinding[];
   agentKeys: string[];
   skillKeys: string[];
   lockedScopes: string[];
@@ -392,6 +393,16 @@ export interface InstanceTemplateUpsertRequest {
     allowedTools?: string[] | null;
     allowedSkills?: string[] | null;
   } | null;
+  agentBindings?: Array<{
+    agentKey: string;
+    provider?: string | null;
+    model?: string | null;
+    temperature?: number | null;
+    agentic?: boolean | null;
+    systemPrompt?: string | null;
+    allowedTools?: string[] | null;
+    allowedSkills?: string[] | null;
+  }> | null;
   agentKeys?: string[] | null;
   skillKeys?: string[] | null;
   lockedScopes?: string[] | null;

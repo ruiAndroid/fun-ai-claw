@@ -12,7 +12,13 @@ import {
   upsertInstanceMainAgentGuidance,
   upsertInstanceRoutingConfig,
 } from "@/lib/control-api";
-import type { ClawInstance, DesiredState, ImagePreset, InstanceTemplate } from "@/types/contracts";
+import type {
+  ClawInstance,
+  DesiredState,
+  ImagePreset,
+  InstanceTemplate,
+  InstanceTemplateAgentBinding,
+} from "@/types/contracts";
 
 const TEMPLATE_UPDATED_BY = "template-center";
 
@@ -39,12 +45,46 @@ export function resolveTemplateImagePreset(
 }
 
 function resolveTemplateAgentKeys(template: InstanceTemplate): string[] {
+  const explicitBindingKeys = Array.from(
+    new Set((template.agentBindings ?? []).map((binding) => binding.agentKey?.trim()).filter(Boolean)),
+  ) as string[];
+  if (explicitBindingKeys.length > 0) {
+    return explicitBindingKeys;
+  }
   const explicitAgentKeys = Array.from(new Set((template.agentKeys ?? []).map((value) => value.trim()).filter(Boolean)));
   if (explicitAgentKeys.length > 0) {
     return explicitAgentKeys;
   }
   const legacyMainAgentKey = template.mainAgent?.agentKey?.trim();
   return legacyMainAgentKey ? [legacyMainAgentKey] : [];
+}
+
+function resolveTemplateAgentBindings(template: InstanceTemplate): InstanceTemplateAgentBinding[] {
+  const explicitBindings = (template.agentBindings ?? [])
+    .map((binding) => ({
+      agentKey: binding.agentKey?.trim() ?? "",
+      provider: binding.provider ?? null,
+      model: binding.model ?? null,
+      temperature: binding.temperature ?? null,
+      agentic: binding.agentic ?? null,
+      systemPrompt: binding.systemPrompt ?? null,
+      allowedTools: Array.from(new Set((binding.allowedTools ?? []).map((value) => value.trim()).filter(Boolean))),
+      allowedSkills: Array.from(new Set((binding.allowedSkills ?? []).map((value) => value.trim()).filter(Boolean))),
+    }))
+    .filter((binding) => binding.agentKey);
+  if (explicitBindings.length > 0) {
+    return explicitBindings;
+  }
+  return resolveTemplateAgentKeys(template).map((agentKey) => ({
+    agentKey,
+    provider: null,
+    model: null,
+    temperature: null,
+    agentic: null,
+    systemPrompt: null,
+    allowedTools: [],
+    allowedSkills: [],
+  }));
 }
 
 type CreateManagedInstanceFromTemplateOptions = {
@@ -83,9 +123,16 @@ export async function createManagedInstanceFromTemplate({
 
   try {
     onProgress?.("正在绑定主 Agent…");
-    const agentKeys = resolveTemplateAgentKeys(template);
-    for (const agentKey of agentKeys) {
-      await upsertInstanceAgentBinding(instance.id, agentKey, {
+    const agentBindings = resolveTemplateAgentBindings(template);
+    for (const binding of agentBindings) {
+      await upsertInstanceAgentBinding(instance.id, binding.agentKey, {
+        provider: undefinedWhenNull(binding.provider),
+        model: undefinedWhenNull(binding.model),
+        temperature: undefinedWhenNull(binding.temperature),
+        agentic: undefinedWhenNull(binding.agentic),
+        systemPrompt: undefinedWhenNull(binding.systemPrompt),
+        allowedTools: binding.allowedTools,
+        allowedSkills: binding.allowedSkills,
         updatedBy: TEMPLATE_UPDATED_BY,
       });
     }

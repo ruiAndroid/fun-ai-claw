@@ -3,15 +3,19 @@
 import {
   createInstanceTemplate,
   deleteInstanceTemplate,
+  getAgentToolCatalog,
   listAgentBaselines,
   listSkillBaselines,
   previewInstanceTemplateConfig,
   upsertInstanceTemplate,
 } from "@/lib/control-api";
+import { buildAgentToolOptions, emptyAgentToolCatalog } from "@/lib/agent-tool-catalog";
 import type {
   AgentBaselineSummary,
+  AgentToolCatalog,
   ImagePreset,
   InstanceTemplate,
+  InstanceTemplateAgentBinding,
   InstanceTemplateChannelsConfig,
   InstanceTemplateDefaultModelConfig,
   InstanceTemplateMainAgentGuidance,
@@ -155,6 +159,76 @@ function buildEmptyGuidance(): InstanceTemplateMainAgentGuidance {
   };
 }
 
+function buildAgentLabel(agent: AgentBaselineSummary): string {
+  return agent.displayName ? `${agent.displayName} (${agent.agentKey})` : agent.agentKey;
+}
+
+function resolveAgentLabel(agentKey: string, baselineMap: Map<string, AgentBaselineSummary>): string {
+  const baseline = baselineMap.get(agentKey);
+  return baseline ? buildAgentLabel(baseline) : agentKey;
+}
+
+function buildEmptyTemplateAgentBinding(agentKey = ""): InstanceTemplateAgentBinding {
+  return {
+    agentKey,
+    provider: "",
+    model: "",
+    temperature: null,
+    agentic: null,
+    systemPrompt: "",
+    allowedTools: [],
+    allowedSkills: [],
+  };
+}
+
+function resolveTemplateAgentBindings(
+  template: InstanceTemplate,
+  baselines: AgentBaselineSummary[] = [],
+): InstanceTemplateAgentBinding[] {
+  const baselineMap = new Map(baselines.map((item) => [item.agentKey, item]));
+  const explicitBindings: InstanceTemplateAgentBinding[] = [];
+  for (const binding of template.agentBindings ?? []) {
+    const agentKey = binding.agentKey?.trim() ?? "";
+    if (!agentKey) {
+      continue;
+    }
+    explicitBindings.push({
+      agentKey,
+      provider: normalizeOptionalText(binding.provider),
+      model: normalizeOptionalText(binding.model),
+      temperature: binding.temperature ?? null,
+      agentic: binding.agentic ?? null,
+      systemPrompt: normalizeOptionalText(binding.systemPrompt),
+      allowedTools: normalizeStringValues(binding.allowedTools),
+      allowedSkills: normalizeStringValues(binding.allowedSkills),
+    });
+  }
+
+  if (explicitBindings.length > 0) {
+    return explicitBindings;
+  }
+
+  const legacyMainAgentKey = template.mainAgent?.agentKey?.trim();
+  const agentKeys = normalizeStringValues([
+    ...(template.agentKeys ?? []),
+    ...(legacyMainAgentKey ? [legacyMainAgentKey] : []),
+  ]);
+
+  return agentKeys.map((agentKey) => {
+    const baseline = baselineMap.get(agentKey);
+    return {
+      agentKey,
+      provider: normalizeOptionalText(baseline?.provider),
+      model: normalizeOptionalText(baseline?.model),
+      temperature: baseline?.temperature ?? null,
+      agentic: baseline?.agentic ?? null,
+      systemPrompt: "",
+      allowedTools: normalizeStringValues(baseline?.allowedTools),
+      allowedSkills: normalizeStringValues(baseline?.allowedSkills),
+    };
+  });
+}
+
 function buildEmptyTemplate(templateKey = "", displayName = ""): InstanceTemplate {
   const now = new Date().toISOString();
   return {
@@ -175,6 +249,7 @@ function buildEmptyTemplate(templateKey = "", displayName = ""): InstanceTemplat
       allowedTools: [],
       allowedSkills: [],
     },
+    agentBindings: [],
     agentKeys: [],
     skillKeys: [],
     lockedScopes: [],
@@ -190,13 +265,10 @@ function buildEmptyTemplate(templateKey = "", displayName = ""): InstanceTemplat
   };
 }
 
-function hydrateTemplateDraft(template: InstanceTemplate): InstanceTemplate {
+function hydrateTemplateDraft(template: InstanceTemplate, baselines: AgentBaselineSummary[] = []): InstanceTemplate {
   const draft = cloneTemplate(template);
-  const legacyMainAgentKey = draft.mainAgent?.agentKey?.trim();
-  draft.agentKeys = normalizeStringValues([
-    ...(draft.agentKeys ?? []),
-    ...(legacyMainAgentKey ? [legacyMainAgentKey] : []),
-  ]);
+  draft.agentBindings = resolveTemplateAgentBindings(draft, baselines);
+  draft.agentKeys = draft.agentBindings.map((binding) => binding.agentKey);
   draft.mainAgent = {
     agentKey: "",
     provider: "",
@@ -283,7 +355,21 @@ function normalizeGuidanceForCompare(value?: InstanceTemplateMainAgentGuidance |
     prompt: normalizeOptionalText(value.prompt),
   };
 }
-function snapshotTemplate(template?: InstanceTemplate | null): string {
+
+function normalizeTemplateAgentBindingForCompare(binding: InstanceTemplateAgentBinding) {
+  return {
+    agentKey: binding.agentKey.trim(),
+    provider: normalizeOptionalText(binding.provider).trim(),
+    model: normalizeOptionalText(binding.model).trim(),
+    temperature: binding.temperature ?? null,
+    agentic: binding.agentic ?? null,
+    systemPrompt: normalizeOptionalText(binding.systemPrompt),
+    allowedTools: normalizeStringValues(binding.allowedTools),
+    allowedSkills: normalizeStringValues(binding.allowedSkills),
+  };
+}
+
+function snapshotTemplate(template?: InstanceTemplate | null, baselines: AgentBaselineSummary[] = []): string {
   if (!template) {
     return "";
   }
@@ -294,10 +380,9 @@ function snapshotTemplate(template?: InstanceTemplate | null): string {
     enabled: template.enabled,
     imagePresetId: template.imagePresetId,
     desiredState: template.desiredState,
-    agentKeys: normalizeStringValues([
-      ...(template.agentKeys ?? []),
-      ...(template.mainAgent?.agentKey?.trim() ? [template.mainAgent.agentKey.trim()] : []),
-    ]),
+    agentBindings: resolveTemplateAgentBindings(template, baselines)
+      .map(normalizeTemplateAgentBindingForCompare)
+      .sort((left, right) => left.agentKey.localeCompare(right.agentKey)),
     skillKeys: normalizeStringValues(template.skillKeys),
     tags: normalizeStringValues(template.tags),
     channelsConfig: normalizeChannelsConfigForCompare(template.channelsConfig),
@@ -395,6 +480,19 @@ function toUpsertRequest(draft: InstanceTemplate): InstanceTemplateUpsertRequest
     ? normalizedGuidance
     : null;
 
+  const agentBindings = resolveTemplateAgentBindings(draft)
+    .map((binding) => ({
+      agentKey: binding.agentKey.trim(),
+      provider: trimToNull(binding.provider),
+      model: trimToNull(binding.model),
+      temperature: typeof binding.temperature === "number" ? binding.temperature : null,
+      agentic: binding.agentic ?? null,
+      systemPrompt: bodyToNull(binding.systemPrompt),
+      allowedTools: normalizeStringValues(binding.allowedTools),
+      allowedSkills: normalizeStringValues(binding.allowedSkills),
+    }))
+    .filter((binding) => binding.agentKey);
+
   return {
     templateKey: draft.templateKey,
     displayName: draft.displayName,
@@ -413,7 +511,8 @@ function toUpsertRequest(draft: InstanceTemplate): InstanceTemplateUpsertRequest
       allowedTools: [],
       allowedSkills: [],
     },
-    agentKeys: normalizeStringValues(draft.agentKeys),
+    agentBindings,
+    agentKeys: agentBindings.map((binding) => binding.agentKey),
     skillKeys: normalizeStringValues(draft.skillKeys),
     lockedScopes: [],
     tags: normalizeStringValues(draft.tags),
@@ -451,9 +550,12 @@ export function TemplateManagementPanel({
   const [error, setError] = useState<string>();
   const [agentBaselines, setAgentBaselines] = useState<AgentBaselineSummary[]>([]);
   const [skillBaselines, setSkillBaselines] = useState<SkillBaselineSummary[]>([]);
+  const [toolCatalog, setToolCatalog] = useState<AgentToolCatalog>(emptyAgentToolCatalog());
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [agentSearch, setAgentSearch] = useState("");
   const [skillSearch, setSkillSearch] = useState("");
+  const [selectedTemplateAgentKey, setSelectedTemplateAgentKey] = useState<string>();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewConfigToml, setPreviewConfigToml] = useState("");
@@ -461,9 +563,11 @@ export function TemplateManagementPanel({
 
   useEffect(() => {
     void Promise.allSettled([
+      getAgentToolCatalog(),
       listAgentBaselines(),
       listSkillBaselines(),
-    ]).then(([agentResult, skillResult]) => {
+    ]).then(([catalogResult, agentResult, skillResult]) => {
+      setToolCatalog(catalogResult.status === "fulfilled" ? catalogResult.value : emptyAgentToolCatalog());
       setAgentBaselines(agentResult.status === "fulfilled" ? agentResult.value.items : []);
       setSkillBaselines(skillResult.status === "fulfilled" ? skillResult.value.items : []);
     });
@@ -482,9 +586,11 @@ export function TemplateManagementPanel({
   }, [selectedTemplateKey, templates]);
   useEffect(() => {
     const selected = templates.find((item) => item.templateKey === selectedTemplateKey);
-    setDraft(selected ? hydrateTemplateDraft(selected) : undefined);
+    setDraft(selected ? hydrateTemplateDraft(selected, agentBaselines) : undefined);
+    setSelectedTemplateAgentKey(undefined);
+    setAgentSearch("");
     setSkillSearch("");
-  }, [selectedTemplateKey, templates]);
+  }, [agentBaselines, selectedTemplateKey, templates]);
 
   const selectedTemplate = useMemo(
     () => templates.find((item) => item.templateKey === selectedTemplateKey),
@@ -495,18 +601,16 @@ export function TemplateManagementPanel({
     if (!draft || !selectedTemplate) {
       return false;
     }
-    return snapshotTemplate(draft) !== snapshotTemplate(selectedTemplate);
-  }, [draft, selectedTemplate]);
+    return snapshotTemplate(draft, agentBaselines) !== snapshotTemplate(selectedTemplate, agentBaselines);
+  }, [agentBaselines, draft, selectedTemplate]);
 
   const imageOptions = useMemo(
     () => images.map((item) => ({ value: item.id, label: `${item.name} · ${item.image}` })),
     [images],
   );
 
-  const agentOptions = useMemo(
-    () => agentBaselines
-      .map((item) => ({ value: item.agentKey, label: `${item.displayName} (${item.agentKey})` }))
-      .sort((left, right) => left.value.localeCompare(right.value)),
+  const agentBaselineMap = useMemo(
+    () => new Map(agentBaselines.map((item) => [item.agentKey, item])),
     [agentBaselines],
   );
 
@@ -532,6 +636,49 @@ export function TemplateManagementPanel({
     [draft?.skillKeys],
   );
 
+  const mountedAgentSet = useMemo(
+    () => new Set((draft?.agentBindings ?? []).map((binding) => binding.agentKey)),
+    [draft?.agentBindings],
+  );
+
+  const filteredAgentBaselines = useMemo(() => {
+    const keyword = agentSearch.trim().toLowerCase();
+    if (!keyword) {
+      return agentBaselines;
+    }
+    return agentBaselines.filter((item) => {
+      const haystack = `${item.agentKey} ${item.displayName ?? ""} ${item.sourceRef ?? ""}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [agentBaselines, agentSearch]);
+
+  const selectedTemplateAgentBinding = useMemo(
+    () => draft?.agentBindings.find((binding) => binding.agentKey === selectedTemplateAgentKey),
+    [draft?.agentBindings, selectedTemplateAgentKey],
+  );
+
+  const selectedTemplateAgentBaseline = useMemo(
+    () => (selectedTemplateAgentKey ? agentBaselineMap.get(selectedTemplateAgentKey) : undefined),
+    [agentBaselineMap, selectedTemplateAgentKey],
+  );
+
+  const allowedToolOptions = useMemo(
+    () => buildAgentToolOptions(toolCatalog.tools, selectedTemplateAgentBinding?.allowedTools ?? []),
+    [selectedTemplateAgentBinding?.allowedTools, toolCatalog.tools],
+  );
+
+  const allowedSkillOptions = useMemo(() => {
+    const options = new Map(mountedSkillOptions.map((item) => [item.value, item.label]));
+    for (const skillKey of selectedTemplateAgentBinding?.allowedSkills ?? []) {
+      if (!options.has(skillKey)) {
+        options.set(skillKey, skillKey);
+      }
+    }
+    return Array.from(options.entries())
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([value, label]) => ({ value, label }));
+  }, [mountedSkillOptions, selectedTemplateAgentBinding?.allowedSkills]);
+
   const filteredSkillBaselines = useMemo(() => {
     const keyword = skillSearch.trim().toLowerCase();
     if (!keyword) {
@@ -546,6 +693,75 @@ export function TemplateManagementPanel({
   const updateDraft = useCallback((patch: Partial<InstanceTemplate>) => {
     setDraft((current) => (current ? { ...current, ...patch } : current));
   }, []);
+
+  useEffect(() => {
+    const bindings = draft?.agentBindings ?? [];
+    if (bindings.length === 0) {
+      setSelectedTemplateAgentKey(undefined);
+      return;
+    }
+    if (selectedTemplateAgentKey && bindings.some((binding) => binding.agentKey === selectedTemplateAgentKey)) {
+      return;
+    }
+    setSelectedTemplateAgentKey(bindings[0].agentKey);
+  }, [draft?.agentBindings, selectedTemplateAgentKey]);
+
+  const setAgentBindings = useCallback((nextBindings: InstanceTemplateAgentBinding[]) => {
+    const normalizedBindings = nextBindings
+      .map((binding) => ({
+        ...buildEmptyTemplateAgentBinding(binding.agentKey),
+        ...binding,
+        agentKey: binding.agentKey?.trim() ?? "",
+        provider: normalizeOptionalText(binding.provider),
+        model: normalizeOptionalText(binding.model),
+        systemPrompt: normalizeOptionalText(binding.systemPrompt),
+        allowedTools: normalizeStringValues(binding.allowedTools),
+        allowedSkills: normalizeStringValues(binding.allowedSkills),
+      }))
+      .filter((binding) => binding.agentKey);
+    setDraft((current) => (
+      current
+        ? {
+            ...current,
+            agentBindings: normalizedBindings,
+            agentKeys: normalizedBindings.map((binding) => binding.agentKey),
+          }
+        : current
+    ));
+  }, []);
+
+  const toggleAgentMounted = useCallback((agentKey: string) => {
+    if (!agentKey.trim()) {
+      return;
+    }
+    if (mountedAgentSet.has(agentKey)) {
+      setAgentBindings((draft?.agentBindings ?? []).filter((binding) => binding.agentKey !== agentKey));
+      return;
+    }
+    const baseline = agentBaselineMap.get(agentKey);
+    setAgentBindings([
+      ...(draft?.agentBindings ?? []),
+      {
+        ...buildEmptyTemplateAgentBinding(agentKey),
+        provider: normalizeOptionalText(baseline?.provider),
+        model: normalizeOptionalText(baseline?.model),
+        temperature: baseline?.temperature ?? null,
+        agentic: baseline?.agentic ?? null,
+        allowedTools: normalizeStringValues(baseline?.allowedTools),
+        allowedSkills: normalizeStringValues(baseline?.allowedSkills),
+      },
+    ]);
+    setSelectedTemplateAgentKey(agentKey);
+  }, [agentBaselineMap, draft?.agentBindings, mountedAgentSet, setAgentBindings]);
+
+  const updateSelectedAgentBinding = useCallback((patch: Partial<InstanceTemplateAgentBinding>) => {
+    if (!selectedTemplateAgentKey) {
+      return;
+    }
+    setAgentBindings((draft?.agentBindings ?? []).map((binding) => (
+      binding.agentKey === selectedTemplateAgentKey ? { ...binding, ...patch } : binding
+    )));
+  }, [draft?.agentBindings, selectedTemplateAgentKey, setAgentBindings]);
 
   const setMountedSkills = useCallback((nextSkillKeys: string[]) => {
     const normalizedSkillKeys = normalizeStringValues(nextSkillKeys);
@@ -687,6 +903,7 @@ export function TemplateManagementPanel({
         imagePresetId: initial.imagePresetId,
         desiredState: initial.desiredState,
         mainAgent: initial.mainAgent,
+        agentBindings: initial.agentBindings,
         agentKeys: initial.agentKeys,
         skillKeys: initial.skillKeys,
         lockedScopes: initial.lockedScopes,
@@ -942,48 +1159,187 @@ export function TemplateManagementPanel({
                                 type="info"
                                 showIcon
                                 message="主 Agent 固定使用 ZeroClaw 内置主 Agent"
-                                description="模板里不再配置主 Agent 参数。这里仅维护实例创建时需要预装的子 Agent。"
+                                description="这里维护实例创建时需要预装的子 Agent，并可预设子 Agent 的 allowed_skills、allowed_tools 与模型参数。"
                               />
 
                               <Card
                                 type="inner"
-                                title={`预装子 Agent（${draft.agentKeys.length}）`}
-                                extra={draft.agentKeys.length > 0 ? (
-                                  <Button size="small" onClick={() => updateDraft({ agentKeys: [] })}>
+                                title={`已预装 Agents（${draft.agentBindings.length}）`}
+                                extra={draft.agentBindings.length > 0 ? (
+                                  <Button size="small" onClick={() => setAgentBindings([])}>
                                     清空
                                   </Button>
                                 ) : null}
                               >
+                                {draft.agentBindings.length === 0 ? (
+                                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前模板还没有预装 Agent" />
+                                ) : (
+                                  <Space size={[8, 8]} wrap>
+                                    {draft.agentBindings.map((binding) => (
+                                      <Tag
+                                        key={binding.agentKey}
+                                        color={binding.agentKey === selectedTemplateAgentKey ? "blue" : undefined}
+                                        closable
+                                        onClick={() => setSelectedTemplateAgentKey(binding.agentKey)}
+                                        onClose={(event) => {
+                                          event.preventDefault();
+                                          toggleAgentMounted(binding.agentKey);
+                                        }}
+                                        style={{ cursor: "pointer" }}
+                                      >
+                                        {resolveAgentLabel(binding.agentKey, agentBaselineMap)}
+                                      </Tag>
+                                    ))}
+                                  </Space>
+                                )}
+                              </Card>
+
+                              <Card type="inner" title="Agent 装载池">
                                 <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                                  <Select
-                                    mode="multiple"
-                                    allowClear
-                                    style={{ width: "100%" }}
-                                    value={draft.agentKeys}
-                                    options={agentOptions}
-                                    placeholder="选择需要随实例预装的子 Agent"
-                                    onChange={(value) => updateDraft({ agentKeys: normalizeStringValues(value) })}
+                                  <Input.Search
+                                    value={agentSearch}
+                                    placeholder="搜索 Agent Key / 名称"
+                                    onChange={(event) => setAgentSearch(event.target.value)}
                                   />
-                                  <Text type="secondary">这些 Agent 会在实例创建后自动装载，主入口仍然是 ZeroClaw 内置主 Agent。</Text>
-                                  {draft.agentKeys.length > 0 ? (
-                                    <Space size={[8, 8]} wrap>
-                                      {draft.agentKeys.map((agentKey) => (
-                                        <Tag
-                                          key={agentKey}
-                                          closable
-                                          onClose={(event) => {
-                                            event.preventDefault();
-                                            updateDraft({ agentKeys: draft.agentKeys.filter((item) => item !== agentKey) });
-                                          }}
-                                        >
-                                          {agentOptions.find((item) => item.value === agentKey)?.label ?? agentKey}
-                                        </Tag>
-                                      ))}
-                                    </Space>
+
+                                  {filteredAgentBaselines.length === 0 ? (
+                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配的 Agent" />
                                   ) : (
-                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前模板还没有预装子 Agent" />
+                                    <div className="grid gap-3 lg:grid-cols-2">
+                                      {filteredAgentBaselines.map((agent) => {
+                                        const mounted = mountedAgentSet.has(agent.agentKey);
+                                        return (
+                                          <Card
+                                            key={agent.agentKey}
+                                            size="small"
+                                            hoverable
+                                            onClick={() => mounted && setSelectedTemplateAgentKey(agent.agentKey)}
+                                            extra={(
+                                              <Button
+                                                size="small"
+                                                type={mounted ? "default" : "primary"}
+                                                danger={mounted}
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  toggleAgentMounted(agent.agentKey);
+                                                }}
+                                              >
+                                                {mounted ? "卸载" : "装载"}
+                                              </Button>
+                                            )}
+                                          >
+                                            <Space direction="vertical" size={6} style={{ width: "100%" }}>
+                                              <Space wrap>
+                                                <Text strong>{agent.displayName || agent.agentKey}</Text>
+                                                {!agent.enabled ? <Tag color="default">停用</Tag> : null}
+                                                {mounted ? <Tag color="green">已预装</Tag> : null}
+                                              </Space>
+                                              <Text type="secondary">{agent.agentKey}</Text>
+                                              <Paragraph style={{ marginBottom: 0 }} ellipsis={{ rows: 2 }}>
+                                                {agent.sourceRef || "-"}
+                                              </Paragraph>
+                                            </Space>
+                                          </Card>
+                                        );
+                                      })}
+                                    </div>
                                   )}
                                 </Space>
+                              </Card>
+
+                              <Card
+                                type="inner"
+                                title="Agent 配置"
+                                extra={draft.agentBindings.length > 0 ? (
+                                  <Select
+                                    style={{ minWidth: 240 }}
+                                    value={selectedTemplateAgentKey}
+                                    options={draft.agentBindings.map((binding) => ({
+                                      value: binding.agentKey,
+                                      label: resolveAgentLabel(binding.agentKey, agentBaselineMap),
+                                    }))}
+                                    onChange={(value) => setSelectedTemplateAgentKey(value)}
+                                  />
+                                ) : null}
+                              >
+                                {!selectedTemplateAgentBinding ? (
+                                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="先装载一个 Agent，再配置其运行参数" />
+                                ) : (
+                                  <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                                    <div className="agent-detail-grid">
+                                      <div className="agent-detail-prop">
+                                        <span className="agent-detail-prop-label">provider</span>
+                                        <Input
+                                          value={selectedTemplateAgentBinding.provider ?? ""}
+                                          placeholder={selectedTemplateAgentBaseline?.provider ?? "沿用基线或默认配置"}
+                                          onChange={(event) => updateSelectedAgentBinding({ provider: event.target.value })}
+                                        />
+                                      </div>
+                                      <div className="agent-detail-prop">
+                                        <span className="agent-detail-prop-label">model</span>
+                                        <Input
+                                          value={selectedTemplateAgentBinding.model ?? ""}
+                                          placeholder={selectedTemplateAgentBaseline?.model ?? "沿用基线或默认配置"}
+                                          onChange={(event) => updateSelectedAgentBinding({ model: event.target.value })}
+                                        />
+                                      </div>
+                                      <div className="agent-detail-prop">
+                                        <span className="agent-detail-prop-label">temperature</span>
+                                        <InputNumber
+                                          style={{ width: "100%" }}
+                                          value={selectedTemplateAgentBinding.temperature ?? undefined}
+                                          min={0}
+                                          max={2}
+                                          step={0.1}
+                                          placeholder={selectedTemplateAgentBaseline?.temperature != null
+                                            ? String(selectedTemplateAgentBaseline.temperature)
+                                            : undefined}
+                                          onChange={(value) => updateSelectedAgentBinding({ temperature: typeof value === "number" ? value : null })}
+                                        />
+                                      </div>
+                                      <div className="agent-detail-prop">
+                                        <span className="agent-detail-prop-label">agentic</span>
+                                        <Switch
+                                          checked={selectedTemplateAgentBinding.agentic === true}
+                                          onChange={(checked) => updateSelectedAgentBinding({ agentic: checked })}
+                                        />
+                                      </div>
+                                      <div className="agent-detail-prop is-wide">
+                                        <span className="agent-detail-prop-label">allowed_tools</span>
+                                        <Select
+                                          mode="multiple"
+                                          allowClear
+                                          style={{ width: "100%" }}
+                                          value={selectedTemplateAgentBinding.allowedTools}
+                                          options={allowedToolOptions}
+                                          placeholder="限制此 Agent 可调用的工具"
+                                          onChange={(value) => updateSelectedAgentBinding({ allowedTools: normalizeStringValues(value) })}
+                                        />
+                                        <Text type="secondary">保持为空时，模板会保存当前配置值；创建实例后按该值写入 Agent binding。</Text>
+                                      </div>
+                                      <div className="agent-detail-prop is-wide">
+                                        <span className="agent-detail-prop-label">allowed_skills</span>
+                                        <Select
+                                          mode="multiple"
+                                          allowClear
+                                          style={{ width: "100%" }}
+                                          value={selectedTemplateAgentBinding.allowedSkills}
+                                          options={allowedSkillOptions}
+                                          placeholder="限制此 Agent 可见的已预装 Skills"
+                                          onChange={(value) => updateSelectedAgentBinding({ allowedSkills: normalizeStringValues(value) })}
+                                        />
+                                        <Text type="secondary">这里只能选择当前模板已预装的 Skills；留空表示不额外限制。</Text>
+                                      </div>
+                                    </div>
+
+                                    <Input.TextArea
+                                      rows={8}
+                                      value={selectedTemplateAgentBinding.systemPrompt ?? ""}
+                                      placeholder="可选：覆盖该 Agent 的 system_prompt"
+                                      onChange={(event) => updateSelectedAgentBinding({ systemPrompt: event.target.value })}
+                                    />
+                                  </Space>
+                                )}
                               </Card>
                             </Space>
                           ),

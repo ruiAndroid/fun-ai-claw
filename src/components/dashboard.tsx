@@ -3240,7 +3240,7 @@ export function Dashboard() {
               <Space direction="vertical" size="small" style={{ width: "100%" }}>
                 <Text>{selectedCreateTemplate.description || selectedCreateTemplate.summary || "-"}</Text>
                 <Text>{`${uiText.templateDefaultImageLabel}${selectedCreateTemplateImage ? `${selectedCreateTemplateImage.name} · ${selectedCreateTemplateImage.image}` : uiText.templateImageUnavailable}`}</Text>
-                <Text>{`${uiText.templateAgentCountLabel}${selectedCreateTemplate.agentKeys.length || (selectedCreateTemplate.mainAgent.agentKey ? 1 : 0)}`}</Text>
+                <Text>{`${uiText.templateAgentCountLabel}${selectedCreateTemplate.agentBindings?.length || selectedCreateTemplate.agentKeys.length || (selectedCreateTemplate.mainAgent.agentKey ? 1 : 0)}`}</Text>
                 <Text>{`${uiText.templateSkillCountLabel}${selectedCreateTemplate.skillKeys.length}`}</Text>
                 <Space size={[8, 8]} wrap>
                   {selectedCreateTemplate.lockedScopes.map((scope) => (

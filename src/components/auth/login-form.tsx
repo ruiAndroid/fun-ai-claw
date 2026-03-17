@@ -154,9 +154,9 @@ export function LoginForm() {
   return (
     <section className="rounded-[32px] border border-white/55 bg-white/48 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-10">
       <div className="max-w-[460px]">
-        <h1 className="text-4xl font-black tracking-[-0.04em] text-slate-950 sm:text-5xl">手机号登录</h1>
+        <h1 className="text-4xl font-black tracking-[-0.04em] text-slate-950 sm:text-5xl">登录</h1>
         <p className="mt-3 text-lg font-semibold text-slate-500">
-          页面仍然保留在本项目，实际短信登录、注册与邀请码校验由统一用户中心提供。
+          未注册用户将会自动进行注册
         </p>
 
         <form className="mt-12 space-y-6" onSubmit={handleSubmit}>
@@ -202,7 +202,7 @@ export function LoginForm() {
               type="text"
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 32))}
-              placeholder="如统一用户中心仍启用邀请码，可在这里填写"
+              placeholder="内测阶段，需填写邀请码注册"
               disabled={checkingSession || verifying}
               className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium uppercase text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
             />

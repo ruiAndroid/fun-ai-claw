@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -20,7 +20,7 @@ function SidebarBrand() {
     <Link
       href="/"
       className="group inline-flex items-center gap-3 rounded-[20px] border border-white/70 bg-white/78 px-3 py-2.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200/80 hover:shadow-[0_16px_36px_rgba(34,211,238,0.12)]"
-      aria-label="返回首页"
+      aria-label="杩斿洖棣栭〉"
     >
       <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,rgba(96,165,250,0.98)_0%,rgba(253,224,71,0.94)_100%)] text-slate-950 shadow-[0_16px_30px_rgba(56,189,248,0.2)]">
         <XiamiIcon size={24} />
@@ -110,18 +110,13 @@ function SidebarNavLink({
 function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
   if (collapsed) {
     return (
-      <div className="mt-auto flex flex-col items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)]">
-          <UserRound size={18} />
-        </div>
-        <Link
-          href="/me"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm"
-          aria-label="前往我的页面"
-        >
-          <UserRound size={16} />
-        </Link>
-      </div>
+      <Link
+        href="/me"
+        className="mt-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)] transition-transform duration-300 hover:scale-[1.03]"
+        aria-label="前往个人中心"
+      >
+        <UserRound size={18} />
+      </Link>
     );
   }
 
@@ -132,12 +127,12 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-base font-bold text-md-on-surface">个人中心</div>
-        <div className="truncate text-xs text-md-on-surface-variant">后续接入真实用户昵称与账户信息</div>
+        <div className="truncate text-xs text-md-on-surface-variant">后续接入真实用户信息</div>
       </div>
       <Link
         href="/me"
         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm"
-        aria-label="前往我的页面"
+        aria-label="前往个人中心"
       >
         <UserRound size={16} />
       </Link>
@@ -165,13 +160,13 @@ export function HomepageSidebar() {
         style={{ left: "max(0px, calc((100vw - 1920px) / 2))" }}
         className="fixed bottom-4 top-4 z-20 hidden overflow-hidden rounded-[28px] border border-md-outline-variant/25 bg-white/76 px-4 py-5 shadow-[0_20px_48px_rgba(15,23,42,0.06)] backdrop-blur-2xl xl:flex xl:flex-col"
       >
-        <div className="mb-5 flex items-center justify-between gap-3">
-          {!isSidebarCollapsed ? <SidebarBrand /> : <div className="h-10" />}
+        <div className={`mb-5 flex items-center gap-3 ${isSidebarCollapsed ? "justify-center" : "justify-between"}`}>
+          {!isSidebarCollapsed ? <SidebarBrand /> : null}
           <button
             type="button"
             onClick={() => setIsSidebarCollapsed((value) => !value)}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/76 text-md-on-surface shadow-sm transition-all duration-300 hover:border-md-primary/20 hover:text-md-primary"
-            aria-label={isSidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+            aria-label={isSidebarCollapsed ? "灞曞紑渚ф爮" : "鏀惰捣渚ф爮"}
           >
             {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
@@ -182,14 +177,14 @@ export function HomepageSidebar() {
             <Link
               href="/messages"
               className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-white/82 text-md-on-surface shadow-sm"
-              aria-label="消息"
+              aria-label="娑堟伅"
             >
               <MessageCircle size={18} />
             </Link>
             <Link
               href="/messages"
               className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-md-primary text-md-on-primary shadow-md-2"
-              aria-label="新建消息"
+              aria-label="鏂板缓娑堟伅"
             >
               <Plus size={18} />
             </Link>
@@ -215,12 +210,12 @@ export function HomepageSidebar() {
                 <span className="flex h-9 w-9 items-center justify-center rounded-[14px] bg-white/82 text-md-on-surface shadow-sm">
                   <MessageCircle size={16} />
                 </span>
-                <div>消息</div>
+                <div>娑堟伅</div>
                 <div className="ml-auto flex items-center gap-2">
                   <Link
                     href="/messages"
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-transform duration-300 hover:scale-105"
-                    aria-label="新建消息"
+                    aria-label="鏂板缓娑堟伅"
                   >
                     <Plus size={18} />
                   </Link>
@@ -228,7 +223,7 @@ export function HomepageSidebar() {
                     type="button"
                     onClick={() => setIsMessageExpanded((value) => !value)}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-transform duration-300 hover:scale-105"
-                    aria-label={isMessageExpanded ? "收起消息区块" : "展开消息区块"}
+                    aria-label={isMessageExpanded ? "鏀惰捣娑堟伅鍖哄潡" : "灞曞紑娑堟伅鍖哄潡"}
                   >
                     {isMessageExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                   </button>
@@ -264,8 +259,7 @@ export function HomepageSidebar() {
                       </div>
                     ) : (
                       <div className="rounded-[24px] border border-dashed border-md-outline-variant/40 bg-white/60 px-4 py-5 text-sm text-md-on-surface-variant">
-                        暂无消息，接入真实会话后这里才会显示内容。
-                      </div>
+                        鏆傛棤娑堟伅锛屾帴鍏ョ湡瀹炰細璇濆悗杩欓噷鎵嶄細鏄剧ず鍐呭銆?                      </div>
                     )}
                   </motion.div>
                 ) : null}
@@ -296,3 +290,4 @@ export function HomepageSidebar() {
     </motion.aside>
   );
 }
+

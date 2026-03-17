@@ -19,7 +19,7 @@ import {
   messagePageText,
   normalizeMessageInput,
 } from "./messages-data";
-import type { MessageInteractionDraft, MessageRobotTarget } from "./messages-types";
+import type { MessageInteractionDraft, MessageRobotTarget, MessageSessionArchive } from "./messages-types";
 
 type QueuedMessage = {
   normalizedMessage: string;
@@ -124,6 +124,8 @@ export function useMessageSession(selectedRobot?: MessageRobotTarget) {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [interactionDraft, setInteractionDraft] = useState<MessageInteractionDraft>();
+  const [currentSessionId, setCurrentSessionId] = useState<string>();
+  const [sessionArchives, setSessionArchives] = useState<MessageSessionArchive[]>([]);
 
   const socketRef = useRef<WebSocket | null>(null);
   const queuedMessageRef = useRef<QueuedMessage | null>(null);
@@ -142,10 +144,30 @@ export function useMessageSession(selectedRobot?: MessageRobotTarget) {
     setError(undefined);
     setNotice(undefined);
     setInteractionDraft(undefined);
+    setCurrentSessionId(undefined);
     queuedMessageRef.current = null;
     rawLineBufferRef.current = "";
     rawAssistantMessageIdRef.current = undefined;
     coreFieldsRef.current = undefined;
+  }, []);
+
+  const upsertSessionArchive = useCallback((sessionId: string, robotId: string, nextMessages: AgentChatMessage[]) => {
+    if (!sessionId || nextMessages.length === 0) {
+      return;
+    }
+    setSessionArchives((current) => {
+      const nextArchive: MessageSessionArchive = {
+        sessionId,
+        robotId,
+        messages: nextMessages,
+        updatedAt: new Date().toISOString(),
+      };
+      const existingIndex = current.findIndex((item) => item.sessionId === sessionId);
+      if (existingIndex < 0) {
+        return [nextArchive, ...current];
+      }
+      return current.map((item, index) => (index === existingIndex ? nextArchive : item));
+    });
   }, []);
 
   const markInteractionResolved = useCallback((messageId?: string, note?: string) => {
@@ -282,6 +304,10 @@ export function useMessageSession(selectedRobot?: MessageRobotTarget) {
     if (!frame) {
       processRawChunk(data);
       return;
+    }
+
+    if (frame.sessionId?.trim()) {
+      setCurrentSessionId(frame.sessionId.trim());
     }
 
     finalizeRawAssistantMessage();
@@ -572,6 +598,13 @@ export function useMessageSession(selectedRobot?: MessageRobotTarget) {
   }, []);
 
   useEffect(() => {
+    if (!selectedRobot?.id || !currentSessionId || messages.length === 0) {
+      return;
+    }
+    upsertSessionArchive(currentSessionId, selectedRobot.id, messages);
+  }, [currentSessionId, messages, selectedRobot?.id, upsertSessionArchive]);
+
+  useEffect(() => {
     const currentRobotId = selectedRobot?.id;
     if (selectedRobotIdRef.current === currentRobotId) {
       return;
@@ -584,6 +617,15 @@ export function useMessageSession(selectedRobot?: MessageRobotTarget) {
   useEffect(() => () => {
     disconnect(true);
   }, [disconnect]);
+
+  const robotSessionArchives = useMemo(
+    () => selectedRobot
+      ? sessionArchives
+        .filter((item) => item.robotId === selectedRobot.id)
+        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+      : [],
+    [selectedRobot, sessionArchives],
+  );
 
   const hasConversation = messages.length > 0;
   const canSend = Boolean(selectedRobot?.isAvailable) && !connecting && input.trim().length > 0;
@@ -603,6 +645,8 @@ export function useMessageSession(selectedRobot?: MessageRobotTarget) {
     error,
     notice,
     interactionDraft,
+    currentSessionId,
+    sessionArchives: robotSessionArchives,
     canSend,
     connect,
     disconnect,

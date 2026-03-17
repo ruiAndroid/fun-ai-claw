@@ -13,6 +13,8 @@ export function MessageComposer({
   connecting,
   connected,
   interactionDraft,
+  viewOnly = false,
+  viewOnlyHint,
   onInputChange,
   onSend,
   onCancelDraft,
@@ -26,6 +28,8 @@ export function MessageComposer({
   connecting: boolean;
   connected: boolean;
   interactionDraft?: MessageInteractionDraft;
+  viewOnly?: boolean;
+  viewOnlyHint?: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
   onCancelDraft: () => void;
@@ -33,11 +37,13 @@ export function MessageComposer({
   onCompositionStart: () => void;
   onCompositionEnd: () => void;
 }) {
-  const disabled = !selectedRobot?.isAvailable || connecting;
+  const disabled = !selectedRobot?.isAvailable || connecting || viewOnly;
   const placeholder = !selectedRobot
     ? "请先从左侧选择机器人"
     : !selectedRobot.isAvailable
       ? "当前机器人未运行，暂时无法发送消息"
+      : viewOnly
+        ? viewOnlyHint ?? "当前选中的是其他会话，本版先支持查看；继续聊天请切回当前会话或新建会话"
       : interactionDraft
         ? `请输入你对「${formatInteractionDraftLabel(interactionDraft.stateId)}」的修改意见`
         : connected
@@ -82,7 +88,9 @@ export function MessageComposer({
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="text-xs leading-6 text-slate-500">
             {selectedRobot
-              ? `当前发送对象：${selectedRobot.displayName} · ${selectedRobot.agentId}`
+              ? viewOnly
+                ? "当前处于会话查看模式"
+                : `当前发送对象：${selectedRobot.displayName} · ${selectedRobot.agentId}`
               : "选择机器人后即可开始消息会话"}
           </div>
 

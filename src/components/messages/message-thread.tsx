@@ -9,12 +9,14 @@ import type { MessageRobotTarget } from "./messages-types";
 
 function MessageInteractionActions({
   message,
+  enabled,
   onAction,
 }: {
   message: AgentChatMessage;
+  enabled: boolean;
   onAction: (messageId: string, action: AgentInteractionAction) => void;
 }) {
-  if (!message.interaction?.actions.length) {
+  if (!enabled || !message.interaction?.actions.length) {
     return null;
   }
 
@@ -44,9 +46,11 @@ function MessageInteractionActions({
 
 function ChatBubble({
   message,
+  interactionsEnabled,
   onAction,
 }: {
   message: AgentChatMessage;
+  interactionsEnabled: boolean;
   onAction: (messageId: string, action: AgentInteractionAction) => void;
 }) {
   if (message.role === "system") {
@@ -110,7 +114,7 @@ function ChatBubble({
             {message.interactionResolvedNote}
           </div>
         ) : (
-          <MessageInteractionActions message={message} onAction={onAction} />
+          <MessageInteractionActions message={message} enabled={interactionsEnabled} onAction={onAction} />
         )}
       </div>
 
@@ -127,11 +131,17 @@ export function MessageThread({
   selectedRobot,
   messages,
   pendingResponse,
+  selectedSessionTitle,
+  emptyNotice,
+  interactionsEnabled = true,
   onAction,
 }: {
   selectedRobot?: MessageRobotTarget;
   messages: AgentChatMessage[];
   pendingResponse: boolean;
+  selectedSessionTitle?: string;
+  emptyNotice?: string;
+  interactionsEnabled?: boolean;
   onAction: (messageId: string, action: AgentInteractionAction) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -158,7 +168,12 @@ export function MessageThread({
         messages.length > 0 ? (
           <div className="space-y-4">
             {messages.map((message) => (
-              <ChatBubble key={message.id} message={message} onAction={onAction} />
+              <ChatBubble
+                key={message.id}
+                message={message}
+                interactionsEnabled={interactionsEnabled}
+                onAction={onAction}
+              />
             ))}
 
             {pendingResponse && !hasPendingAssistant ? (
@@ -179,11 +194,10 @@ export function MessageThread({
                 <Bot size={24} />
               </div>
               <div className="mt-5 text-[24px] font-black tracking-[-0.04em] text-slate-950">
-                开始和 {selectedRobot.displayName} 对话
+                {selectedSessionTitle ? `查看会话：${selectedSessionTitle}` : `开始和 ${selectedRobot.displayName} 对话`}
               </div>
               <div className="mt-3 text-sm leading-7 text-slate-500">
-                消息页不会走自动路由，你发送的每一条消息都会直达当前机器人。
-                如果这个机器人绑定了 skill 多步协议，下面的对话区也会按步骤继续执行。
+                {emptyNotice ?? "消息页不会走自动路由，你发送的每一条消息都会直达当前机器人。如果这个机器人绑定了 skill 多步协议，下面的对话区也会按步骤继续执行。"}
               </div>
             </div>
           </div>

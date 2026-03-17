@@ -27,7 +27,7 @@ export const primaryCards: FeatureCard[] = [
     description: "集中管理 Agent、Skill、实例、模型与运行状态，把机器人真正编排成产品能力。",
     href: "/console",
     ctaLabel: "进入控制台",
-    accent: "from-cyan-500/20 via-teal-500/12 to-transparent",
+    accent: "from-orange-500/20 via-violet-500/12 to-transparent",
     chips: ["Agent", "Skill", "Instance"],
   },
   {
@@ -36,7 +36,7 @@ export const primaryCards: FeatureCard[] = [
     description: "把接入说明、部署手册、架构设计与最佳实践统一收拢到同一套品牌化入口中。",
     href: "/docs",
     ctaLabel: "查看文档",
-    accent: "from-violet-500/18 via-fuchsia-500/12 to-transparent",
+    accent: "from-violet-500/18 via-orange-400/12 to-transparent",
     chips: ["Docs", "Architecture", "Guide"],
   },
   {
@@ -45,7 +45,7 @@ export const primaryCards: FeatureCard[] = [
     description: "通过统一接口接入业务系统，让外部前端、工作流与机器人运行时自然衔接。",
     href: "/docs/open-v1-external-frontend-integration",
     ctaLabel: "查看接入方式",
-    accent: "from-emerald-500/18 via-cyan-500/12 to-transparent",
+    accent: "from-orange-500/18 via-violet-500/12 to-transparent",
     chips: ["Open /v1", "REST", "WS"],
   },
 ];
@@ -57,7 +57,7 @@ export const secondaryCards: FeatureCard[] = [
     description: "首页不只展示能力，更承担品牌说明、入口承接与转化导流的职责。",
     href: "/",
     ctaLabel: "浏览首页",
-    accent: "from-sky-500/18 via-cyan-500/12 to-transparent",
+    accent: "from-orange-500/18 via-fuchsia-500/12 to-transparent",
     chips: ["Brand", "Landing", "Conversion"],
   },
   {
@@ -66,7 +66,7 @@ export const secondaryCards: FeatureCard[] = [
     description: "让不同能力模块以稳定的产品化方式组合起来，而不是零散工具的简单堆叠。",
     href: "/console",
     ctaLabel: "查看编排",
-    accent: "from-fuchsia-500/18 via-purple-500/12 to-transparent",
+    accent: "from-violet-500/18 via-fuchsia-500/12 to-transparent",
     chips: ["Composition", "Workflow", "Experience"],
   },
   {
@@ -75,7 +75,7 @@ export const secondaryCards: FeatureCard[] = [
     description: "延续 Nextra 与 Google Stitch 风格，把首页、控制台和文档做成统一品牌系统。",
     href: "/docs",
     ctaLabel: "查看设计语境",
-    accent: "from-amber-500/18 via-orange-500/12 to-transparent",
+    accent: "from-orange-500/18 via-violet-500/12 to-transparent",
     chips: ["Nextra", "Material 3", "Stitch"],
   },
 ];

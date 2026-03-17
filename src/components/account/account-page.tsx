@@ -77,7 +77,7 @@ export function AccountPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f9fffe_100%)] px-5 py-4 sm:px-6 lg:px-10">
+      <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fff9fc_100%)] px-5 py-4 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-[1800px] rounded-[28px] bg-white/70 px-8 py-12 text-center shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
           <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">正在加载账号信息…</div>
         </div>
@@ -87,7 +87,7 @@ export function AccountPage() {
 
   if (error || !account) {
     return (
-      <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f9fffe_100%)] px-5 py-4 sm:px-6 lg:px-10">
+      <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fff9fc_100%)] px-5 py-4 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-[960px] rounded-[28px] bg-white/70 px-8 py-12 text-center shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
           <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">账号信息加载失败</div>
           <div className="mt-4 text-lg font-semibold text-slate-500">{error ?? "请重新登录后再试"}</div>
@@ -113,7 +113,7 @@ export function AccountPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f9fffe_100%)] px-5 py-4 sm:px-6 lg:px-10">
+    <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fff9fc_100%)] px-5 py-4 sm:px-6 lg:px-10">
       <div className="mx-auto grid max-w-[1800px] gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
         <AccountSidebar
           activeTab={activeTab}

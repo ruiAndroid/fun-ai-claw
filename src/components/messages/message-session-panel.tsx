@@ -57,7 +57,7 @@ export function MessageSessionPanel({
                   className={cn(
                     "w-full rounded-[24px] border px-4 py-4 text-left transition-all duration-300",
                     isSelected
-                      ? "border-cyan-200 bg-cyan-50 shadow-[0_18px_40px_rgba(34,211,238,0.12)]"
+                      ? "border-violet-200 bg-violet-50 shadow-[0_18px_40px_rgba(147,51,234,0.12)]"
                       : "border-white/70 bg-white/72 shadow-sm hover:bg-white",
                   )}
                 >
@@ -65,7 +65,7 @@ export function MessageSessionPanel({
                     <div
                       className={cn(
                         "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px]",
-                        session.connected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600",
+                        session.connected ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-600",
                       )}
                     >
                       {session.connected ? <Radio size={16} /> : <MessagesSquare size={16} />}
@@ -77,7 +77,7 @@ export function MessageSessionPanel({
                           {session.title}
                         </div>
                         {session.isCurrent ? (
-                          <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                          <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
                             当前
                           </span>
                         ) : null}

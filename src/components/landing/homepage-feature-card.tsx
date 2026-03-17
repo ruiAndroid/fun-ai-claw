@@ -26,7 +26,7 @@ export function HomepageFeatureCard({
       <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/30 blur-3xl" />
 
       <div className="relative flex h-full flex-col">
-        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[20px] bg-white/88 shadow-[0_10px_24px_rgba(15,118,110,0.12)]">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[20px] bg-white/88 shadow-[0_10px_24px_rgba(147,51,234,0.12)]">
           <Icon size={24} className="text-md-primary" strokeWidth={2.1} />
         </div>
 

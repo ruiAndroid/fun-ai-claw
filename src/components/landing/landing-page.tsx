@@ -23,12 +23,12 @@ export function LandingPage() {
   }, []);
 
   return (
-    <main className="relative h-screen overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(167,243,208,0.32),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.18),transparent_28%),linear-gradient(180deg,#f8fffe_0%,#f4fbfa_48%,#f8fffe_100%)]">
+    <main className="brand-sunset-theme relative h-screen overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,138,26,0.24),transparent_32%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_28%),linear-gradient(180deg,#fff9fc_0%,#fff6fb_48%,#fff9fc_100%)]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-8rem] top-24 h-64 w-64 rounded-full bg-cyan-300/20 blur-3xl" />
-        <div className="absolute right-[-6rem] top-12 h-72 w-72 rounded-full bg-teal-300/15 blur-3xl" />
-        <div className="absolute bottom-[-4rem] left-1/3 h-56 w-56 rounded-full bg-violet-300/10 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(15,118,110,0.05)_1px,transparent_1px)] [background-size:22px_22px] opacity-30" />
+        <div className="absolute left-[-8rem] top-24 h-64 w-64 rounded-full bg-orange-300/18 blur-3xl" />
+        <div className="absolute right-[-6rem] top-12 h-72 w-72 rounded-full bg-violet-300/16 blur-3xl" />
+        <div className="absolute bottom-[-4rem] left-1/3 h-56 w-56 rounded-full bg-fuchsia-300/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(168,85,247,0.05)_1px,transparent_1px)] [background-size:22px_22px] opacity-30" />
       </div>
 
       <div className="relative mx-auto flex min-h-screen max-w-[1920px] items-start">

@@ -7,7 +7,7 @@ export function AccountWorksPanel() {
         <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">我的作品</h1>
         <button
           type="button"
-          className="inline-flex h-16 items-center justify-center rounded-full bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 px-12 text-[22px] font-black text-white shadow-[0_18px_40px_rgba(45,212,191,0.22)] transition-transform duration-300 hover:scale-[1.01]"
+          className="inline-flex h-16 items-center justify-center rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-violet-500 px-12 text-[22px] font-black text-white shadow-[0_18px_40px_rgba(147,51,234,0.22)] transition-transform duration-300 hover:scale-[1.01]"
         >
           新建作品
         </button>
@@ -22,7 +22,7 @@ export function AccountWorksPanel() {
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950">{item.title}</div>
-                <span className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-black text-teal-800">
+                <span className="rounded-full bg-violet-100 px-4 py-2 text-sm font-black text-violet-800">
                   {item.status}
                 </span>
               </div>

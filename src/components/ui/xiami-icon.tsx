@@ -23,21 +23,21 @@ export function XiamiIcon({
       <title>{title}</title>
       <path
         d="M48.8 14.9c-7.8-5.1-18.6-3.1-24 4.5-4.9 6.8-4.3 15.8.8 22L18 49.3l10.1 1.2 4.5 9.1 5.7-8.1c8 1.3 16.2-2.2 20.3-9.3 5.4-9.2 2.3-21-6.8-27.3Z"
-        fill="#fb7185"
+        fill="#a855f7"
         stroke="#0f172a"
         strokeWidth="2.2"
         strokeLinejoin="round"
       />
       <path
         d="M47.8 15.1 59 10.8l-2.7 10.7-8.5-4.2Z"
-        fill="#f97316"
+        fill="#ff8a1a"
         stroke="#0f172a"
         strokeWidth="2.2"
         strokeLinejoin="round"
       />
       <path
         d="M27.8 22.3c4.4-5.2 12.3-6.2 18-2.2 5.9 4.1 7.9 12.1 4.7 18.5-3.5 7-11.9 10.3-19.2 7.5-7.3-2.7-11.1-10.8-8.5-18.4"
-        fill="#fdba74"
+        fill="#ffcf8a"
         fillOpacity="0.9"
       />
       <path

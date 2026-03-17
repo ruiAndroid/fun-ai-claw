@@ -23,7 +23,7 @@ export function LoginShowcase() {
     <section className="rounded-[32px] border border-white/55 bg-white/42 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-10">
       <div className="flex items-center gap-5 text-slate-950">
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-gradient-to-br from-orange-400 via-amber-300 to-yellow-200 text-slate-900 shadow-[0_14px_32px_rgba(251,146,60,0.28)]">
+          <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-gradient-to-br from-orange-400 via-orange-500 to-violet-500 text-white shadow-[0_14px_32px_rgba(147,51,234,0.28)]">
             <Bot size={28} />
           </div>
           <div className="text-4xl font-black tracking-[-0.04em]">FunClaw</div>
@@ -34,7 +34,7 @@ export function LoginShowcase() {
         让内容流动更简单
       </h2>
 
-      <div className="mt-18 rounded-[28px] bg-[linear-gradient(135deg,#ff6a00_0%,#ff4d00_42%,#ff7d00_100%)] p-6 text-white shadow-[0_28px_70px_rgba(249,115,22,0.34)]">
+      <div className="mt-18 rounded-[28px] bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_40%,#9333ea_100%)] p-6 text-white shadow-[0_28px_70px_rgba(147,51,234,0.28)]">
         <div className="text-center text-xl font-black tracking-[-0.03em] sm:text-[32px]">
           搭载多个专用Skills的智能体平台
         </div>

@@ -42,7 +42,7 @@ export function MessageSidebar({
         </button>
       </div>
 
-      <div className="mt-6 rounded-[28px] bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(20,184,166,0.14))] px-5 py-5">
+      <div className="mt-6 rounded-[28px] bg-[linear-gradient(135deg,rgba(255,138,26,0.16),rgba(168,85,247,0.14))] px-5 py-5">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/75 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-md-primary">
           Direct Agent
         </div>
@@ -99,7 +99,7 @@ export function MessageSidebar({
                   className={cn(
                     "w-full rounded-[26px] border px-4 py-4 text-left transition-all duration-300",
                     isSelected
-                      ? "border-cyan-200 bg-cyan-50 shadow-[0_18px_40px_rgba(34,211,238,0.14)]"
+                      ? "border-violet-200 bg-violet-50 shadow-[0_18px_40px_rgba(147,51,234,0.14)]"
                       : "border-white/70 bg-white/72 shadow-sm hover:bg-white",
                   )}
                 >
@@ -107,7 +107,7 @@ export function MessageSidebar({
                     <div
                       className={cn(
                         "flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] text-sm font-black",
-                        isSelected ? "bg-cyan-500 text-white" : "bg-slate-100 text-slate-700",
+                        isSelected ? "bg-[linear-gradient(135deg,#ff8a1a_0%,#9333ea_100%)] text-white" : "bg-slate-100 text-slate-700",
                       )}
                     >
                       <Bot size={18} />
@@ -122,7 +122,7 @@ export function MessageSidebar({
                           className={cn(
                             "inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
                             robot.isAvailable
-                              ? "bg-emerald-100 text-emerald-700"
+                              ? "bg-orange-100 text-orange-700"
                               : "bg-slate-100 text-slate-500",
                           )}
                         >

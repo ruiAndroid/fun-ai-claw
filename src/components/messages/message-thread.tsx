@@ -79,7 +79,7 @@ function ChatBubble({
         className={cn(
           "max-w-[min(840px,82vw)] rounded-[28px] px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]",
           isUser
-            ? "bg-[linear-gradient(135deg,#0f172a,#155e75)] text-white"
+            ? "bg-[linear-gradient(135deg,#ff8a1a,#9333ea)] text-white"
             : "border border-white/80 bg-white/90 text-slate-900",
         )}
       >
@@ -109,7 +109,7 @@ function ChatBubble({
         </div>
 
         {message.interactionResolved && message.interactionResolvedNote ? (
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">
             <CheckCircle2 size={14} />
             {message.interactionResolvedNote}
           </div>
@@ -119,7 +119,7 @@ function ChatBubble({
       </div>
 
       {isUser ? (
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-cyan-100 text-cyan-700 shadow-sm">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-violet-100 text-violet-700 shadow-sm">
           <UserRound size={18} />
         </div>
       ) : null}

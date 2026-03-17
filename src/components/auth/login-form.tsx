@@ -169,7 +169,7 @@ export function LoginForm() {
               onChange={(event) => setPhone(normalizePhoneInput(event.target.value))}
               placeholder="请输入 11 位手机号"
               disabled={checkingSession || verifying}
-              className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+               className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
 
@@ -183,13 +183,13 @@ export function LoginForm() {
                 onChange={(event) => setCode(event.target.value.replace(/[^\d]/g, "").slice(0, 6))}
                 placeholder="请输入 6 位验证码"
                 disabled={checkingSession || verifying}
-                className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+                 className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
               />
               <button
                 type="button"
                 onClick={() => void handleSendCode()}
                 disabled={checkingSession || verifying || sending || countdown > 0}
-                className="h-18 rounded-[22px] bg-cyan-200 px-5 py-4 text-base font-black text-teal-800 transition-transform duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
+                className="h-18 rounded-[22px] bg-violet-100 px-5 py-4 text-base font-black text-violet-800 transition-transform duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {sendButtonLabel}
               </button>
@@ -204,14 +204,14 @@ export function LoginForm() {
               onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 32))}
               placeholder="内测阶段，需填写邀请码注册"
               disabled={checkingSession || verifying}
-              className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium uppercase text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium uppercase text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
 
           {(notice || error || debugCode) && (
             <div className="space-y-3">
               {notice ? (
-                <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+                <div className="rounded-[18px] border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700">
                   {notice}
                 </div>
               ) : null}
@@ -221,7 +221,7 @@ export function LoginForm() {
                 </div>
               ) : null}
               {debugCode ? (
-                <div className="rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+                <div className="rounded-[18px] border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700">
                   当前环境返回了调试验证码：{debugCode}
                 </div>
               ) : null}
@@ -231,7 +231,7 @@ export function LoginForm() {
           <button
             type="submit"
             disabled={checkingSession || verifying}
-            className="h-18 w-full rounded-[22px] bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 px-6 py-4 text-xl font-black text-white shadow-[0_24px_48px_rgba(45,212,191,0.28)] transition-transform duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
+            className="h-18 w-full rounded-[22px] bg-gradient-to-r from-orange-400 via-orange-500 to-violet-500 px-6 py-4 text-xl font-black text-white shadow-[0_24px_48px_rgba(147,51,234,0.24)] transition-transform duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
           >
             {checkingSession ? "检测登录状态…" : verifying ? "登录中…" : "登录 / 注册"}
           </button>
@@ -245,11 +245,11 @@ export function LoginForm() {
             />
             <span>
               我已阅读并同意
-              <Link href="/docs" className="mx-1 font-bold text-cyan-500 hover:text-cyan-600">
+              <Link href="/docs" className="mx-1 font-bold text-violet-500 hover:text-violet-600">
                 《用户协议》
               </Link>
               和
-              <Link href="/docs" className="mx-1 font-bold text-cyan-500 hover:text-cyan-600">
+              <Link href="/docs" className="mx-1 font-bold text-violet-500 hover:text-violet-600">
                 《隐私政策》
               </Link>
               ，相关登录注册能力由外部用户中心统一提供。

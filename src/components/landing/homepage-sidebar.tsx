@@ -19,14 +19,14 @@ function SidebarBrand() {
   return (
     <Link
       href="/"
-      className="group inline-flex items-center gap-3 rounded-[20px] border border-white/70 bg-white/78 px-3 py-2.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200/80 hover:shadow-[0_16px_36px_rgba(34,211,238,0.12)]"
+      className="group inline-flex items-center gap-3 rounded-[20px] border border-white/70 bg-white/78 px-3 py-2.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-200/80 hover:shadow-[0_16px_36px_rgba(147,51,234,0.12)]"
       aria-label="返回首页"
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,rgba(96,165,250,0.98)_0%,rgba(253,224,71,0.94)_100%)] text-slate-950 shadow-[0_16px_30px_rgba(56,189,248,0.2)]">
+      <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_46%,#9333ea_100%)] text-slate-950 shadow-[0_16px_30px_rgba(147,51,234,0.2)]">
         <XiamiIcon size={24} />
       </span>
       <span className="min-w-0">
-        <span className="block bg-[linear-gradient(135deg,#0f172a_0%,#0f766e_52%,#06b6d4_100%)] bg-clip-text text-[15px] font-black tracking-[-0.05em] text-transparent">
+        <span className="block bg-[linear-gradient(135deg,#0f172a_0%,#ff7a18_42%,#9333ea_100%)] bg-clip-text text-[15px] font-black tracking-[-0.05em] text-transparent">
           FunClaw
         </span>
       </span>
@@ -57,7 +57,7 @@ function SidebarNavLink({
         href={href}
         className={`relative flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all duration-300 ${
           active
-            ? "border-cyan-200/70 bg-cyan-200 text-slate-950 shadow-[0_16px_36px_rgba(34,211,238,0.16)]"
+            ? "border-violet-200/70 bg-violet-100 text-violet-900 shadow-[0_16px_36px_rgba(147,51,234,0.16)]"
             : "border-white/70 bg-white/78 text-md-on-surface shadow-sm"
         }`}
         aria-label={label}
@@ -77,7 +77,7 @@ function SidebarNavLink({
       href={href}
       className={`flex items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-bold transition-all duration-300 ${
         active
-          ? "bg-cyan-200 text-slate-950 shadow-[0_16px_36px_rgba(34,211,238,0.16)]"
+          ? "bg-violet-100 text-violet-900 shadow-[0_16px_36px_rgba(147,51,234,0.16)]"
           : "text-md-on-surface hover:bg-white/70"
       }`}
     >
@@ -112,7 +112,7 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
     return (
       <Link
         href="/me"
-        className="mt-auto self-center inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)] transition-transform duration-300 hover:scale-[1.03]"
+        className="mt-auto self-center inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ff8a1a_0%,#9333ea_100%)] text-white shadow-[0_14px_30px_rgba(147,51,234,0.2)] transition-transform duration-300 hover:scale-[1.03]"
         aria-label="前往个人中心"
       >
         <UserRound size={18} />
@@ -122,7 +122,7 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="mt-auto flex items-center gap-3 rounded-[24px] border border-white/70 bg-white/82 p-3 shadow-[0_18px_36px_rgba(15,23,42,0.05)]">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)]">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ff8a1a_0%,#9333ea_100%)] text-white shadow-[0_14px_30px_rgba(147,51,234,0.2)]">
         <UserRound size={22} />
       </div>
       <div className="min-w-0 flex-1">

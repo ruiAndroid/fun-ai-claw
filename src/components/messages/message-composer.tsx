@@ -53,7 +53,7 @@ export function MessageComposer({
   return (
     <div className="border-t border-slate-200/80 bg-white/88 px-5 py-4 backdrop-blur-xl sm:px-6">
       {interactionDraft ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[22px] bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[22px] bg-violet-50 px-4 py-3 text-sm text-violet-700">
           <div className="flex items-center gap-2">
             <Sparkles size={16} />
             当前正在修改：{formatInteractionDraftLabel(interactionDraft.stateId)}
@@ -61,7 +61,7 @@ export function MessageComposer({
           <button
             type="button"
             onClick={onCancelDraft}
-            className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-sm"
+            className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 shadow-sm"
           >
             取消修改
           </button>
@@ -82,7 +82,7 @@ export function MessageComposer({
           onCompositionEnd={onCompositionEnd}
           disabled={disabled}
           placeholder={placeholder}
-          className="min-h-[112px] w-full resize-none rounded-[24px] border border-slate-100 bg-white px-4 py-4 text-[15px] leading-7 text-slate-900 outline-none transition focus:border-cyan-200 focus:ring-4 focus:ring-cyan-50 disabled:cursor-not-allowed disabled:bg-slate-50"
+          className="min-h-[112px] w-full resize-none rounded-[24px] border border-slate-100 bg-white px-4 py-4 text-[15px] leading-7 text-slate-900 outline-none transition focus:border-violet-200 focus:ring-4 focus:ring-violet-50 disabled:cursor-not-allowed disabled:bg-slate-50"
         />
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

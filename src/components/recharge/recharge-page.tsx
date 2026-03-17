@@ -22,7 +22,7 @@ export function RechargePage() {
 
   return (
     <>
-      <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.98),rgba(248,250,252,0.98)_38%,rgba(241,245,249,0.96)),linear-gradient(180deg,#ffffff_0%,#f8fffe_60%,#f5f7fb_100%)] px-5 py-6 sm:px-8 lg:px-12">
+      <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.98),rgba(255,247,250,0.98)_38%,rgba(243,232,255,0.96)),linear-gradient(180deg,#ffffff_0%,#fff8fc_60%,#faf5ff_100%)] px-5 py-6 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-[1840px]">
           <RechargeHeader />
 
@@ -39,7 +39,7 @@ export function RechargePage() {
               <button
                 type="button"
                 onClick={() => setVoucherOpen(true)}
-                className="mx-auto inline-flex h-[86px] w-full max-w-[240px] items-center justify-center rounded-full bg-emerald-400 px-10 text-[30px] font-black tracking-[-0.03em] text-slate-950 shadow-[0_18px_40px_rgba(20,184,166,0.22)] transition-transform duration-300 hover:scale-[1.01] xl:absolute xl:right-0 xl:top-1/2 xl:mx-0 xl:-translate-y-1/2"
+                className="mx-auto inline-flex h-[86px] w-full max-w-[240px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_40%,#9333ea_100%)] px-10 text-[30px] font-black tracking-[-0.03em] text-white shadow-[0_18px_40px_rgba(147,51,234,0.22)] transition-transform duration-300 hover:scale-[1.01] xl:absolute xl:right-0 xl:top-1/2 xl:mx-0 xl:-translate-y-1/2"
               >
                 代金券兑换
               </button>

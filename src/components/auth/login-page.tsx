@@ -5,7 +5,7 @@ import { LoginShowcase } from "./login-showcase";
 
 export function LoginPage() {
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.4),transparent_30%),radial-gradient(circle_at_top_right,rgba(250,204,21,0.34),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(45,212,191,0.32),transparent_34%),linear-gradient(135deg,#ffcc8b_0%,#ffe9a8_48%,#90f0df_100%)] px-4 py-6 sm:px-6 lg:px-10">
+    <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,138,26,0.34),transparent_30%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.24),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(192,132,252,0.2),transparent_34%),linear-gradient(135deg,#ffd7b0_0%,#fff0de_44%,#f3e8ff_100%)] px-4 py-6 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-[1600px]">
         <div className="mb-6">
           <Link

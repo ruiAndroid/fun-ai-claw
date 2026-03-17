@@ -39,13 +39,13 @@ export function RechargeVoucherDialog({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder="请输入兑换码"
-            className="h-16 w-full rounded-[14px] border-2 border-slate-900/18 px-6 text-[20px] font-bold text-slate-950 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-emerald-400"
+            className="h-16 w-full rounded-[14px] border-2 border-slate-900/18 px-6 text-[20px] font-bold text-slate-950 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400"
           />
         </div>
 
         <button
           type="button"
-          className="mx-auto mt-10 inline-flex h-16 min-w-[280px] items-center justify-center rounded-[18px] bg-emerald-400 px-8 text-[24px] font-black text-slate-950 shadow-[0_18px_40px_rgba(20,184,166,0.24)] transition-transform duration-300 hover:scale-[1.01]"
+          className="mx-auto mt-10 inline-flex h-16 min-w-[280px] items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_42%,#9333ea_100%)] px-8 text-[24px] font-black text-white shadow-[0_18px_40px_rgba(147,51,234,0.24)] transition-transform duration-300 hover:scale-[1.01]"
         >
           确认兑换
         </button>

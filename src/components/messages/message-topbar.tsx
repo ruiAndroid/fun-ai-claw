@@ -34,7 +34,7 @@ export function MessageTopbar({
     <header className="rounded-[28px] border border-white/70 bg-white/78 px-5 py-4 shadow-[0_20px_50px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:px-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-700">
+          <div className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-violet-700">
             <Link2 size={12} />
             指定机器人直连
           </div>
@@ -61,9 +61,9 @@ export function MessageTopbar({
             className={cn(
               "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold shadow-sm",
               connected
-                ? "bg-emerald-50 text-emerald-700"
-                : connecting
-                  ? "bg-amber-50 text-amber-700"
+                  ? "bg-orange-50 text-orange-700"
+                  : connecting
+                    ? "bg-violet-50 text-violet-700"
                   : "bg-slate-100 text-slate-600",
             )}
           >
@@ -102,7 +102,7 @@ export function MessageTopbar({
               type="button"
               onClick={onReconnect}
               disabled={!selectedRobot?.isAvailable || connecting || (!hasConversation && !selectedRobot)}
-              className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-700 shadow-sm transition-transform duration-300 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-45"
+              className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm transition-transform duration-300 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-45"
             >
               <Wifi size={16} />
               {hasConversation ? "重连会话" : "建立连接"}
@@ -115,7 +115,7 @@ export function MessageTopbar({
         <div
           className={cn(
             "mt-4 rounded-[20px] px-4 py-3 text-sm",
-            error ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-700",
+            error ? "bg-rose-50 text-rose-600" : "bg-violet-50 text-violet-700",
           )}
         >
           {error ?? notice}

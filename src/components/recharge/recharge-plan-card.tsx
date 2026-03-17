@@ -18,7 +18,7 @@ export function RechargePlanCard({
       className={cn(
         "rounded-[32px] border bg-white px-8 py-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] transition-all duration-300",
         selected
-          ? "border-emerald-300 shadow-[0_28px_70px_rgba(20,184,166,0.18)]"
+          ? "border-violet-300 shadow-[0_28px_70px_rgba(147,51,234,0.18)]"
           : "border-white hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(15,23,42,0.12)]",
       )}
     >
@@ -46,8 +46,8 @@ export function RechargePlanCard({
         className={cn(
           "mt-8 inline-flex h-18 w-full items-center justify-center rounded-[18px] text-[24px] font-black text-slate-950 transition-transform duration-300",
           selected
-            ? "bg-emerald-400 shadow-[0_18px_40px_rgba(20,184,166,0.24)] hover:scale-[1.01]"
-            : "bg-cyan-300/95 hover:scale-[1.01]",
+            ? "bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_42%,#9333ea_100%)] shadow-[0_18px_40px_rgba(147,51,234,0.24)] hover:scale-[1.01]"
+            : "bg-violet-300/95 hover:scale-[1.01]",
         )}
       >
         {selected ? "已选择" : "购买"}

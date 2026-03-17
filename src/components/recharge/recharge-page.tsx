@@ -27,7 +27,7 @@ export function RechargePage() {
           <RechargeHeader />
 
           <section className="mt-12">
-            <div className="mx-auto flex max-w-[1360px] flex-col gap-6 xl:relative xl:min-h-[96px] xl:items-center xl:justify-center">
+            <div className="relative flex w-full flex-col gap-6 xl:min-h-[96px] xl:justify-center">
               <div className="mx-auto w-full max-w-[760px]">
                 <RechargeSegment
                   activeTab={activeTab}

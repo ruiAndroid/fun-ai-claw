@@ -254,6 +254,11 @@ export const uiText = {
   instanceReadonlyNoticeDescription: "实例运行态信息仍可查看和操作，但主 Agent、Skills、渠道与运行配置暂不支持在前端修改。",
   mainAgentGuidanceReadonlyTitle: "Main Guidance 已锁定",
   mainAgentGuidanceReadonlyDescription: "当前主 Agent 提示词由模板统一管理，这里仅提供查看与刷新。",
+  configRestartRequiredTitle: "配置已保存",
+  configRestartRequiredDescription: "ZeroClaw 需要重启实例后才会加载最新配置，是否现在重启当前实例？",
+  configRestartRequiredDescriptionStopped: "ZeroClaw 需要重新启动实例后才会加载最新配置，是否现在启动当前实例？",
+  configRestartNow: "立即重启",
+  configRestartLater: "稍后处理",
   // Task tab
   noTasks: "暂无定时任务",
   createTask: "创建任务",

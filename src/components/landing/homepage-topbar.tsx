@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Network } from "lucide-react";
+import { Plus } from "lucide-react";
 
-export function HomepageTopbar() {
+export function HomepageTopbar({ points = 1000 }: { points?: number }) {
   return (
     <header className="rounded-[24px] border border-white/70 bg-white/72 px-4 py-3 shadow-[0_20px_55px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:px-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -15,27 +15,17 @@ export function HomepageTopbar() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/docs"
-            className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2.5 text-sm font-semibold text-md-on-surface shadow-sm transition-colors duration-300 hover:text-md-primary"
-          >
-            <BookOpen size={15} />
-            文档
-          </Link>
-          <Link
-            href="/docs/open-v1-external-frontend-integration"
-            className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2.5 text-sm font-semibold text-md-on-surface shadow-sm transition-colors duration-300 hover:text-md-primary"
-          >
-            <Network size={15} />
-            Open API
-          </Link>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-sm font-semibold shadow-sm">
+            <span className="text-cyan-400">{points}</span>
+            <span className="text-md-on-surface">point</span>
+          </div>
           <Link
             href="/console"
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-300 to-teal-300 px-5 py-2.5 text-sm font-bold text-slate-900 shadow-[0_16px_40px_rgba(45,212,191,0.24)] transition-transform duration-300 hover:scale-[1.02]"
+            className="inline-flex items-center gap-1.5 rounded-full bg-cyan-200 px-4 py-2 text-sm font-bold text-slate-900 shadow-[0_14px_32px_rgba(34,211,238,0.2)] transition-transform duration-300 hover:scale-[1.02]"
           >
-            进入控制台
-            <ArrowRight size={15} />
+            <Plus size={14} />
+            充值
           </Link>
         </div>
       </div>

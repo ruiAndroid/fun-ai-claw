@@ -76,6 +76,7 @@ type QueuedAgentSessionMessage = {
 };
 
 const INSTANCE_TEMPLATE_MANAGED_MODE = true;
+const INSTANCE_TEMPLATE_MANAGED_GUIDANCE_READONLY = false;
 
 function AnimatedNumber({ value, className }: { value: number; className?: string }) {
   const motionValue = useMotionValue(0);
@@ -309,13 +310,13 @@ export function Dashboard() {
   const terminalRenderedLines = useMemo(() => terminalOutput.split("\n"), [terminalOutput]);
   const selectedPairingCode = pairingCodeData?.pairingCode?.trim();
   const selectedPairingLink = pairingCodeData?.pairingLink?.trim();
-  const actionLabelMap: Record<InstanceActionType, string> = {
+  const actionLabelMap = useMemo<Record<InstanceActionType, string>>(() => ({
     START: uiText.start,
     STOP: uiText.stop,
     RESTART: uiText.restartInstance,
     RESTART_ZEROCLAW: "重启 ZeroClaw",
     ROLLBACK: uiText.rollback,
-  };
+  }), []);
   const activeActionLabel = activeInstanceAction ? actionLabelMap[activeInstanceAction.action] : "";
   const baselineMainAgentPrompt = mainAgentGuidance?.overridePrompt ?? "";
   const baselineMainAgentOverrideEnabled = mainAgentGuidance?.overrideEnabled ?? true;
@@ -431,6 +432,46 @@ export function Dashboard() {
     }
   }, []);
 
+  const handleAction = useCallback(async (action: InstanceActionType) => {
+    if (!selectedInstanceId) {
+      return false;
+    }
+    const instanceId = selectedInstanceId;
+    const instanceName = selectedInstance?.name ?? "-";
+    setActiveInstanceAction({ action, instanceName });
+    setSubmittingAction(true);
+    try {
+      await submitInstanceAction(instanceId, action);
+      await loadInstances();
+      messageApi.success(`${uiText.actionSubmittedPrefix}${actionLabelMap[action]}`);
+      setSubmittingAction(false);
+      setActiveInstanceAction(undefined);
+      return true;
+    } catch (apiError) {
+      messageApi.error(apiError instanceof Error ? apiError.message : uiText.actionFailed);
+      return false;
+    } finally {
+      setSubmittingAction(false);
+    }
+  }, [actionLabelMap, loadInstances, messageApi, selectedInstance?.name, selectedInstanceId]);
+
+  const promptRestartAfterConfigChange = useCallback(() => {
+    Modal.confirm({
+      title: uiText.configRestartRequiredTitle,
+      content: selectedStatus === "STOPPED"
+        ? uiText.configRestartRequiredDescriptionStopped
+        : uiText.configRestartRequiredDescription,
+      okText: uiText.configRestartNow,
+      cancelText: uiText.configRestartLater,
+      onOk: async () => {
+        const restarted = await handleAction("RESTART");
+        if (!restarted) {
+          throw new Error("instance restart failed");
+        }
+      },
+    });
+  }, [handleAction, selectedStatus]);
+
   const loadMainAgentGuidance = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
       setMainAgentGuidance(undefined);
@@ -482,6 +523,7 @@ export function Dashboard() {
       setMainAgentPromptDraft(response.overridePrompt ?? "");
       setMainAgentOverrideEnabledDraft(response.overrideEnabled ?? true);
       messageApi.success(uiText.mainAgentGuidanceSaved);
+      promptRestartAfterConfigChange();
       return true;
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.mainAgentGuidanceSaveFailed);
@@ -489,7 +531,7 @@ export function Dashboard() {
     } finally {
       setMainAgentGuidanceSaving(false);
     }
-  }, [mainAgentGuidance?.overrideExists, mainAgentOverrideEnabledDraft, mainAgentPromptDraft, messageApi, selectedInstanceId]);
+  }, [mainAgentGuidance?.overrideExists, mainAgentOverrideEnabledDraft, mainAgentPromptDraft, messageApi, promptRestartAfterConfigChange, selectedInstanceId]);
 
   const removeMainAgentGuidanceOverride = useCallback(async () => {
     if (!selectedInstanceId) {
@@ -504,12 +546,13 @@ export function Dashboard() {
       setMainAgentOverrideEnabledDraft(true);
       setMainAgentGuidanceEditing(false);
       messageApi.success(uiText.mainAgentGuidanceDeleted);
+      promptRestartAfterConfigChange();
     } catch (apiError) {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.mainAgentGuidanceDeleteFailed);
     } finally {
       setMainAgentGuidanceDeleting(false);
     }
-  }, [messageApi, selectedInstanceId]);
+  }, [messageApi, promptRestartAfterConfigChange, selectedInstanceId]);
 
   const cancelMainAgentGuidanceEdit = useCallback(() => {
     setMainAgentPromptDraft(baselineMainAgentPrompt);
@@ -783,29 +826,6 @@ export function Dashboard() {
       messageApi.error(apiError instanceof Error ? apiError.message : uiText.createInstanceFailed);
     } finally {
       setCreatingInstance(false);
-    }
-  };
-
-  const handleAction = async (action: InstanceActionType) => {
-    if (!selectedInstanceId) {
-      return false;
-    }
-    const instanceId = selectedInstanceId;
-    const instanceName = selectedInstance?.name ?? "-";
-    setActiveInstanceAction({ action, instanceName });
-    setSubmittingAction(true);
-    try {
-      await submitInstanceAction(instanceId, action);
-      await loadInstances();
-      messageApi.success(`${uiText.actionSubmittedPrefix}${actionLabelMap[action]}`);
-      setSubmittingAction(false);
-      setActiveInstanceAction(undefined);
-      return true;
-    } catch (apiError) {
-      messageApi.error(apiError instanceof Error ? apiError.message : uiText.actionFailed);
-      return false;
-    } finally {
-      setSubmittingAction(false);
     }
   };
 
@@ -2197,13 +2217,13 @@ export function Dashboard() {
           </Button>
           <Button
             size="small"
-            disabled={mainAgentGuidanceEditing && !INSTANCE_TEMPLATE_MANAGED_MODE}
+            disabled={mainAgentGuidanceEditing && !INSTANCE_TEMPLATE_MANAGED_GUIDANCE_READONLY}
             onClick={() => setMainAgentGuidanceCollapsed((current) => !current)}
             icon={mainAgentGuidanceCollapsed ? <Eye size={12} /> : <ChevronLeft size={12} />}
           >
             {mainAgentGuidanceCollapsed ? uiText.mainAgentGuidanceExpand : uiText.mainAgentGuidanceCollapse}
           </Button>
-          {!INSTANCE_TEMPLATE_MANAGED_MODE && !mainAgentGuidanceCollapsed && mainAgentGuidanceEditing ? (
+          {!INSTANCE_TEMPLATE_MANAGED_GUIDANCE_READONLY && !mainAgentGuidanceCollapsed && mainAgentGuidanceEditing ? (
             <>
               <Button
                 type="primary"
@@ -2228,7 +2248,7 @@ export function Dashboard() {
               </Button>
             </>
           ) : null}
-          {!INSTANCE_TEMPLATE_MANAGED_MODE && !mainAgentGuidanceCollapsed && !mainAgentGuidanceEditing ? (
+          {!INSTANCE_TEMPLATE_MANAGED_GUIDANCE_READONLY && !mainAgentGuidanceCollapsed && !mainAgentGuidanceEditing ? (
             <>
               <Button
                 size="small"
@@ -2258,7 +2278,7 @@ export function Dashboard() {
       ) : (
         <div className="main-prompt-body">
           {mainAgentGuidanceError ? <Alert type="error" showIcon message={mainAgentGuidanceError} style={{ marginBottom: 16 }} /> : null}
-          {INSTANCE_TEMPLATE_MANAGED_MODE ? (
+          {INSTANCE_TEMPLATE_MANAGED_GUIDANCE_READONLY ? (
             <Alert
               type="info"
               showIcon
@@ -2297,7 +2317,7 @@ export function Dashboard() {
               </span>
             </div>
           </div>
-          {mainAgentGuidanceEditing && !INSTANCE_TEMPLATE_MANAGED_MODE ? (
+          {mainAgentGuidanceEditing && !INSTANCE_TEMPLATE_MANAGED_GUIDANCE_READONLY ? (
             <Space direction="vertical" style={{ width: "100%" }} size="middle">
               <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
                 <Text>{uiText.mainAgentGuidanceOverrideEnabled}</Text>
@@ -2527,7 +2547,7 @@ export function Dashboard() {
                         type="info"
                         showIcon
                         message={uiText.instanceReadonlyNoticeTitle}
-                        description={uiText.instanceReadonlyNoticeDescription}
+                        description="当前仍处于模板托管分阶段放开模式：主 Agent 提示词覆盖已开放编辑，Agent、Skills、渠道与运行配置暂不支持前端修改。"
                       />
                     ) : null}
                     <motion.div

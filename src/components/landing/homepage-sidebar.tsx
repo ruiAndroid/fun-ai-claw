@@ -6,11 +6,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown,
   ChevronUp,
+  LogIn,
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
-  SlidersHorizontal,
 } from "lucide-react";
 import { sidebarMessages, sidebarNavItems } from "./homepage-data";
 
@@ -71,13 +71,13 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-sm font-black text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)]">
           FC
         </div>
-        <button
-          type="button"
+        <Link
+          href="/login"
           className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm"
-          aria-label="用户设置"
+          aria-label="前往登录页"
         >
-          <SlidersHorizontal size={16} />
-        </button>
+          <LogIn size={16} />
+        </Link>
       </div>
     );
   }
@@ -89,15 +89,15 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-base font-bold text-md-on-surface">FunClaw 用户</div>
-        <div className="truncate text-xs text-md-on-surface-variant">登录后展示账号信息</div>
+        <div className="truncate text-xs text-md-on-surface-variant">当前未接入用户系统，先展示登录入口</div>
       </div>
-      <button
-        type="button"
+      <Link
+        href="/login"
         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm"
-        aria-label="用户设置"
+        aria-label="前往登录页"
       >
-        <SlidersHorizontal size={16} />
-      </button>
+        <LogIn size={16} />
+      </Link>
     </div>
   );
 }

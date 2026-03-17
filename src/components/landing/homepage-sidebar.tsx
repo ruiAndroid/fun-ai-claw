@@ -29,7 +29,6 @@ function SidebarBrand() {
         <span className="block bg-[linear-gradient(135deg,#0f172a_0%,#0f766e_52%,#06b6d4_100%)] bg-clip-text text-[15px] font-black tracking-[-0.05em] text-transparent">
           FunClaw
         </span>
-        <span className="mt-1 block h-1.5 w-10 rounded-full bg-[linear-gradient(90deg,rgba(14,165,233,0.88)_0%,rgba(20,184,166,0.82)_55%,rgba(250,204,21,0.76)_100%)]" />
       </span>
     </Link>
   );

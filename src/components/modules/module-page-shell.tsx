@@ -36,7 +36,7 @@ export function ModulePageShell({
   actionHref: string;
 }) {
   return (
-    <main className="brand-sunset-theme min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(255,138,26,0.16),transparent_24%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.14),transparent_22%),linear-gradient(180deg,#fff9fc_0%,#fff6fb_48%,#fff9fc_100%)]">
+    <main className="brand-sunset-theme min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(255,122,24,0.16),transparent_24%),radial-gradient(circle_at_top_right,rgba(139,61,255,0.14),transparent_22%),linear-gradient(180deg,#fffaf7_0%,#fff7fb_48%,#fffaf7_100%)]">
       <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8 lg:py-6 xl:px-10">
         <HomepageTopbar />
 
@@ -70,7 +70,7 @@ export function ModulePageShell({
 
                 <Link
                   href={actionHref}
-                  className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_46%,#9333ea_100%)] px-5 py-3 text-sm font-bold text-white shadow-[0_16px_36px_rgba(147,51,234,0.18)] transition-transform duration-300 hover:scale-[1.02]"
+                  className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_44%,#8b3dff_100%)] px-5 py-3 text-sm font-bold text-white shadow-[0_16px_36px_rgba(139,61,255,0.18)] transition-transform duration-300 hover:scale-[1.02]"
                 >
                   {actionLabel}
                   <ArrowRight size={16} />

@@ -50,7 +50,7 @@ function HeroStartStep({
         <p className="max-w-[190px] text-[13px] font-bold leading-5 text-white">{title}</p>
         <Link
           href={href}
-          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb15a_0%,#ff8a1a_42%,#9333ea_100%)] px-4 text-[11px] font-black text-white shadow-[0_10px_24px_rgba(147,51,234,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_14px_28px_rgba(147,51,234,0.24)]"
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] px-4 text-[11px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]"
         >
           {actionLabel}
         </Link>
@@ -65,14 +65,14 @@ export function HomepageHero() {
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden rounded-[36px] border border-white/70 bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_46%,#9333ea_100%)] p-5 text-white shadow-[0_24px_68px_rgba(147,51,234,0.2)] sm:p-6 lg:p-7"
+      className="relative overflow-hidden rounded-[36px] border border-white/70 bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] p-5 text-white shadow-[0_24px_68px_rgba(139,61,255,0.2)] sm:p-6 lg:p-7"
     >
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(255,255,255,0.22),transparent_24%),radial-gradient(circle_at_82%_14%,rgba(255,255,255,0.16),transparent_20%),radial-gradient(circle_at_70%_76%,rgba(255,255,255,0.10),transparent_24%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0.01)_50%,rgba(255,255,255,0.05)_100%)]" />
         <div className="absolute left-[18%] top-[20%] h-36 w-80 rounded-[36px] bg-white/10 blur-3xl" />
-        <div className="absolute right-[-6rem] top-4 h-64 w-64 rounded-full bg-violet-200/18 blur-3xl" />
-        <div className="absolute bottom-[-5rem] left-[46%] h-44 w-44 rounded-full bg-violet-200/18 blur-3xl" />
+        <div className="absolute right-[-6rem] top-4 h-64 w-64 rounded-full bg-violet-200/16 blur-3xl" />
+        <div className="absolute bottom-[-5rem] left-[46%] h-44 w-44 rounded-full bg-fuchsia-200/16 blur-3xl" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.03)_0%,transparent_24%,transparent_72%,rgba(255,255,255,0.03)_100%)]" />
       </div>
 
@@ -126,10 +126,10 @@ export function HomepageHero() {
         <motion.aside
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 5.4, repeat: Infinity, ease: "easeInOut" }}
-          className="relative rounded-[28px] border border-white/14 bg-[linear-gradient(180deg,rgba(124,58,237,0.26)_0%,rgba(147,51,234,0.18)_100%)] p-3 shadow-[0_20px_54px_rgba(147,51,234,0.16)] backdrop-blur-xl"
+          className="relative rounded-[28px] border border-white/14 bg-[linear-gradient(180deg,rgba(139,61,255,0.24)_0%,rgba(255,122,24,0.14)_100%)] p-3 shadow-[0_20px_54px_rgba(139,61,255,0.16)] backdrop-blur-xl"
         >
           <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,transparent_22%,transparent_78%,rgba(255,255,255,0.03)_100%)]" />
-          <div className="relative rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(35,91,77,0.22)_0%,rgba(35,91,77,0.08)_100%)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div className="relative rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(100,54,177,0.22)_0%,rgba(255,122,24,0.08)_100%)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="flex items-center justify-between">
               <span className="rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[11px] font-black text-white/84">
                 Beginning

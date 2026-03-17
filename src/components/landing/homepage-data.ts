@@ -143,27 +143,33 @@ export type SidebarMessageItem = {
   title: string;
 };
 
-export const sidebarNavItems: SidebarNavItem[] = [
-  {
-    icon: Bot,
-    label: "机器人",
-    href: "/console",
-    active: true,
-  },
-  {
-    icon: CalendarClock,
-    label: "定时任务",
-    href: "/tasks",
-    badge: "3",
-    summary: "2 个待执行，1 个刚完成",
-  },
-  {
-    icon: House,
-    label: "社区",
-    href: "/community",
-    badge: "12",
-    summary: "今日新增 12 条精选动态",
-  },
-] as const;
+export function buildSidebarNavItems({
+  robotCount,
+  robotSummary,
+}: {
+  robotCount?: number;
+  robotSummary?: string;
+} = {}): SidebarNavItem[] {
+  return [
+    {
+      icon: Bot,
+      label: "机器人",
+      href: "/console",
+      active: true,
+      badge: typeof robotCount === "number" && robotCount > 0 ? `${robotCount}` : undefined,
+      summary: robotSummary,
+    },
+    {
+      icon: CalendarClock,
+      label: "定时任务",
+      href: "/tasks",
+    },
+    {
+      icon: House,
+      label: "社区",
+      href: "/community",
+    },
+  ];
+}
 
 export const sidebarMessages: SidebarMessageItem[] = [];

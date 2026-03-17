@@ -46,21 +46,21 @@
 }
 
 .brand-sunset-theme {
-  --color-md-primary: #ff8a1a;
+  --color-md-primary: #ff7a18;
   --color-md-on-primary: #ffffff;
-  --color-md-primary-container: #ffe6d4;
+  --color-md-primary-container: #ffe3d2;
   --color-md-on-primary-container: #7c2d12;
-  --color-md-secondary: #9333ea;
+  --color-md-secondary: #8b3dff;
   --color-md-on-secondary: #ffffff;
-  --color-md-surface: #fff9fc;
-  --color-md-surface-dim: #fff6fb;
-  --color-md-surface-container: #fff0f8;
-  --color-md-surface-container-high: #f3e8ff;
-  --color-md-surface-container-highest: #e9d5ff;
+  --color-md-surface: #fffaf7;
+  --color-md-surface-dim: #fff7fb;
+  --color-md-surface-container: #fff1f8;
+  --color-md-surface-container-high: #f5ebff;
+  --color-md-surface-container-highest: #eddcff;
   --color-md-on-surface: #0f172a;
   --color-md-on-surface-variant: #6b7280;
-  --color-md-outline: #d8b4fe;
-  --color-md-outline-variant: #f5d0fe;
+  --color-md-outline: #d9b8ff;
+  --color-md-outline-variant: #f0dbff;
 }
 
 html,

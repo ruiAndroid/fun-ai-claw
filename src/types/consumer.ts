@@ -37,3 +37,44 @@ export interface ConsumerBoundInstance {
   instanceCreatedAt: string;
   instanceUpdatedAt: string;
 }
+
+export interface ConsumerChatSession {
+  sessionId: string;
+  instanceId: string;
+  agentId: string;
+  title?: string | null;
+  status: string;
+  openSessionId: string;
+  externalSessionKey: string;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt?: string | null;
+  closedAt?: string | null;
+  websocketPath?: string | null;
+  websocketToken?: string | null;
+  websocketTokenExpiresAt?: string | null;
+}
+
+export interface ConsumerChatSessionCreateRequest {
+  instanceId: string;
+  agentId: string;
+  title?: string | null;
+  remark?: string | null;
+}
+
+export interface ConsumerChatSessionMessage {
+  id: string;
+  sessionId: string;
+  eventType: string;
+  role: string;
+  content: string;
+  thinkingContent?: string | null;
+  interaction?: Record<string, unknown> | null;
+  providerMessageId?: string | null;
+  providerSequence?: number | null;
+  pending: boolean;
+  emittedAt?: string | null;
+  createdAt: string;
+  rawPayload?: string | null;
+}

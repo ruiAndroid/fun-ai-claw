@@ -45,7 +45,7 @@ export function RechargeVoucherDialog({
 
         <button
           type="button"
-          className="mx-auto mt-10 inline-flex h-16 min-w-[280px] items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_42%,#9333ea_100%)] px-8 text-[24px] font-black text-white shadow-[0_18px_40px_rgba(147,51,234,0.24)] transition-transform duration-300 hover:scale-[1.01]"
+          className="mx-auto mt-10 inline-flex h-16 min-w-[280px] items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-8 text-[24px] font-black text-white shadow-[0_18px_40px_rgba(139,61,255,0.24)] transition-transform duration-300 hover:scale-[1.01]"
         >
           确认兑换
         </button>

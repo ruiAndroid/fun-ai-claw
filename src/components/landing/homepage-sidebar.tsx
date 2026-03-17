@@ -13,20 +13,21 @@ import {
   UserRound,
 } from "lucide-react";
 import { XiamiIcon } from "@/components/ui/xiami-icon";
-import { sidebarMessages, sidebarNavItems } from "./homepage-data";
+import type { SidebarMessageItem, SidebarNavItem } from "./homepage-data";
+import type { HomepageUserCard } from "./use-homepage-shell-data";
 
 function SidebarBrand() {
   return (
     <Link
       href="/"
-      className="group inline-flex items-center gap-3 rounded-[20px] border border-white/70 bg-white/78 px-3 py-2.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-200/80 hover:shadow-[0_16px_36px_rgba(147,51,234,0.12)]"
+      className="group inline-flex items-center gap-3 rounded-[20px] border border-white/70 bg-white/78 px-3 py-2.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-200/80 hover:shadow-[0_16px_36px_rgba(139,61,255,0.14)]"
       aria-label="返回首页"
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_46%,#9333ea_100%)] text-slate-950 shadow-[0_16px_30px_rgba(147,51,234,0.2)]">
+      <span className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_44%,#8b3dff_100%)] text-slate-950 shadow-[0_16px_30px_rgba(139,61,255,0.2)]">
         <XiamiIcon size={24} />
       </span>
       <span className="min-w-0">
-        <span className="block bg-[linear-gradient(135deg,#0f172a_0%,#ff7a18_42%,#9333ea_100%)] bg-clip-text text-[15px] font-black tracking-[-0.05em] text-transparent">
+        <span className="block bg-[linear-gradient(135deg,#0f172a_0%,#ff7a18_42%,#8b3dff_100%)] bg-clip-text text-[15px] font-black tracking-[-0.05em] text-transparent">
           FunClaw
         </span>
       </span>
@@ -57,7 +58,7 @@ function SidebarNavLink({
         href={href}
         className={`relative flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all duration-300 ${
           active
-            ? "border-violet-200/70 bg-violet-100 text-violet-900 shadow-[0_16px_36px_rgba(147,51,234,0.16)]"
+            ? "border-violet-200/80 bg-violet-50 text-violet-900 shadow-[0_16px_36px_rgba(139,61,255,0.14)]"
             : "border-white/70 bg-white/78 text-md-on-surface shadow-sm"
         }`}
         aria-label={label}
@@ -77,8 +78,8 @@ function SidebarNavLink({
       href={href}
       className={`flex items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-bold transition-all duration-300 ${
         active
-          ? "bg-violet-100 text-violet-900 shadow-[0_16px_36px_rgba(147,51,234,0.16)]"
-          : "text-md-on-surface hover:bg-white/70"
+          ? "bg-violet-50 text-violet-900 shadow-[0_16px_36px_rgba(139,61,255,0.14)]"
+          : "text-md-on-surface hover:bg-white/78 hover:shadow-[0_12px_26px_rgba(81,38,145,0.08)]"
       }`}
     >
       <span
@@ -107,12 +108,18 @@ function SidebarNavLink({
   );
 }
 
-function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
+function SidebarUserCard({
+  collapsed,
+  userCard,
+}: {
+  collapsed: boolean;
+  userCard: HomepageUserCard;
+}) {
   if (collapsed) {
     return (
       <Link
-        href="/me"
-        className="mt-auto self-center inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ff8a1a_0%,#9333ea_100%)] text-white shadow-[0_14px_30px_rgba(147,51,234,0.2)] transition-transform duration-300 hover:scale-[1.03]"
+        href={userCard.href}
+        className="mt-auto self-center inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] text-white shadow-[0_14px_30px_rgba(139,61,255,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(139,61,255,0.26)]"
         aria-label="前往个人中心"
       >
         <UserRound size={18} />
@@ -121,16 +128,24 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div className="mt-auto flex items-center gap-3 rounded-[24px] border border-white/70 bg-white/82 p-3 shadow-[0_18px_36px_rgba(15,23,42,0.05)]">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ff8a1a_0%,#9333ea_100%)] text-white shadow-[0_14px_30px_rgba(147,51,234,0.2)]">
-        <UserRound size={22} />
-      </div>
+    <div className="mt-auto flex items-center gap-3 rounded-[24px] border border-white/70 bg-white/82 p-3 shadow-[0_18px_36px_rgba(81,38,145,0.08)]">
+      {userCard.avatarUrl ? (
+        <img
+          src={userCard.avatarUrl}
+          alt={userCard.title}
+          className="h-14 w-14 rounded-full object-cover shadow-[0_14px_30px_rgba(139,61,255,0.14)]"
+        />
+      ) : (
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] text-white shadow-[0_14px_30px_rgba(139,61,255,0.2)]">
+          <UserRound size={22} />
+        </div>
+      )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-base font-bold text-md-on-surface">个人中心</div>
-        <div className="truncate text-xs text-md-on-surface-variant">后续接入真实用户信息</div>
+        <div className="truncate text-base font-bold text-md-on-surface">{userCard.title}</div>
+        <div className="truncate text-xs text-md-on-surface-variant">{userCard.subtitle}</div>
       </div>
       <Link
-        href="/me"
+        href={userCard.href}
         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm"
         aria-label="前往个人中心"
       >
@@ -140,10 +155,20 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-export function HomepageSidebar() {
+export function HomepageSidebar({
+  navItems,
+  messages,
+  messageEmptyText,
+  userCard,
+}: {
+  navItems: SidebarNavItem[];
+  messages: SidebarMessageItem[];
+  messageEmptyText: string;
+  userCard: HomepageUserCard;
+}) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMessageExpanded, setIsMessageExpanded] = useState(true);
-  const hasMessages = sidebarMessages.length > 0;
+  const hasMessages = messages.length > 0;
   const sidebarWidth = isSidebarCollapsed ? 104 : 292;
 
   return (
@@ -193,25 +218,25 @@ export function HomepageSidebar() {
             </Link>
             <Link
               href="/messages"
-              className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-md-primary text-md-on-primary shadow-md-2"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] text-md-on-primary shadow-[0_14px_28px_rgba(139,61,255,0.22)]"
               aria-label="新建消息"
             >
               <Plus size={18} />
             </Link>
-            {sidebarNavItems.map((item) => (
-              <SidebarNavLink
-                key={item.label}
-                href={item.href}
-                label={item.label}
-                active={item.active}
-                badge={item.badge}
-                summary={item.summary}
-                icon={item.icon}
-                collapsed
-              />
+            {navItems.map((item) => (
+                <SidebarNavLink
+                  key={item.label}
+                  href={item.href}
+                  label={item.label}
+                  active={item.active}
+                  badge={item.badge}
+                  summary={item.summary}
+                  icon={item.icon}
+                  collapsed
+                />
             ))}
 
-            <SidebarUserCard collapsed />
+            <SidebarUserCard collapsed userCard={userCard} />
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -224,7 +249,7 @@ export function HomepageSidebar() {
                 <div className="ml-auto flex items-center gap-2">
                   <Link
                     href="/messages"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-transform duration-300 hover:scale-105"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
                     aria-label="新建消息"
                   >
                     <Plus size={18} />
@@ -232,7 +257,7 @@ export function HomepageSidebar() {
                   <button
                     type="button"
                     onClick={() => setIsMessageExpanded((value) => !value)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-transform duration-300 hover:scale-105"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
                     aria-label={isMessageExpanded ? "收起消息区域" : "展开消息区域"}
                   >
                     {isMessageExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -252,7 +277,7 @@ export function HomepageSidebar() {
                   >
                     {hasMessages ? (
                       <div className="max-h-[460px] overflow-y-auto pr-2">
-                        {sidebarMessages.map((item) => (
+                        {messages.map((item) => (
                           <Link
                             key={item.id}
                             href="/messages"
@@ -269,7 +294,7 @@ export function HomepageSidebar() {
                       </div>
                     ) : (
                       <div className="rounded-[24px] border border-dashed border-md-outline-variant/40 bg-white/60 px-4 py-5 text-sm text-md-on-surface-variant">
-                        暂无消息，接入真实会话后这里才会显示内容。
+                        {messageEmptyText}
                       </div>
                     )}
                   </motion.div>
@@ -277,7 +302,7 @@ export function HomepageSidebar() {
               </AnimatePresence>
 
               <div className="mt-8 space-y-2">
-                {sidebarNavItems.map((item) => (
+                {navItems.map((item) => (
                   <SidebarNavLink
                     key={item.label}
                     href={item.href}
@@ -293,7 +318,7 @@ export function HomepageSidebar() {
             </div>
 
             <div className="pt-4">
-              <SidebarUserCard collapsed={false} />
+              <SidebarUserCard collapsed={false} userCard={userCard} />
             </div>
           </div>
         )}

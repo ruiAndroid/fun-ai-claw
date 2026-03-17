@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { listInstanceAgentBindings, listInstances } from "@/lib/control-api";
-import type { ClawInstance } from "@/types/contracts";
+import { loadMessageRobotBindings } from "@/lib/message-page-api";
+import type { ClawInstance, InstanceAgentBinding } from "@/types/contracts";
 import { messagePageText } from "./messages-data";
 import type { MessageRobotTarget } from "./messages-types";
 
-function buildRobotTargets(instances: ClawInstance[], bindingsByInstance: Map<string, Awaited<ReturnType<typeof listInstanceAgentBindings>>["items"]>) {
+function buildRobotTargets(
+  instances: ClawInstance[],
+  bindingsByInstance: Map<string, InstanceAgentBinding[]>,
+) {
   return instances
     .flatMap((instance) => {
       const bindings = bindingsByInstance.get(instance.id) ?? [];
@@ -44,15 +47,8 @@ export function useMessageRobots() {
     setLoading(true);
     setError(undefined);
     try {
-      const instancesResponse = await listInstances();
-      const bindingsEntries = await Promise.all(
-        instancesResponse.items.map(async (instance) => {
-          const bindingsResponse = await listInstanceAgentBindings(instance.id);
-          return [instance.id, bindingsResponse.items] as const;
-        }),
-      );
-      const bindingsByInstance = new Map(bindingsEntries);
-      const nextRobots = buildRobotTargets(instancesResponse.items, bindingsByInstance);
+      const snapshot = await loadMessageRobotBindings();
+      const nextRobots = buildRobotTargets(snapshot.instances, snapshot.bindingsByInstance);
       setRobots(nextRobots);
       setSelectedRobotId((current) => {
         if (current && nextRobots.some((robot) => robot.id === current)) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getInstanceOpenSessionOverview } from "@/lib/control-api";
+import { loadMessageSessionOverview } from "@/lib/message-page-api";
 import type { InstanceOpenSessionItem } from "@/types/contracts";
 import type { MessageRobotTarget, MessageSessionArchive } from "./messages-types";
 
@@ -62,10 +62,8 @@ export function useMessageSessionList({
     setLoading(true);
     setError(undefined);
     try {
-      const overview = await getInstanceOpenSessionOverview(selectedRobot.instanceId);
-      setRemoteSessions(
-        overview.items.filter((item) => (item.agentId ?? "") === selectedRobot.agentId),
-      );
+      const overview = await loadMessageSessionOverview(selectedRobot.instanceId, selectedRobot.agentId);
+      setRemoteSessions(overview.items);
     } catch (loadError) {
       setRemoteSessions([]);
       setError(loadError instanceof Error ? loadError.message : "加载会话列表失败");

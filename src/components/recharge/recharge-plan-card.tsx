@@ -46,7 +46,7 @@ export function RechargePlanCard({
         className={cn(
           "mt-8 inline-flex h-18 w-full items-center justify-center rounded-[18px] text-[24px] font-black text-slate-950 transition-transform duration-300",
           selected
-            ? "bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_42%,#9333ea_100%)] shadow-[0_18px_40px_rgba(147,51,234,0.24)] hover:scale-[1.01]"
+            ? "bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] shadow-[0_18px_40px_rgba(139,61,255,0.24)] hover:scale-[1.01]"
             : "bg-violet-300/95 hover:scale-[1.01]",
         )}
       >

@@ -34,7 +34,7 @@ export function LoginShowcase() {
         让内容流动更简单
       </h2>
 
-      <div className="mt-18 rounded-[28px] bg-[linear-gradient(135deg,#ff8a1a_0%,#ff6b2c_40%,#9333ea_100%)] p-6 text-white shadow-[0_28px_70px_rgba(147,51,234,0.28)]">
+      <div className="mt-18 rounded-[28px] bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] p-6 text-white shadow-[0_28px_70px_rgba(139,61,255,0.28)]">
         <div className="text-center text-xl font-black tracking-[-0.03em] sm:text-[32px]">
           搭载多个专用Skills的智能体平台
         </div>

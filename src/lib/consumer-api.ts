@@ -1,7 +1,13 @@
 import { appConfig } from "@/config/app-config";
 import { clearUserCenterAuthState, getUserCenterAuthSnapshot, getUserCenterMe } from "@/lib/user-center-api";
 import type { ListResponse } from "@/types/contracts";
-import type { ConsumerAccount, ConsumerBoundInstance } from "@/types/consumer";
+import type {
+  ConsumerAccount,
+  ConsumerBoundInstance,
+  ConsumerChatSession,
+  ConsumerChatSessionCreateRequest,
+  ConsumerChatSessionMessage,
+} from "@/types/consumer";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
 
@@ -78,4 +84,42 @@ export async function getConsumerAccount() {
 
 export async function listConsumerInstances() {
   return requestConsumerJson<ListResponse<ConsumerBoundInstance>>("/app/v1/consumer/instances");
+}
+
+export async function listConsumerChatSessions(params?: { instanceId?: string; agentId?: string }) {
+  const query = new URLSearchParams();
+  if (params?.instanceId) {
+    query.set("instanceId", params.instanceId);
+  }
+  if (params?.agentId) {
+    query.set("agentId", params.agentId);
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return requestConsumerJson<ListResponse<ConsumerChatSession>>(`/app/v1/chat/sessions${suffix}`);
+}
+
+export async function createConsumerChatSession(request: ConsumerChatSessionCreateRequest) {
+  return requestConsumerJson<ConsumerChatSession>("/app/v1/chat/sessions", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function connectConsumerChatSession(sessionId: string) {
+  return requestConsumerJson<ConsumerChatSession>(`/app/v1/chat/sessions/${encodeURIComponent(sessionId)}/connect`, {
+    method: "POST",
+  });
+}
+
+export async function closeConsumerChatSession(sessionId: string) {
+  return requestConsumerJson<ConsumerChatSession>(`/app/v1/chat/sessions/${encodeURIComponent(sessionId)}/close`, {
+    method: "POST",
+  });
+}
+
+export async function listConsumerChatSessionMessages(sessionId: string, limit?: number) {
+  const query = typeof limit === "number" ? `?limit=${encodeURIComponent(String(limit))}` : "";
+  return requestConsumerJson<ListResponse<ConsumerChatSessionMessage>>(
+    `/app/v1/chat/sessions/${encodeURIComponent(sessionId)}/messages${query}`,
+  );
 }

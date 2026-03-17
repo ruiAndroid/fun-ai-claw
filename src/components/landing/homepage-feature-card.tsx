@@ -20,13 +20,13 @@ export function HomepageFeatureCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, delay: 0.1 * index, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -6, scale: 1.01 }}
-      className="group relative overflow-hidden rounded-[32px] border border-white/70 bg-white/82 p-7 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+      className="group relative overflow-hidden rounded-[32px] border border-white/70 bg-white/84 p-7 shadow-[0_24px_60px_rgba(81,38,145,0.08)] backdrop-blur-xl transition-shadow duration-300 hover:shadow-[0_30px_70px_rgba(139,61,255,0.14)]"
     >
       <div className={`absolute inset-0 bg-gradient-to-br ${card.accent}`} />
       <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/30 blur-3xl" />
 
       <div className="relative flex h-full flex-col">
-        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[20px] bg-white/88 shadow-[0_10px_24px_rgba(147,51,234,0.12)]">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[20px] bg-white/88 shadow-[0_10px_24px_rgba(139,61,255,0.12)] transition-transform duration-300 group-hover:scale-[1.04]">
           <Icon size={24} className="text-md-primary" strokeWidth={2.1} />
         </div>
 
@@ -47,7 +47,7 @@ export function HomepageFeatureCard({
         <div className="mt-auto">
           <Link
             href={card.href}
-            className="inline-flex items-center gap-2 rounded-full bg-md-primary px-4 py-2.5 text-sm font-semibold text-md-on-primary shadow-md-2 transition-all duration-300 hover:gap-3 hover:shadow-md-4"
+            className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-4 py-2.5 text-sm font-semibold text-md-on-primary shadow-[0_14px_28px_rgba(139,61,255,0.16)] transition-all duration-300 hover:gap-3 hover:shadow-[0_18px_36px_rgba(139,61,255,0.22)]"
           >
             {card.ctaLabel}
             <ArrowRight size={15} />

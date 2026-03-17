@@ -22,7 +22,7 @@ export function MessageSidebar({
   onRefresh: () => void;
 }) {
   return (
-    <aside className="flex min-h-0 h-full flex-col rounded-[32px] border border-white/70 bg-white/78 p-5 shadow-[0_24px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+    <aside className="flex min-h-0 h-full flex-col rounded-[32px] border border-white/70 bg-white/80 p-5 shadow-[0_24px_60px_rgba(81,38,145,0.08)] backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3">
         <Link
           href="/"
@@ -35,14 +35,14 @@ export function MessageSidebar({
         <button
           type="button"
           onClick={onRefresh}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm transition-transform duration-300 hover:scale-105"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(81,38,145,0.1)]"
           aria-label="刷新机器人列表"
         >
           <RefreshCw size={16} className={cn(loading && "animate-spin")} />
         </button>
       </div>
 
-      <div className="mt-6 rounded-[28px] bg-[linear-gradient(135deg,rgba(255,138,26,0.16),rgba(168,85,247,0.14))] px-5 py-5">
+      <div className="mt-6 rounded-[28px] bg-[linear-gradient(135deg,rgba(255,122,24,0.16),rgba(139,61,255,0.14))] px-5 py-5">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/75 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-md-primary">
           Direct Agent
         </div>
@@ -99,15 +99,15 @@ export function MessageSidebar({
                   className={cn(
                     "w-full rounded-[26px] border px-4 py-4 text-left transition-all duration-300",
                     isSelected
-                      ? "border-violet-200 bg-violet-50 shadow-[0_18px_40px_rgba(147,51,234,0.14)]"
-                      : "border-white/70 bg-white/72 shadow-sm hover:bg-white",
+                      ? "border-violet-200 bg-violet-50 shadow-[0_18px_40px_rgba(139,61,255,0.14)]"
+                      : "border-white/70 bg-white/72 shadow-sm hover:bg-white hover:shadow-[0_18px_36px_rgba(81,38,145,0.08)]",
                   )}
                 >
                   <div className="flex items-start gap-3">
                     <div
                       className={cn(
                         "flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] text-sm font-black",
-                        isSelected ? "bg-[linear-gradient(135deg,#ff8a1a_0%,#9333ea_100%)] text-white" : "bg-slate-100 text-slate-700",
+                        isSelected ? "bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] text-white" : "bg-slate-100 text-slate-700",
                       )}
                     >
                       <Bot size={18} />

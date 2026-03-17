@@ -79,7 +79,7 @@ function ChatBubble({
         className={cn(
           "max-w-[min(840px,82vw)] rounded-[28px] px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]",
           isUser
-            ? "bg-[linear-gradient(135deg,#ff8a1a,#9333ea)] text-white"
+            ? "bg-[linear-gradient(135deg,#ff7a18,#8b3dff)] text-white shadow-[0_18px_40px_rgba(139,61,255,0.16)]"
             : "border border-white/80 bg-white/90 text-slate-900",
         )}
       >
@@ -119,7 +119,7 @@ function ChatBubble({
       </div>
 
       {isUser ? (
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-violet-100 text-violet-700 shadow-sm">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-violet-50 text-violet-700 shadow-sm">
           <UserRound size={18} />
         </div>
       ) : null}

@@ -9,7 +9,7 @@ import { HomepageTopbar } from "./homepage-topbar";
 
 export function LandingPage() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(167,243,208,0.32),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.18),transparent_28%),linear-gradient(180deg,#f8fffe_0%,#f4fbfa_48%,#f8fffe_100%)]">
+    <main className="relative min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(167,243,208,0.32),transparent_32%),radial-gradient(circle_at_top_right,rgba(125,211,252,0.18),transparent_28%),linear-gradient(180deg,#f8fffe_0%,#f4fbfa_48%,#f8fffe_100%)]">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[-8rem] top-24 h-64 w-64 rounded-full bg-cyan-300/20 blur-3xl" />
         <div className="absolute right-[-6rem] top-12 h-72 w-72 rounded-full bg-teal-300/15 blur-3xl" />

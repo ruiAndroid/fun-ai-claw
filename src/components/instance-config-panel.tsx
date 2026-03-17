@@ -90,7 +90,6 @@ export function InstanceConfigPanel({
       const response = await getInstanceConfig(instance.id);
       setConfig(response);
       setDraft(response.configToml ?? "");
-      await onConfigSaved?.();
       if (showSuccess) {
         messageApi.success("已刷新实例配置");
       }
@@ -172,6 +171,7 @@ export function InstanceConfigPanel({
       const response = await deleteInstanceConfig(instance.id);
       setConfig(response);
       setDraft(response.configToml ?? "");
+      await onConfigSaved?.();
       messageApi.success("已恢复默认模板");
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
@@ -180,7 +180,7 @@ export function InstanceConfigPanel({
     } finally {
       setResetting(false);
     }
-  }, [effectiveRawConfigReadOnly, instance.id, messageApi]);
+  }, [effectiveRawConfigReadOnly, instance.id, messageApi, onConfigSaved]);
 
   const handleResetDraft = useCallback(() => {
     setDraft(baselineConfigToml);

@@ -1,4 +1,4 @@
 export const routePaths = {
-  console: "/fun-claw/console",
-  consoleAccess: "/fun-claw/console/access",
+  console: "/console",
+  consoleAccess: "/console/access",
 } as const;

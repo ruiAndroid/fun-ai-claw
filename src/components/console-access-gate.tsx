@@ -58,7 +58,7 @@ export function ConsoleAccessGate({ passwordConfigured }: ConsoleAccessGateProps
                 控制台访问受限
               </Typography.Title>
               <Typography.Paragraph type="secondary" style={{ margin: "8px 0 0" }}>
-                请输入访问密码后继续进入 `/fun-claw/console`。
+                请输入访问密码后继续进入 `/console`。
               </Typography.Paragraph>
             </div>
           </div>

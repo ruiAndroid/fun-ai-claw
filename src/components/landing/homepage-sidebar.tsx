@@ -112,7 +112,7 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
     return (
       <Link
         href="/me"
-        className="mt-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)] transition-transform duration-300 hover:scale-[1.03]"
+        className="mt-auto self-center inline-flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)] transition-transform duration-300 hover:scale-[1.03]"
         aria-label="前往个人中心"
       >
         <UserRound size={18} />
@@ -165,10 +165,16 @@ export function HomepageSidebar() {
           <button
             type="button"
             onClick={() => setIsSidebarCollapsed((value) => !value)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/76 text-md-on-surface shadow-sm transition-all duration-300 hover:border-md-primary/20 hover:text-md-primary"
+            className={`inline-flex items-center justify-center border border-white/70 bg-white/76 text-md-on-surface shadow-sm transition-all duration-300 hover:border-md-primary/20 hover:text-md-primary ${
+              isSidebarCollapsed ? "h-12 w-12 self-center rounded-[18px]" : "h-10 w-10 rounded-full"
+            }`}
             aria-label={isSidebarCollapsed ? "灞曞紑渚ф爮" : "鏀惰捣渚ф爮"}
           >
-            {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen size={18} className="-translate-x-0.5" />
+            ) : (
+              <PanelLeftClose size={18} />
+            )}
           </button>
         </div>
 

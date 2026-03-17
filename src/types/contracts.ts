@@ -14,6 +14,7 @@ export interface ClawInstance {
   runtime: RuntimeType;
   status: InstanceStatus;
   desiredState: DesiredState;
+  restartRequired: boolean;
   createdAt: string;
   updatedAt: string;
 }

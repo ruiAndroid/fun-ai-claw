@@ -480,8 +480,9 @@ export function Dashboard() {
 
   const handleManagedConfigSaved = useCallback(async () => {
     setInstanceConfigReloadToken((current) => current + 1);
+    await loadInstances();
     promptRestartAfterConfigChange();
-  }, [promptRestartAfterConfigChange]);
+  }, [loadInstances, promptRestartAfterConfigChange]);
 
   const loadMainAgentGuidance = useCallback(async (instanceId?: string) => {
     if (!instanceId) {
@@ -2516,7 +2517,10 @@ export function Dashboard() {
                               >
                                 <div className="instance-card-head">
                                   <strong>{instance.name}</strong>
-                                  <Tag color={statusColor(instance.status)}>{instance.status}</Tag>
+                                  <Space size={6} wrap>
+                                    <Tag color={statusColor(instance.status)}>{instance.status}</Tag>
+                                    {instance.restartRequired ? <Tag color="orange">{uiText.instanceRestartRequiredTag}</Tag> : null}
+                                  </Space>
                                 </div>
                                 <p className="instance-card-line">{instance.image}</p>
                                 <p className="instance-card-line">{gatewayUrl}</p>
@@ -2561,6 +2565,14 @@ export function Dashboard() {
                         description="当前模板托管实例的主 Agent 提示词、渠道配置、默认模型、路由配置、原始 config.toml、Agent 与 Skill 均已开放编辑；相关变更保存后需要重启实例生效。"
                       />
                     ) : null}
+                    {selectedInstance.restartRequired ? (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        message={uiText.instanceRestartRequiredAlertTitle}
+                        description={uiText.instanceRestartRequiredAlertDescription}
+                      />
+                    ) : null}
                     <motion.div
                       className="instance-detail-hero"
                       initial={{ opacity: 0, y: 20 }}
@@ -2584,10 +2596,13 @@ export function Dashboard() {
                           </div>
                         </div>
                         <div className="instance-hero-status">
-                          <div className={`instance-status-badge is-${selectedInstance.status === "RUNNING" ? "running" : selectedInstance.status === "ERROR" ? "error" : selectedInstance.status === "CREATING" ? "creating" : "stopped"}`}>
-                            <span className="instance-status-dot" />
-                            {selectedInstance.status}
-                          </div>
+                          <Space size={8} wrap>
+                            <div className={`instance-status-badge is-${selectedInstance.status === "RUNNING" ? "running" : selectedInstance.status === "ERROR" ? "error" : selectedInstance.status === "CREATING" ? "creating" : "stopped"}`}>
+                              <span className="instance-status-dot" />
+                              {selectedInstance.status}
+                            </div>
+                            {selectedInstance.restartRequired ? <Tag color="orange">{uiText.instanceRestartRequiredTag}</Tag> : null}
+                          </Space>
                         </div>
                       </div>
 

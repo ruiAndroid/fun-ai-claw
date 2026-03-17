@@ -86,20 +86,44 @@ export const messageShortcuts = [
   { label: "接入 Open API", href: "/docs/open-v1-external-frontend-integration" },
 ] as const;
 
-export const heroHighlights = ["机器人入口", "控制台编排", "文档与 API", "品牌化首页"] as const;
+export const heroHighlights = ["媒体行业", "一站部署", "作业流闭环", "全平台智能分发"] as const;
 
-export const capabilityMap = [
+export const heroProofPoints = [
   {
-    title: "首页入口",
-    description: "承接品牌表达、入口分发与用户第一触达。",
+    index: "01",
+    title: "创作作业",
+    description: "策划生成 · AI 短剧 · 物料辅助",
   },
   {
-    title: "控制台编排",
-    description: "完成 Agent、Skill、实例与模型配置。",
+    index: "02",
+    title: "分发增长",
+    description: "多渠道运营 · 直播内容 · 营销承接",
   },
   {
-    title: "Open API 接入",
-    description: "让外部系统把机器人能力接到真实业务流程。",
+    index: "03",
+    title: "经营协同",
+    description: "门店接待 · 数据回传 · 服务闭环",
+  },
+] as const;
+
+export const heroStartSteps = [
+  {
+    step: "Step 1",
+    title: "领取属于你的专属 AI 小龙虾",
+    actionLabel: "一键领取",
+    href: "/login",
+  },
+  {
+    step: "Step 2",
+    title: "给你的小龙虾取个名字吧",
+    actionLabel: "开始",
+    href: "/messages",
+  },
+  {
+    step: "Step 3",
+    title: "让我们现在开始创作之旅",
+    actionLabel: "立即前往",
+    href: "/console",
   },
 ] as const;
 

@@ -164,7 +164,7 @@ export function HomepageSidebar() {
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 pr-1">
               <div className="flex items-center gap-3 px-2">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm">
                   <MessageCircle size={16} />

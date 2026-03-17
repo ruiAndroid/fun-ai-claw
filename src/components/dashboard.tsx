@@ -156,6 +156,8 @@ export function Dashboard() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [actionConfirmOpen, setActionConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<Exclude<InstanceActionType, "START">>();
+  const [restartPromptOpen, setRestartPromptOpen] = useState(false);
+  const [restartPromptAction, setRestartPromptAction] = useState<"START" | "RESTART">("RESTART");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const [creatingInstance, setCreatingInstance] = useState(false);
@@ -461,22 +463,22 @@ export function Dashboard() {
   }, [actionLabelMap, loadInstances, messageApi, selectedInstance?.name, selectedInstanceId]);
 
   const promptRestartAfterConfigChange = useCallback(() => {
-    const restartAction: InstanceActionType = selectedStatus === "STOPPED" ? "START" : "RESTART";
-    Modal.confirm({
-      title: uiText.configRestartRequiredTitle,
-      content: selectedStatus === "STOPPED"
-        ? uiText.configRestartRequiredDescriptionStopped
-        : uiText.configRestartRequiredDescription,
-      okText: restartAction === "START" ? uiText.start : uiText.configRestartNow,
-      cancelText: uiText.configRestartLater,
-      onOk: async () => {
-        const restarted = await handleAction(restartAction);
-        if (!restarted) {
-          throw new Error("instance restart failed");
-        }
-      },
-    });
-  }, [handleAction, selectedStatus]);
+    setRestartPromptAction(selectedStatus === "STOPPED" ? "START" : "RESTART");
+    setRestartPromptOpen(true);
+  }, [selectedStatus]);
+
+  const closeRestartPrompt = useCallback(() => {
+    if (submittingAction) {
+      return;
+    }
+    setRestartPromptOpen(false);
+  }, [submittingAction]);
+
+  const handleConfirmRestartPrompt = useCallback(async () => {
+    const action = restartPromptAction;
+    setRestartPromptOpen(false);
+    await handleAction(action);
+  }, [handleAction, restartPromptAction]);
 
   const handleManagedConfigSaved = useCallback(async () => {
     setInstanceConfigReloadToken((current) => current + 1);
@@ -3423,6 +3425,22 @@ export function Dashboard() {
         destroyOnHidden
       >
         <Text>{`${uiText.confirmActionContentPrefix}${pendingAction ? actionLabelMap[pendingAction] : "-"} (${selectedInstance?.name ?? "-"})`}</Text>
+      </Modal>
+      <Modal
+        title={uiText.configRestartRequiredTitle}
+        open={restartPromptOpen}
+        onCancel={closeRestartPrompt}
+        onOk={() => void handleConfirmRestartPrompt()}
+        okText={restartPromptAction === "START" ? uiText.start : uiText.configRestartNow}
+        cancelText={uiText.configRestartLater}
+        confirmLoading={submittingAction}
+        destroyOnHidden
+      >
+        <Text>
+          {restartPromptAction === "START"
+            ? uiText.configRestartRequiredDescriptionStopped
+            : uiText.configRestartRequiredDescription}
+        </Text>
       </Modal>
       <Modal
         title={uiText.deleteConfirmTitle}

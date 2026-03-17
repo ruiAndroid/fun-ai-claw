@@ -68,8 +68,8 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
   if (collapsed) {
     return (
       <div className="mt-auto flex flex-col items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-sm font-black text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)]">
-          FC
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)]">
+          <UserRound size={18} />
         </div>
         <Link
           href="/me"
@@ -84,8 +84,8 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="mt-auto flex items-center gap-3 rounded-[24px] border border-white/70 bg-white/82 p-3 shadow-[0_18px_36px_rgba(15,23,42,0.05)]">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-base font-black text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)]">
-        FC
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#60a5fa_0%,#fde68a_100%)] text-slate-900 shadow-[0_14px_30px_rgba(59,130,246,0.2)]">
+        <UserRound size={22} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="truncate text-base font-bold text-md-on-surface">个人中心</div>

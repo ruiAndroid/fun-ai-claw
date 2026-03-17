@@ -21,7 +21,7 @@ export function HomepageTopbar({ points = null }: { points?: number | null }) {
             <span className="text-md-on-surface">point</span>
           </div>
           <Link
-            href="/console"
+            href="/recharge"
             className="inline-flex items-center gap-1.5 rounded-full bg-cyan-200 px-4 py-2 text-sm font-bold text-slate-900 shadow-[0_14px_32px_rgba(34,211,238,0.2)] transition-transform duration-300 hover:scale-[1.02]"
           >
             <Plus size={14} />

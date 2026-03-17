@@ -151,32 +151,6 @@ export function HomepageHero() {
                 />
               ))}
             </div>
-
-            <div className="mt-4 rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.04)_100%)] p-3.5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-bold text-white">核心战区</div>
-                <Sparkles size={16} className="text-cyan-100/72" />
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {capabilityTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[11px] font-semibold text-white/74"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-4">
-                <Link
-                  href="/docs/open-v1-external-frontend-integration"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/10 px-4 py-2 text-xs font-bold text-white transition-colors duration-300 hover:bg-white/16"
-                >
-                  Open API
-                  <ArrowRight size={14} />
-                </Link>
-              </div>
-            </div>
           </div>
         </motion.aside>
       </div>

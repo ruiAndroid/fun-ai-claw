@@ -31,6 +31,12 @@ function renderConnectionStatus(connected: boolean) {
   return connected ? <Tag color="blue">已连接</Tag> : <Tag>未连接</Tag>;
 }
 
+function renderSourceTag(sourceType: InstanceOpenSessionItem["sourceType"]) {
+  return sourceType === "agent_session"
+    ? <Tag color="cyan">agent_session</Tag>
+    : <Tag color="purple">open_session</Tag>;
+}
+
 export function InstanceSessionPanel({
   instanceId,
   active = true,
@@ -91,6 +97,13 @@ export function InstanceSessionPanel({
   );
 
   const columns = useMemo<ColumnsType<InstanceOpenSessionItem>>(() => [
+    {
+      title: "来源",
+      dataIndex: "sourceType",
+      key: "sourceType",
+      width: 130,
+      render: (value: InstanceOpenSessionItem["sourceType"]) => renderSourceTag(value),
+    },
     {
       title: "应用",
       key: "app",
@@ -242,6 +255,7 @@ export function InstanceSessionPanel({
             title={selectedSession.externalSessionKey || selectedSession.sessionId}
             extra={(
               <Space wrap size={4}>
+                {renderSourceTag(selectedSession.sourceType)}
                 {renderSessionStatus(selectedSession.status)}
                 {renderConnectionStatus(selectedSession.connected)}
               </Space>
@@ -251,6 +265,10 @@ export function InstanceSessionPanel({
               <div className="agent-detail-prop">
                 <span className="agent-detail-prop-label">Session ID</span>
                 <span className="agent-detail-prop-value">{selectedSession.sessionId}</span>
+              </div>
+              <div className="agent-detail-prop">
+                <span className="agent-detail-prop-label">来源</span>
+                <span className="agent-detail-prop-value">{selectedSession.sourceType}</span>
               </div>
               <div className="agent-detail-prop">
                 <span className="agent-detail-prop-label">应用</span>

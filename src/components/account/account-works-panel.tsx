@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import { workItems } from "./account-data";
 
 export function AccountWorksPanel() {
@@ -14,28 +13,33 @@ export function AccountWorksPanel() {
         </button>
       </div>
 
-      <div className="mt-10 grid gap-6 xl:grid-cols-2">
-        {workItems.map((item) => (
-          <article
-            key={item.title}
-            className="rounded-[28px] border border-slate-900/18 bg-white/58 p-7 shadow-[0_20px_50px_rgba(15,23,42,0.04)]"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950">
-                {item.title}
+      {workItems.length > 0 ? (
+        <div className="mt-10 grid gap-6 xl:grid-cols-2">
+          {workItems.map((item) => (
+            <article
+              key={item.title}
+              className="rounded-[28px] border border-slate-900/18 bg-white/58 p-7 shadow-[0_20px_50px_rgba(15,23,42,0.04)]"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950">
+                  {item.title}
+                </div>
+                <span className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-black text-teal-800">
+                  {item.status}
+                </span>
               </div>
-              <span className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-black text-teal-800">
-                {item.status}
-              </span>
-            </div>
-            <p className="mt-4 text-lg font-semibold leading-8 text-slate-500">{item.subtitle}</p>
-            <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/82 px-4 py-2 text-sm font-black text-cyan-600">
-              <Sparkles size={16} />
-              UI 预览数据，后续接真实作品列表
-            </div>
-          </article>
-        ))}
-      </div>
+              <p className="mt-4 text-lg font-semibold leading-8 text-slate-500">{item.subtitle}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-10 rounded-[28px] border border-dashed border-slate-300 bg-white/70 px-8 py-12 text-center shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
+          <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950">暂无作品</div>
+          <div className="mt-4 text-lg font-semibold text-slate-400">
+            接入真实作品数据后，这里会展示你的脚本、项目和产出记录。
+          </div>
+        </div>
+      )}
     </div>
   );
 }

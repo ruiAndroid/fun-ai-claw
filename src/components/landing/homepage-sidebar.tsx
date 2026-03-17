@@ -88,8 +88,8 @@ function SidebarUserCard({ collapsed }: { collapsed: boolean }) {
         FC
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-base font-bold text-md-on-surface">FunClaw 用户</div>
-        <div className="truncate text-xs text-md-on-surface-variant">当前为 UI 预览态，可先查看“我的页面”</div>
+        <div className="truncate text-base font-bold text-md-on-surface">个人中心</div>
+        <div className="truncate text-xs text-md-on-surface-variant">后续接入真实用户昵称与账户信息</div>
       </div>
       <Link
         href="/me"

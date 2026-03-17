@@ -1,3 +1,5 @@
+import { accountIdentity } from "./account-data";
+
 export function AccountSettingsPanel() {
   return (
     <div className="space-y-10">
@@ -7,13 +9,13 @@ export function AccountSettingsPanel() {
           <div className="grid gap-10 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-center">
             <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">手机号</div>
             <div className="text-right text-[22px] font-black tracking-[-0.03em] text-slate-400">
-              138****7014
+              {accountIdentity.phone ?? "待接入用户系统后展示"}
             </div>
           </div>
           <div className="mt-12 grid gap-10 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-center">
             <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">UID</div>
             <div className="text-right text-[22px] font-black tracking-[-0.03em] text-slate-400">
-              51841239461361434
+              {accountIdentity.uid ?? "待接入用户系统后生成"}
             </div>
           </div>
         </div>

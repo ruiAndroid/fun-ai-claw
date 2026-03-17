@@ -6,6 +6,11 @@ import {
   AgentSystemPrompt,
   AgentToolCatalog,
   ClawInstance,
+  ConsumerMe,
+  ConsumerSmsSendCodeRequest,
+  ConsumerSmsSendCodeResponse,
+  ConsumerSmsVerifyRequest,
+  ConsumerSmsVerifyResponse,
   CreateInstanceRequest,
   ImagePreset,
   InstanceAgentBinding,
@@ -113,6 +118,35 @@ async function buildRequestError(response: Response): Promise<Error> {
 
 export async function listInstances() {
   return requestJson<ListResponse<ClawInstance>>("/v1/instances");
+}
+
+export async function sendConsumerSmsCode(request: ConsumerSmsSendCodeRequest) {
+  return requestJson<ConsumerSmsSendCodeResponse>("/app/v1/auth/sms/send-code", {
+    method: "POST",
+    body: JSON.stringify(request),
+    credentials: "include",
+  });
+}
+
+export async function verifyConsumerSmsCode(request: ConsumerSmsVerifyRequest) {
+  return requestJson<ConsumerSmsVerifyResponse>("/app/v1/auth/sms/verify", {
+    method: "POST",
+    body: JSON.stringify(request),
+    credentials: "include",
+  });
+}
+
+export async function logoutConsumer() {
+  return requestVoid("/app/v1/auth/logout", {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+export async function getConsumerMe() {
+  return requestJson<ConsumerMe>("/app/v1/me", {
+    credentials: "include",
+  });
 }
 
 export async function listInstanceTemplates() {

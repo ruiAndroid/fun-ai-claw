@@ -37,7 +37,7 @@ export const accountNavItems: AccountNavItem[] = [
   },
   {
     key: "usage",
-    label: "用量统计",
+    label: "虾米账单",
     icon: CreditCard,
   },
   {
@@ -58,7 +58,7 @@ export const accountIdentity: AccountIdentity = {
   uid: null,
 };
 
-export const accountBalance: number | null = null;
+export const accountXiamiBalance: number | null = null;
 
 export const usageEntries: UsageEntry[] = [];
 

@@ -4,17 +4,17 @@ const showcaseItems = [
   {
     icon: Clapperboard,
     title: "创作层",
-    description: "脚本生成、AI 配音、智能剪辑",
+    description: "脚本生成、AI 配音、智能分镜与成片流程统一协作。",
   },
   {
     icon: SendHorizonal,
     title: "分发层",
-    description: "多平台适配、定时发布",
+    description: "多平台适配、定时发布与内容渠道管理逐步接入。",
   },
   {
     icon: ChartNoAxesCombined,
-    title: "变现层",
-    description: "广告接入、收益分析",
+    title: "增长层",
+    description: "数据分析、用户运营与商业化能力会持续完善。",
   },
 ] as const;
 
@@ -29,16 +29,16 @@ export function LoginShowcase() {
           <div className="text-4xl font-black tracking-[-0.04em]">FunClaw</div>
         </div>
         <div className="text-3xl font-black text-slate-400">·</div>
-        <div className="text-3xl font-black tracking-[-0.04em]">风行</div>
+        <div className="text-3xl font-black tracking-[-0.04em]">创作者平台</div>
       </div>
 
       <h2 className="mt-18 text-5xl font-black tracking-[-0.05em] text-slate-950 sm:text-6xl">
-        让内容流动更简单
+        让内容生产和陪伴体验更简单
       </h2>
 
       <div className="mt-18 rounded-[28px] bg-[linear-gradient(135deg,#ff6a00_0%,#ff4d00_42%,#ff7d00_100%)] p-6 text-white shadow-[0_28px_70px_rgba(249,115,22,0.34)]">
         <div className="text-center text-xl font-black tracking-[-0.03em] sm:text-[32px]">
-          搭载数十个专用 Skills 的智能体平台
+          面向创作者与用户的 AI 龙虾能力底座
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -54,9 +54,7 @@ export function LoginShowcase() {
                   <Icon size={24} />
                 </div>
                 <div className="mt-5 text-3xl font-black tracking-[-0.04em]">{item.title}</div>
-                <div className="mt-3 text-sm font-medium leading-7 text-white/86">
-                  {item.description}
-                </div>
+                <div className="mt-3 text-sm font-medium leading-7 text-white/86">{item.description}</div>
               </div>
             );
           })}

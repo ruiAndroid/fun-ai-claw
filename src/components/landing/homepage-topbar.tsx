@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { XiamiIcon } from "@/components/ui/xiami-icon";
 
-export function HomepageTopbar({ points = null }: { points?: number | null }) {
+export function HomepageTopbar({ xiamiBalance = null }: { xiamiBalance?: number | null }) {
   return (
     <header className="rounded-[24px] border border-white/70 bg-white/72 px-4 py-3 shadow-[0_20px_55px_rgba(15,23,42,0.05)] backdrop-blur-xl sm:px-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -17,8 +18,9 @@ export function HomepageTopbar({ points = null }: { points?: number | null }) {
 
         <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-sm font-semibold shadow-sm">
-            <span className="text-cyan-400">{points ?? "--"}</span>
-            <span className="text-md-on-surface">point</span>
+            <span className="text-cyan-500">{xiamiBalance ?? "--"}</span>
+            <XiamiIcon size={18} />
+            <span className="text-md-on-surface">虾米</span>
           </div>
           <Link
             href="/recharge"

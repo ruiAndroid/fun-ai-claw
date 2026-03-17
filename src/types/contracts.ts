@@ -32,6 +32,40 @@ export interface ListResponse<T> {
   items: T[];
 }
 
+export interface ConsumerMe {
+  userId: string;
+  uid: string;
+  nickname?: string | null;
+  avatarUrl?: string | null;
+  phoneMasked: string;
+  phoneE164: string;
+  status: string;
+  createdAt: string;
+  lastLoginAt?: string | null;
+}
+
+export interface ConsumerSmsSendCodeRequest {
+  phone: string;
+}
+
+export interface ConsumerSmsSendCodeResponse {
+  phoneMasked: string;
+  cooldownSeconds: number;
+  expiresAt: string;
+  debugCode?: string | null;
+}
+
+export interface ConsumerSmsVerifyRequest {
+  phone: string;
+  code: string;
+}
+
+export interface ConsumerSmsVerifyResponse {
+  me: ConsumerMe;
+  newUser: boolean;
+  sessionExpiresAt: string;
+}
+
 export interface AgentDescriptor {
   id: string;
   provider?: string | null;

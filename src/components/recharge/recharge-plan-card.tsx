@@ -1,5 +1,6 @@
 "use client";
 
+import { XiamiIcon } from "@/components/ui/xiami-icon";
 import { cn } from "@/lib/utils";
 import type { RechargePlan } from "./recharge-data";
 
@@ -29,9 +30,10 @@ export function RechargePlanCard({
         ¥ {plan.price}
       </div>
 
-      <div className="mt-7 text-[36px] font-black tracking-[-0.04em] text-slate-950 sm:text-[44px]">
-        {plan.points}
-        <span className="ml-2 text-[32px]">🍊</span>
+      <div className="mt-7 flex items-center gap-3 text-[36px] font-black tracking-[-0.04em] text-slate-950 sm:text-[44px]">
+        <span>{plan.xiami}</span>
+        <XiamiIcon size={34} />
+        <span className="text-[24px] font-bold text-slate-500 sm:text-[28px]">虾米</span>
       </div>
 
       <p className="mt-12 min-h-[96px] text-[18px] font-bold leading-9 text-slate-400">

@@ -152,7 +152,7 @@ export function HomepageHero() {
               ))}
             </div>
 
-            {/* <div className="mt-4 rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.04)_100%)] p-3.5">
+            <div className="mt-4 rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.04)_100%)] p-3.5">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-bold text-white">核心战区</div>
                 <Sparkles size={16} className="text-cyan-100/72" />
@@ -176,7 +176,7 @@ export function HomepageHero() {
                   <ArrowRight size={14} />
                 </Link>
               </div>
-            </div> */}
+            </div>
           </div>
         </motion.aside>
       </div>

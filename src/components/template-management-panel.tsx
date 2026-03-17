@@ -209,6 +209,8 @@ function hydrateTemplateDraft(template: InstanceTemplate): InstanceTemplate {
   };
   draft.summary = draft.description ?? draft.summary ?? "";
   draft.description = draft.description ?? draft.summary ?? "";
+  draft.lockedScopes = [];
+  draft.runtimeConfigToml = "";
   return draft;
 }
 
@@ -297,9 +299,7 @@ function snapshotTemplate(template?: InstanceTemplate | null): string {
       ...(template.mainAgent?.agentKey?.trim() ? [template.mainAgent.agentKey.trim()] : []),
     ]),
     skillKeys: normalizeStringValues(template.skillKeys),
-    lockedScopes: normalizeStringValues(template.lockedScopes),
     tags: normalizeStringValues(template.tags),
-    runtimeConfigToml: normalizeOptionalText(template.runtimeConfigToml),
     channelsConfig: normalizeChannelsConfigForCompare(template.channelsConfig),
     defaultModelConfig: normalizeDefaultModelConfigForCompare(template.defaultModelConfig),
     routingConfig: normalizeRoutingConfigForCompare(template.routingConfig),
@@ -415,9 +415,9 @@ function toUpsertRequest(draft: InstanceTemplate): InstanceTemplateUpsertRequest
     },
     agentKeys: normalizeStringValues(draft.agentKeys),
     skillKeys: normalizeStringValues(draft.skillKeys),
-    lockedScopes: normalizeStringValues(draft.lockedScopes),
+    lockedScopes: [],
     tags: normalizeStringValues(draft.tags),
-    runtimeConfigToml: bodyToNull(draft.runtimeConfigToml),
+    runtimeConfigToml: null,
     channelsConfig,
     defaultModelConfig,
     routingConfig,
@@ -772,13 +772,6 @@ export function TemplateManagementPanel({
     <>
       {contextHolder}
       <Space direction="vertical" size="large" style={{ width: "100%" }}>
-        <Alert
-          type="info"
-          showIcon
-          message="模板中心已成为实例配置的来源"
-          description="现在可直接在模板内维护预装子 Agent、预装 Skills、默认模型和路由配置，并可预览实例最终生成的 config.toml。"
-        />
-
         <Card
           className="glass-card"
           title="模板中心"

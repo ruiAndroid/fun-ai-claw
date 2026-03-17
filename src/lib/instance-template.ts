@@ -95,10 +95,10 @@ export async function createManagedInstanceFromTemplate({
       await installInstanceSkill(instance.id, skillKey, TEMPLATE_UPDATED_BY);
     }
 
-    if (template.runtimeConfigToml?.trim()) {
+    if (false && template.runtimeConfigToml?.trim()) {
       onProgress?.("正在写入运行时配置…");
       await upsertInstanceConfig(instance.id, {
-        configToml: template.runtimeConfigToml,
+        configToml: template.runtimeConfigToml ?? "",
         updatedBy: TEMPLATE_UPDATED_BY,
       });
     }

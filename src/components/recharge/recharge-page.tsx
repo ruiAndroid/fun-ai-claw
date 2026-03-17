@@ -27,8 +27,10 @@ export function RechargePage() {
           <RechargeHeader />
 
           <section className="mt-12">
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-center xl:gap-20">
-              <div className="mx-auto w-full max-w-[760px]">
+            <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[240px_minmax(0,760px)_240px] xl:items-center xl:gap-10">
+              <div className="hidden xl:block" aria-hidden="true" />
+
+              <div className="mx-auto w-full max-w-[760px] xl:mx-0">
                 <RechargeSegment
                   activeTab={activeTab}
                   tabs={rechargeTabs}
@@ -39,7 +41,7 @@ export function RechargePage() {
               <button
                 type="button"
                 onClick={() => setVoucherOpen(true)}
-                className="mx-auto inline-flex h-[86px] min-w-[240px] items-center justify-center rounded-full bg-emerald-400 px-10 text-[30px] font-black tracking-[-0.03em] text-slate-950 shadow-[0_18px_40px_rgba(20,184,166,0.22)] transition-transform duration-300 hover:scale-[1.01] xl:mx-0"
+                className="mx-auto inline-flex h-[86px] w-full max-w-[240px] items-center justify-center rounded-full bg-emerald-400 px-10 text-[30px] font-black tracking-[-0.03em] text-slate-950 shadow-[0_18px_40px_rgba(20,184,166,0.22)] transition-transform duration-300 hover:scale-[1.01] xl:justify-self-end"
               >
                 代金券兑换
               </button>

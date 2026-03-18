@@ -110,7 +110,7 @@ export function HomepageHero({
             <div className="mt-3.5 flex flex-wrap items-center gap-3 sm:gap-4">
               <span className="h-[3px] w-12 rounded-full bg-white/80 sm:w-14" />
               <div className="flex flex-wrap items-center gap-2 text-[22px] font-black leading-tight tracking-[-0.05em] text-white sm:text-[34px]">
-                <span>视听行业专属 AI 小龙虾</span>
+                <span>视听行业专属机器人</span>
                 <XiamiIcon size={24} title="FunClaw" />
               </div>
             </div>

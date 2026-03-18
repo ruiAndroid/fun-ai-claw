@@ -109,13 +109,13 @@ export const heroProofPoints = [
 export const heroStartSteps = [
   {
     step: "Step 1",
-    title: "领取属于你的专属 AI 小龙虾",
+    title: "领取属于你的专属机器人",
     actionLabel: "一键领取",
     href: "/login",
   },
   {
     step: "Step 2",
-    title: "给你的小龙虾取个名字吧",
+    title: "给你的机器人取个名字吧",
     actionLabel: "开始",
     href: "/messages",
   },

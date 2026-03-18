@@ -21,14 +21,6 @@ function formatTimestamp(value: string) {
   }).format(date);
 }
 
-function buildPrimaryDescription(agent: AgentBaselineSummary) {
-  const description = agent.sourceRef?.trim();
-  if (description) {
-    return description;
-  }
-  return `运行时：${agent.runtime || "zeroclaw"} · 来源：${agent.sourceType || "MANUAL"}`;
-}
-
 function getAllowedToolsCount(agent: AgentBaselineSummary) {
   return agent.allowedTools?.length ?? 0;
 }
@@ -82,7 +74,7 @@ export function HomepageAgentSection({
       setAgents(response.items ?? []);
     } catch (loadError) {
       setAgents([]);
-      setError(loadError instanceof Error ? loadError.message : "加载 AI 龙虾列表失败");
+      setError(loadError instanceof Error ? loadError.message : "加载机器人列表失败");
     } finally {
       setLoading(false);
     }
@@ -94,19 +86,19 @@ export function HomepageAgentSection({
 
   const sectionDescription = useMemo(() => {
     if (loading) {
-      return "正在为你加载已正式上线的 AI 龙虾，稍候即可挑选体验。";
+      return "正在为你加载已正式上线的机器人，稍候即可挑选体验。";
     }
     if (error) {
-      return "AI 龙虾列表暂时不可用，请稍后刷新重试。";
+      return "机器人列表暂时不可用，请稍后刷新重试。";
     }
-    return `当前已上线 ${agents.length} 只 AI 龙虾，覆盖剧本创作、漫剧生成等热门场景，选择一只即可开始体验。`;
+    return `当前已上线 ${agents.length} 个机器人，覆盖剧本创作、漫剧生成等热门场景，选择一个即可开始体验。`;
   }, [agents.length, error, loading]);
 
   return (
     <section>
       <HomepageSectionHeader
         eyebrow="Featured Lobsters"
-        title="精选 AI 龙虾，随时开聊"
+        title="精选机器人，随时开聊"
         description={sectionDescription}
       />
 
@@ -116,7 +108,7 @@ export function HomepageAgentSection({
         <div className="rounded-[28px] border border-rose-100 bg-white/88 p-6 shadow-[0_24px_60px_rgba(81,38,145,0.08)]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="text-lg font-bold text-md-on-surface">AI 龙虾列表加载失败</div>
+              <div className="text-lg font-bold text-md-on-surface">机器人列表加载失败</div>
               <p className="mt-2 text-sm leading-7 text-md-on-surface-variant">{error}</p>
             </div>
             <button
@@ -133,7 +125,7 @@ export function HomepageAgentSection({
 
       {!loading && !error && agents.length === 0 ? (
         <div className="rounded-[28px] border border-dashed border-md-outline-variant/40 bg-white/76 p-8 text-center text-sm text-md-on-surface-variant">
-          暂无 AI 龙虾可展示，请先在控制台创建并启用对应 Agent。
+          暂无机器人可展示，请先在控制台创建并启用对应 Agent。
         </div>
       ) : null}
 
@@ -174,11 +166,6 @@ export function HomepageAgentSection({
                     {agent.agentKey}
                   </p>
                 </div>
-
-                <p className="mt-4 text-sm leading-7 text-md-on-surface-variant">
-                  {buildPrimaryDescription(agent)}
-                </p>
-
                 <div className="mt-5 flex flex-wrap gap-2">
                   {agent.model ? (
                     <span className="inline-flex items-center gap-1 rounded-full border border-md-outline-variant/40 bg-white/72 px-3 py-1 text-xs font-semibold text-md-on-surface-variant">

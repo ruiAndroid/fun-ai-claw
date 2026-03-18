@@ -1,10 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import {
-  connectConsumerChatSession,
-  listConsumerChatSessionMessages,
-} from "@/lib/consumer-api";
+import { connectConsumerChatSession, listConsumerChatSessionMessages } from "@/lib/consumer-api";
 import {
   normalizeStructuredAgentChatMessage,
   parseAgentInteractionPayload,
@@ -45,9 +42,11 @@ type SessionSnapshot = {
   messages: AgentChatMessage[];
   pendingResponse: boolean;
   coreFields?: AgentSessionCoreFields;
+  historyLoaded: boolean;
 };
 
-const SESSION_HISTORY_TIMEOUT_MS = 12000;
+const SESSION_ATTACH_DEBOUNCE_MS = 180;
+const SESSION_HISTORY_TIMEOUT_MS = 12_000;
 
 function isAbortLikeError(error: unknown) {
   return error instanceof DOMException
@@ -66,12 +65,7 @@ function upsertAgentMessage(messages: AgentChatMessage[], nextMessage: AgentChat
     return [...messages, nextMessage];
   }
   return messages.map((item, index) => (index === existingIndex
-    ? {
-      ...item,
-      ...nextMessage,
-      createdAt: item.createdAt ?? nextMessage.createdAt,
-      emittedAt: nextMessage.emittedAt ?? item.emittedAt,
-    }
+    ? { ...item, ...nextMessage, createdAt: item.createdAt ?? nextMessage.createdAt, emittedAt: nextMessage.emittedAt ?? item.emittedAt }
     : item));
 }
 
@@ -79,32 +73,19 @@ function applyAgentDelta(messages: AgentChatMessage[], delta: AgentSessionDelta)
   const existingIndex = messages.findIndex((item) => item.id === delta.messageId);
   const currentMessage = existingIndex >= 0
     ? messages[existingIndex]
-    : {
-      id: delta.messageId,
-      role: delta.role,
-      content: "",
-      thinkingContent: "",
-      pending: delta.role === "assistant",
-      emittedAt: delta.emittedAt,
-    } satisfies AgentChatMessage;
-
+    : { id: delta.messageId, role: delta.role, content: "", thinkingContent: "", pending: delta.role === "assistant", emittedAt: delta.emittedAt } satisfies AgentChatMessage;
   const nextMessage: AgentChatMessage = {
     ...currentMessage,
     role: delta.role,
     pending: delta.role === "assistant",
     emittedAt: delta.emittedAt,
     thinkingContent: delta.channel === "thinking"
-      ? delta.operation === "clear"
-        ? ""
-        : `${currentMessage.thinkingContent ?? ""}${delta.chunk ?? ""}`
+      ? delta.operation === "clear" ? "" : `${currentMessage.thinkingContent ?? ""}${delta.chunk ?? ""}`
       : currentMessage.thinkingContent,
     content: delta.channel === "content"
-      ? delta.operation === "clear"
-        ? ""
-        : `${currentMessage.content}${delta.chunk ?? ""}`
+      ? delta.operation === "clear" ? "" : `${currentMessage.content}${delta.chunk ?? ""}`
       : currentMessage.content,
   };
-
   return upsertAgentMessage(messages, nextMessage);
 }
 
@@ -124,13 +105,10 @@ function isRawLogLine(line: string) {
 }
 
 function normalizeHistoryMessage(message: ConsumerChatSessionMessage, index: number): AgentChatMessage | null {
-  const role = message.role === "user" || message.role === "assistant" || message.role === "system"
-    ? message.role
-    : "assistant";
+  const role = message.role === "user" || message.role === "assistant" || message.role === "system" ? message.role : "assistant";
   if (!message.content && !message.thinkingContent) {
     return null;
   }
-
   return {
     id: message.providerMessageId?.trim() || `${message.eventType}-${message.createdAt}-${index}`,
     role,
@@ -147,10 +125,7 @@ function mergeHistoryWithSnapshot(historyMessages: AgentChatMessage[], snapshot?
   if (!snapshot) {
     return historyMessages;
   }
-  return snapshot.messages.reduce(
-    (current, message) => upsertAgentMessage(current, message),
-    historyMessages,
-  );
+  return snapshot.messages.reduce((current, message) => upsertAgentMessage(current, message), historyMessages);
 }
 
 export function useMessageSession({
@@ -185,30 +160,45 @@ export function useMessageSession({
   const selectedRobotIdRef = useRef<string | undefined>(undefined);
   const currentSessionIdRef = useRef<string | undefined>(undefined);
   const coreFieldsRef = useRef<AgentSessionCoreFields | undefined>(undefined);
+  const historyLoadedRef = useRef(false);
+  const messagesRef = useRef<AgentChatMessage[]>([]);
+  const pendingResponseRef = useRef(false);
   const resumableSessionIdsRef = useRef<Set<string>>(new Set());
   const manuallyPausedSessionIdsRef = useRef<Set<string>>(new Set());
   const sessionSnapshotsRef = useRef<Map<string, SessionSnapshot>>(new Map());
-  const messagesRef = useRef<AgentChatMessage[]>([]);
-  const pendingResponseRef = useRef(false);
-  const historyRequestSeqRef = useRef(0);
-  const historyAbortControllerRef = useRef<AbortController | null>(null);
-  const connectAttemptSeqRef = useRef(0);
   const connectAbortControllerRef = useRef<AbortController | null>(null);
-  const sessionSwitchTimerRef = useRef<number | null>(null);
+  const historyAbortControllerRef = useRef<AbortController | null>(null);
+  const attachTimerRef = useRef<number | null>(null);
+
+  const cancelPendingAttach = useCallback(() => {
+    if (attachTimerRef.current !== null) {
+      window.clearTimeout(attachTimerRef.current);
+      attachTimerRef.current = null;
+    }
+  }, []);
+
+  const cancelHistoryLoad = useCallback(() => {
+    historyAbortControllerRef.current?.abort();
+    historyAbortControllerRef.current = null;
+  }, []);
+
+  const cancelConnectAttempt = useCallback(() => {
+    connectAbortControllerRef.current?.abort();
+    connectAbortControllerRef.current = null;
+  }, []);
 
   const resetConversationState = useCallback(() => {
     setMessages([]);
-    setInput("");
     setPendingResponse(false);
+    setConnecting(false);
+    setConnected(false);
     setError(undefined);
     setNotice(undefined);
     setInteractionDraft(undefined);
-    setCurrentSessionId(undefined);
-    currentSessionIdRef.current = undefined;
-    queuedMessageRef.current = null;
     rawLineBufferRef.current = "";
     rawAssistantMessageIdRef.current = undefined;
     coreFieldsRef.current = undefined;
+    historyLoadedRef.current = false;
     localMessageSeqRef.current = 0;
   }, []);
 
@@ -228,6 +218,7 @@ export function useMessageSession({
       messages: messagesRef.current,
       pendingResponse: pendingResponseRef.current || messagesRef.current.some((message) => message.pending),
       coreFields: coreFieldsRef.current,
+      historyLoaded: historyLoadedRef.current,
     });
   }, []);
 
@@ -235,6 +226,42 @@ export function useMessageSession({
     setMessages(snapshot?.messages ?? []);
     setPendingResponse(Boolean(snapshot?.pendingResponse || snapshot?.messages.some((message) => message.pending)));
     coreFieldsRef.current = snapshot?.coreFields;
+    historyLoadedRef.current = Boolean(snapshot?.historyLoaded);
+  }, []);
+
+  const shouldAutoAttachSession = useCallback((targetSession?: MessageSessionListItem, snapshot?: SessionSnapshot) => {
+    const targetSessionId = targetSession?.sessionId;
+    if (!targetSessionId || targetSession?.status !== "ACTIVE") {
+      return false;
+    }
+    if (manuallyPausedSessionIdsRef.current.has(targetSessionId)) {
+      return false;
+    }
+    return Boolean(targetSession.remoteConnected || targetSession.generating || resumableSessionIdsRef.current.has(targetSessionId) || snapshot?.pendingResponse);
+  }, []);
+
+  const shouldRefreshHistoryOnSelect = useCallback((targetSession?: MessageSessionListItem, snapshot?: SessionSnapshot) => {
+    const targetSessionId = targetSession?.sessionId;
+    if (!targetSessionId) {
+      return false;
+    }
+    if (!snapshot?.historyLoaded) {
+      return Boolean(
+        targetSession.hasTranscript
+        || targetSession.remoteConnected
+        || targetSession.generating
+        || resumableSessionIdsRef.current.has(targetSessionId),
+      );
+    }
+    if (targetSession.status !== "ACTIVE") {
+      return false;
+    }
+    return Boolean(
+      targetSession.remoteConnected
+      || targetSession.generating
+      || resumableSessionIdsRef.current.has(targetSessionId)
+      || snapshot.pendingResponse,
+    );
   }, []);
 
   const markInteractionResolved = useCallback((messageId?: string, note?: string) => {
@@ -242,13 +269,7 @@ export function useMessageSession({
       return;
     }
     setMessages((current) => current.map((message) => (
-      message.id === messageId
-        ? {
-          ...message,
-          interactionResolved: true,
-          interactionResolvedNote: note,
-        }
-        : message
+      message.id === messageId ? { ...message, interactionResolved: true, interactionResolvedNote: note } : message
     )));
   }, []);
 
@@ -258,39 +279,24 @@ export function useMessageSession({
       return;
     }
     setMessages((current) => current.map((message) => (
-      message.id === messageId
-        ? {
-          ...message,
-          pending: false,
-        }
-        : message
+      message.id === messageId ? { ...message, pending: false } : message
     )));
     rawAssistantMessageIdRef.current = undefined;
   }, []);
 
   const appendRawAssistantChunk = useCallback((chunk: string) => {
-    const normalizedChunk = chunk;
-    if (!normalizedChunk) {
+    if (!chunk) {
       return;
     }
+    historyLoadedRef.current = true;
     setPendingResponse(true);
     setMessages((current) => {
       const messageId = rawAssistantMessageIdRef.current ?? nextLocalMessageId(localMessageSeqRef, "assistant-raw");
       rawAssistantMessageIdRef.current = messageId;
       const existingIndex = current.findIndex((message) => message.id === messageId);
       const nextMessage: AgentChatMessage = existingIndex >= 0
-        ? {
-          ...current[existingIndex],
-          content: `${current[existingIndex].content}${normalizedChunk}`,
-          pending: true,
-        }
-        : {
-          id: messageId,
-          role: "assistant",
-          content: normalizedChunk,
-          pending: true,
-          createdAt: new Date().toISOString(),
-        };
+        ? { ...current[existingIndex], content: `${current[existingIndex].content}${chunk}`, pending: true }
+        : { id: messageId, role: "assistant", content: chunk, pending: true, createdAt: new Date().toISOString() };
       return upsertAgentMessage(current, nextMessage);
     });
   }, []);
@@ -298,12 +304,10 @@ export function useMessageSession({
   const processRawLine = useCallback((rawLine: string) => {
     const normalizedLine = rawLine.replace(/\r$/, "");
     const trimmedLine = normalizedLine.trim();
-
     if (!trimmedLine) {
       appendRawAssistantChunk("\n");
       return;
     }
-
     if (normalizedLine.startsWith("[system]")) {
       finalizeRawAssistantMessage();
       const systemContent = normalizedLine.replace(/^\[system\]\s*/, "");
@@ -313,19 +317,17 @@ export function useMessageSession({
         content: systemContent,
         createdAt: new Date().toISOString(),
       }]);
+      historyLoadedRef.current = true;
       return;
     }
-
-    if (trimmedLine === "🦥 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
+    if (trimmedLine === "🦀 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
       return;
     }
-
     if (trimmedLine === ">") {
       finalizeRawAssistantMessage();
       setPendingResponse(false);
       return;
     }
-
     if (trimmedLine.startsWith(">")) {
       const lineAfterPrompt = trimmedLine.slice(1).trim();
       if (!lineAfterPrompt || lineAfterPrompt.startsWith("[you]") || isRawLogLine(lineAfterPrompt)) {
@@ -334,7 +336,6 @@ export function useMessageSession({
       appendRawAssistantChunk(`${lineAfterPrompt}\n`);
       return;
     }
-
     if (isRawLogLine(trimmedLine)) {
       if (trimmedLine.includes("turn.complete")) {
         finalizeRawAssistantMessage();
@@ -343,7 +344,6 @@ export function useMessageSession({
       }
       return;
     }
-
     appendRawAssistantChunk(`${normalizedLine}\n`);
   }, [appendRawAssistantChunk, finalizeRawAssistantMessage, refreshSessions]);
 
@@ -367,24 +367,22 @@ export function useMessageSession({
       processRawChunk(data);
       return;
     }
-
     finalizeRawAssistantMessage();
-
     if (frame.eventType === "debug") {
       return;
     }
-
     if (frame.eventType === "delta" && frame.delta) {
+      historyLoadedRef.current = true;
       setPendingResponse(true);
       setMessages((current) => applyAgentDelta(current, frame.delta!));
       return;
     }
-
     if (frame.eventType === "message" && frame.message) {
       const normalizedMessage = normalizeStructuredAgentChatMessage(frame.message);
       if (!normalizedMessage) {
         return;
       }
+      historyLoadedRef.current = true;
       setMessages((current) => upsertAgentMessage(current, normalizedMessage));
       if (normalizedMessage.role === "assistant" && !normalizedMessage.pending) {
         setPendingResponse(false);
@@ -394,14 +392,9 @@ export function useMessageSession({
   }, [finalizeRawAssistantMessage, processRawChunk, refreshSessions]);
 
   const disconnect = useCallback((silent = false) => {
+    cancelPendingAttach();
+    cancelConnectAttempt();
     const socket = socketRef.current;
-    connectAttemptSeqRef.current += 1;
-    connectAbortControllerRef.current?.abort();
-    connectAbortControllerRef.current = null;
-    if (!socket) {
-      setConnecting(false);
-      return;
-    }
     const activeSessionId = currentSessionIdRef.current;
     rememberSessionSnapshot(activeSessionId);
     if (activeSessionId) {
@@ -410,6 +403,12 @@ export function useMessageSession({
       } else {
         manuallyPausedSessionIdsRef.current.add(activeSessionId);
       }
+    }
+    if (!socket) {
+      setConnecting(false);
+      setConnected(false);
+      setPendingResponse(false);
+      return;
     }
     if (silent) {
       suppressedSocketClosuresRef.current.add(socket);
@@ -421,19 +420,17 @@ export function useMessageSession({
     setConnecting(false);
     setConnected(false);
     setPendingResponse(false);
-  }, [rememberSessionSnapshot]);
+  }, [cancelConnectAttempt, cancelPendingAttach, rememberSessionSnapshot]);
 
   const sendNormalizedMessage = useCallback((normalizedMessage: string, options?: SendMessageOptions) => {
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return false;
     }
-
     const parsedCoreFields = parseAgentSessionCoreFields(normalizedMessage);
     if (parsedCoreFields) {
       coreFieldsRef.current = parsedCoreFields;
     }
-
     const sentAt = new Date().toISOString();
     const userMessage: AgentChatMessage = {
       id: nextLocalMessageId(localMessageSeqRef, "user"),
@@ -441,7 +438,7 @@ export function useMessageSession({
       content: options?.displayText ?? formatOutgoingMessage(normalizedMessage),
       createdAt: sentAt,
     };
-
+    historyLoadedRef.current = true;
     setMessages((current) => [...current, userMessage]);
     setPendingResponse(true);
     setNotice(undefined);
@@ -472,23 +469,20 @@ export function useMessageSession({
       return true;
     }
 
-    disconnect(true);
+    cancelConnectAttempt();
     setConnecting(true);
     setConnected(false);
     setError(undefined);
     setNotice(undefined);
-    setCurrentSessionId(targetSession.sessionId);
     currentSessionIdRef.current = targetSession.sessionId;
-    connectAttemptSeqRef.current += 1;
-    const connectAttemptId = connectAttemptSeqRef.current;
+    setCurrentSessionId(targetSession.sessionId);
+
     const connectController = new AbortController();
     connectAbortControllerRef.current = connectController;
 
     let connectionInfo;
     try {
-      connectionInfo = await connectConsumerChatSession(targetSession.sessionId, {
-        signal: connectController.signal,
-      });
+      connectionInfo = await connectConsumerChatSession(targetSession.sessionId, { signal: connectController.signal });
     } catch (connectError) {
       if (connectAbortControllerRef.current === connectController) {
         connectAbortControllerRef.current = null;
@@ -502,12 +496,7 @@ export function useMessageSession({
       return false;
     }
 
-    if (
-      connectAbortControllerRef.current !== connectController
-      || connectController.signal.aborted
-      || connectAttemptId !== connectAttemptSeqRef.current
-      || currentSessionIdRef.current !== targetSession.sessionId
-    ) {
+    if (connectAbortControllerRef.current !== connectController || connectController.signal.aborted) {
       return false;
     }
     connectAbortControllerRef.current = null;
@@ -527,11 +516,14 @@ export function useMessageSession({
 
     socket.onopen = () => {
       if (socketRef.current !== socket || currentSessionIdRef.current !== targetSession.sessionId) {
+        suppressedSocketClosuresRef.current.add(socket);
+        socket.close();
         return;
       }
       connectionEstablished = true;
       setConnecting(false);
       setConnected(true);
+      setError(undefined);
       setNotice(undefined);
       resumableSessionIdsRef.current.add(targetSession.sessionId);
       manuallyPausedSessionIdsRef.current.delete(targetSession.sessionId);
@@ -564,7 +556,6 @@ export function useMessageSession({
       const isCurrentSession = currentSessionIdRef.current === targetSession.sessionId;
       const shouldSuppressNotice = suppressedSocketClosuresRef.current.has(socket);
       suppressedSocketClosuresRef.current.delete(socket);
-
       if (isCurrentSession && rawLineBufferRef.current.trim()) {
         processRawLine(rawLineBufferRef.current);
         rawLineBufferRef.current = "";
@@ -580,7 +571,7 @@ export function useMessageSession({
         setConnected(false);
         setPendingResponse(false);
       }
-      if (isCurrentSession && !shouldSuppressNotice && selectedRobotIdRef.current === selectedRobot.id) {
+      if (!shouldSuppressNotice && isCurrentSession && selectedRobotIdRef.current === selectedRobot.id) {
         setNotice(connectionEstablished ? messagePageText.sessionDisconnected : messagePageText.sessionInterrupted);
       }
       void refreshSessions?.();
@@ -588,9 +579,8 @@ export function useMessageSession({
 
     return true;
   }, [
+    cancelConnectAttempt,
     connecting,
-    currentSessionIdRef,
-    disconnect,
     finalizeRawAssistantMessage,
     handleSocketMessage,
     processRawLine,
@@ -598,6 +588,66 @@ export function useMessageSession({
     selectedRobot,
     sendNormalizedMessage,
   ]);
+
+  const loadHistoryForSession = useCallback(async (targetSession: MessageSessionListItem) => {
+    cancelHistoryLoad();
+    const sessionId = targetSession.sessionId;
+    const historyController = new AbortController();
+    historyAbortControllerRef.current = historyController;
+    setSessionLoading(true);
+    setError(undefined);
+
+    const loadingTimeout = window.setTimeout(() => {
+      if (!historyController.signal.aborted && currentSessionIdRef.current === sessionId) {
+        setSessionLoading(false);
+        setError("加载会话超时，请重试");
+      }
+    }, SESSION_HISTORY_TIMEOUT_MS);
+
+    try {
+      const response = await listConsumerChatSessionMessages(sessionId, 100, { signal: historyController.signal });
+      if (historyController.signal.aborted) {
+        return false;
+      }
+      const historyMessages = response.items
+        .map((item, index) => normalizeHistoryMessage(item, index))
+        .filter((item): item is AgentChatMessage => item !== null);
+      const cachedSnapshot = sessionSnapshotsRef.current.get(sessionId);
+      const nextMessages = mergeHistoryWithSnapshot(historyMessages, cachedSnapshot);
+      const nextPendingResponse = Boolean(cachedSnapshot?.pendingResponse || nextMessages.some((message) => message.pending));
+      const nextSnapshot: SessionSnapshot = {
+        messages: nextMessages,
+        pendingResponse: nextPendingResponse,
+        coreFields: cachedSnapshot?.coreFields,
+        historyLoaded: true,
+      };
+      sessionSnapshotsRef.current.set(sessionId, nextSnapshot);
+
+      if (currentSessionIdRef.current === sessionId) {
+        restoreSessionSnapshot(nextSnapshot);
+        setSessionLoading(false);
+        if (shouldAutoAttachSession(targetSession, nextSnapshot)) {
+          setNotice(undefined);
+          void openSocketForSession(targetSession);
+        }
+      }
+      return true;
+    } catch (loadError) {
+      if (historyController.signal.aborted || isAbortLikeError(loadError)) {
+        return false;
+      }
+      if (currentSessionIdRef.current === sessionId) {
+        setSessionLoading(false);
+        setError(loadError instanceof Error ? loadError.message : "加载会话消息失败");
+      }
+      return false;
+    } finally {
+      window.clearTimeout(loadingTimeout);
+      if (historyAbortControllerRef.current === historyController) {
+        historyAbortControllerRef.current = null;
+      }
+    }
+  }, [cancelHistoryLoad, openSocketForSession, restoreSessionSnapshot, shouldAutoAttachSession]);
 
   const connect = useCallback(async () => {
     if (!selectedRobot) {
@@ -608,8 +658,21 @@ export function useMessageSession({
       setError("请先创建会话");
       return false;
     }
+
+    selectedRobotIdRef.current = selectedRobot.id;
+    if (currentSessionIdRef.current !== targetSession.sessionId) {
+      rememberSessionSnapshot(currentSessionIdRef.current);
+      disconnect(true);
+      resetConversationState();
+      currentSessionIdRef.current = targetSession.sessionId;
+      setCurrentSessionId(targetSession.sessionId);
+      const cachedSnapshot = sessionSnapshotsRef.current.get(targetSession.sessionId);
+      if (cachedSnapshot) {
+        restoreSessionSnapshot(cachedSnapshot);
+      }
+    }
     return openSocketForSession(targetSession);
-  }, [ensureSession, openSocketForSession, selectedRobot, selectedSession]);
+  }, [disconnect, ensureSession, openSocketForSession, rememberSessionSnapshot, resetConversationState, restoreSessionSnapshot, selectedRobot, selectedSession]);
 
   const queueMessageAndConnect = useCallback(async (normalizedMessage: string, options?: SendMessageOptions) => {
     if (!selectedRobot) {
@@ -619,10 +682,7 @@ export function useMessageSession({
       setError(messagePageText.robotUnavailable);
       return false;
     }
-    queuedMessageRef.current = {
-      normalizedMessage,
-      ...options,
-    };
+    queuedMessageRef.current = { normalizedMessage, ...options };
     return connect();
   }, [connect, selectedRobot]);
 
@@ -631,12 +691,10 @@ export function useMessageSession({
     if (!normalizedInput) {
       return "";
     }
-
     const parsedInteraction = parseAgentInteractionPayload(normalizedInput);
     if (!parsedInteraction?.interactionAction) {
       return normalizedInput;
     }
-
     const payloadCoreFields = parseAgentSessionCoreFields(normalizedInput);
     const mergedCoreFields = mergeSessionCoreFields(payloadCoreFields, coreFieldsRef.current);
     const payloadLines = [
@@ -656,7 +714,6 @@ export function useMessageSession({
     if (!trimmedInput) {
       return false;
     }
-
     let normalizedMessage = normalizeMessageInput(input);
     let displayText: string | undefined;
     let resolveInteractionMessageId: string | undefined;
@@ -671,7 +728,6 @@ export function useMessageSession({
       displayText = formatOutgoingMessage(normalizedMessage);
       resolveInteractionMessageId = interactionDraft.sourceMessageId;
     }
-
     if (!normalizedMessage) {
       return false;
     }
@@ -681,16 +737,11 @@ export function useMessageSession({
       resolveInteractionMessageId,
       resolvedInteractionNote: getInteractionResolvedNote(normalizedMessage),
     };
-
-    const sent = connected
-      ? sendNormalizedMessage(normalizedMessage, sendOptions)
-      : await queueMessageAndConnect(normalizedMessage, sendOptions);
-
+    const sent = connected ? sendNormalizedMessage(normalizedMessage, sendOptions) : await queueMessageAndConnect(normalizedMessage, sendOptions);
     if (sent) {
       setInput("");
       setInteractionDraft(undefined);
     }
-
     return sent;
   }, [connected, enrichInteractionMessage, input, interactionDraft, queueMessageAndConnect, sendNormalizedMessage]);
 
@@ -704,9 +755,7 @@ export function useMessageSession({
         resolveInteractionMessageId: messageId,
         resolvedInteractionNote: getInteractionResolvedNote(normalizedPayload),
       };
-      const sent = connected
-        ? sendNormalizedMessage(normalizedPayload, sendOptions)
-        : await queueMessageAndConnect(normalizedPayload, sendOptions);
+      const sent = connected ? sendNormalizedMessage(normalizedPayload, sendOptions) : await queueMessageAndConnect(normalizedPayload, sendOptions);
       if (sent) {
         setInteractionDraft(undefined);
       }
@@ -746,11 +795,11 @@ export function useMessageSession({
       return;
     }
     event.preventDefault();
-    if (!selectedRobot?.isAvailable || connecting) {
+    if (!selectedRobot?.isAvailable || connecting || sessionLoading) {
       return;
     }
     void sendMessage();
-  }, [connecting, selectedRobot?.isAvailable, sendMessage]);
+  }, [connecting, selectedRobot?.isAvailable, sendMessage, sessionLoading]);
 
   const handleCompositionStart = useCallback(() => {
     inputComposingRef.current = true;
@@ -762,135 +811,63 @@ export function useMessageSession({
 
   useEffect(() => {
     const nextSessionId = selectedSession?.sessionId;
-    if (nextSessionId && currentSessionIdRef.current === nextSessionId) {
+    if (nextSessionId && currentSessionIdRef.current === nextSessionId && selectedRobotIdRef.current === selectedRobot?.id) {
       return;
     }
 
-    if (sessionSwitchTimerRef.current !== null) {
-      window.clearTimeout(sessionSwitchTimerRef.current);
-      sessionSwitchTimerRef.current = null;
-    }
-    historyAbortControllerRef.current?.abort();
-    historyAbortControllerRef.current = null;
-    historyRequestSeqRef.current += 1;
-    const historyRequestId = historyRequestSeqRef.current;
-
-    setSessionLoading(Boolean(nextSessionId));
+    cancelPendingAttach();
+    cancelHistoryLoad();
     rememberSessionSnapshot(currentSessionIdRef.current);
     disconnect(true);
     resetConversationState();
     selectedRobotIdRef.current = selectedRobot?.id;
+    setSessionLoading(false);
 
     if (!nextSessionId) {
-      setSessionLoading(false);
+      setCurrentSessionId(undefined);
+      currentSessionIdRef.current = undefined;
       return;
     }
 
     currentSessionIdRef.current = nextSessionId;
     setCurrentSessionId(nextSessionId);
+    setError(undefined);
     setNotice(undefined);
 
     const cachedSnapshot = sessionSnapshotsRef.current.get(nextSessionId);
-    if (cachedSnapshot) {
-      restoreSessionSnapshot(cachedSnapshot);
-    }
+    restoreSessionSnapshot(cachedSnapshot);
+    const needsFreshHistory = shouldRefreshHistoryOnSelect(selectedSession, cachedSnapshot);
+    setSessionLoading(needsFreshHistory);
 
-    let cancelled = false;
-    sessionSwitchTimerRef.current = window.setTimeout(() => {
-      if (cancelled || historyRequestSeqRef.current !== historyRequestId) {
+    attachTimerRef.current = window.setTimeout(() => {
+      if (currentSessionIdRef.current !== nextSessionId) {
         return;
       }
-
-      const historyController = new AbortController();
-      historyAbortControllerRef.current = historyController;
-      const loadingTimeout = window.setTimeout(() => {
-        if (
-          !cancelled
-          && historyRequestSeqRef.current === historyRequestId
-          && currentSessionIdRef.current === nextSessionId
-        ) {
-          setSessionLoading(false);
-          setError("加载会话超时，请重试");
-        }
-      }, SESSION_HISTORY_TIMEOUT_MS);
-
-      void (async () => {
-      try {
-        const response = await listConsumerChatSessionMessages(nextSessionId, 100);
-        if (cancelled || currentSessionIdRef.current !== nextSessionId) {
-          return;
-        }
-        const historyMessages = response.items
-          .map((item, index) => normalizeHistoryMessage(item, index))
-          .filter((item): item is AgentChatMessage => item !== null);
-        const snapshot = sessionSnapshotsRef.current.get(nextSessionId);
-        const snapshotPending = Boolean(
-          snapshot?.pendingResponse || snapshot?.messages.some((message) => message.pending),
-        );
-        const shouldPreferSnapshot = Boolean(
-          snapshot
-          && selectedSession?.status === "ACTIVE"
-          && !manuallyPausedSessionIdsRef.current.has(nextSessionId)
-          && (
-            snapshotPending
-            || resumableSessionIdsRef.current.has(nextSessionId)
-            || selectedSession?.remoteConnected
-            || selectedSession?.generating
-          ),
-        );
-        const nextMessages = shouldPreferSnapshot
-          ? mergeHistoryWithSnapshot(historyMessages, snapshot)
-          : historyMessages;
-        const nextPendingResponse = shouldPreferSnapshot
-          ? Boolean(snapshotPending || nextMessages.some((message) => message.pending))
-          : nextMessages.some((message) => message.pending);
-
-        setMessages(nextMessages);
-        setPendingResponse(nextPendingResponse);
-        coreFieldsRef.current = shouldPreferSnapshot ? snapshot?.coreFields : undefined;
-        sessionSnapshotsRef.current.set(nextSessionId, {
-          messages: nextMessages,
-          pendingResponse: nextPendingResponse,
-          coreFields: coreFieldsRef.current,
-        });
-        if (
-          selectedSession?.status === "ACTIVE"
-          && !manuallyPausedSessionIdsRef.current.has(nextSessionId)
-          && (
-            resumableSessionIdsRef.current.has(nextSessionId)
-            || selectedSession?.remoteConnected
-            || selectedSession?.generating
-          )
-        ) {
-          setNotice(undefined);
+      if (!selectedSession) {
+        setSessionLoading(false);
+        return;
+      }
+      if (!needsFreshHistory) {
+        setSessionLoading(false);
+        if (shouldAutoAttachSession(selectedSession, cachedSnapshot)) {
           void openSocketForSession(selectedSession);
         }
-        setSessionLoading(false);
-      } catch (loadError) {
-        if (cancelled || currentSessionIdRef.current !== nextSessionId) {
-          return;
-        }
-        setSessionLoading(false);
-        setError(loadError instanceof Error ? loadError.message : "加载会话消息失败");
+        return;
       }
-    })();
+      void loadHistoryForSession(selectedSession);
+    }, SESSION_ATTACH_DEBOUNCE_MS);
 
     return () => {
-      cancelled = true;
+      cancelPendingAttach();
+      cancelHistoryLoad();
     };
-  }, [
-    disconnect,
-    openSocketForSession,
-    rememberSessionSnapshot,
-    resetConversationState,
-    restoreSessionSnapshot,
-    selectedRobot?.id,
-    selectedSession,
-  ]);
+  }, [cancelHistoryLoad, cancelPendingAttach, disconnect, loadHistoryForSession, openSocketForSession, rememberSessionSnapshot, resetConversationState, restoreSessionSnapshot, selectedRobot?.id, selectedSession, shouldAutoAttachSession, shouldRefreshHistoryOnSelect]);
 
   useEffect(() => () => {
+    cancelPendingAttach();
+    cancelHistoryLoad();
     disconnect(true);
-  }, [disconnect]);
+  }, [cancelHistoryLoad, cancelPendingAttach, disconnect]);
 
   const hasConversation = messages.length > 0;
   const canSend = Boolean(selectedRobot?.isAvailable)

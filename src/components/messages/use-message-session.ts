@@ -41,6 +41,12 @@ type SendMessageOptions = {
   resolvedInteractionNote?: string;
 };
 
+type SessionSnapshot = {
+  messages: AgentChatMessage[];
+  pendingResponse: boolean;
+  coreFields?: AgentSessionCoreFields;
+};
+
 function nextLocalMessageId(sequence: React.MutableRefObject<number>, prefix: string) {
   sequence.current += 1;
   return `${prefix}-${sequence.current}`;
@@ -129,6 +135,16 @@ function normalizeHistoryMessage(message: ConsumerChatSessionMessage, index: num
   };
 }
 
+function mergeHistoryWithSnapshot(historyMessages: AgentChatMessage[], snapshot?: SessionSnapshot) {
+  if (!snapshot) {
+    return historyMessages;
+  }
+  return snapshot.messages.reduce(
+    (current, message) => upsertAgentMessage(current, message),
+    historyMessages,
+  );
+}
+
 export function useMessageSession({
   selectedRobot,
   selectedSession,
@@ -149,19 +165,23 @@ export function useMessageSession({
   const [notice, setNotice] = useState<string>();
   const [interactionDraft, setInteractionDraft] = useState<MessageInteractionDraft>();
   const [currentSessionId, setCurrentSessionId] = useState<string>();
+  const [sessionLoading, setSessionLoading] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
+  const suppressedSocketClosuresRef = useRef<WeakSet<WebSocket>>(new WeakSet());
   const queuedMessageRef = useRef<QueuedMessage | null>(null);
   const inputComposingRef = useRef(false);
   const rawLineBufferRef = useRef("");
   const rawAssistantMessageIdRef = useRef<string | undefined>(undefined);
   const localMessageSeqRef = useRef(0);
-  const shouldSuppressCloseNoticeRef = useRef(false);
   const selectedRobotIdRef = useRef<string | undefined>(undefined);
   const currentSessionIdRef = useRef<string | undefined>(undefined);
   const coreFieldsRef = useRef<AgentSessionCoreFields | undefined>(undefined);
   const resumableSessionIdsRef = useRef<Set<string>>(new Set());
   const manuallyPausedSessionIdsRef = useRef<Set<string>>(new Set());
+  const sessionSnapshotsRef = useRef<Map<string, SessionSnapshot>>(new Map());
+  const messagesRef = useRef<AgentChatMessage[]>([]);
+  const pendingResponseRef = useRef(false);
 
   const resetConversationState = useCallback(() => {
     setMessages([]);
@@ -177,6 +197,31 @@ export function useMessageSession({
     rawAssistantMessageIdRef.current = undefined;
     coreFieldsRef.current = undefined;
     localMessageSeqRef.current = 0;
+  }, []);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    pendingResponseRef.current = pendingResponse;
+  }, [pendingResponse]);
+
+  const rememberSessionSnapshot = useCallback((sessionId?: string) => {
+    if (!sessionId) {
+      return;
+    }
+    sessionSnapshotsRef.current.set(sessionId, {
+      messages: messagesRef.current,
+      pendingResponse: pendingResponseRef.current || messagesRef.current.some((message) => message.pending),
+      coreFields: coreFieldsRef.current,
+    });
+  }, []);
+
+  const restoreSessionSnapshot = useCallback((snapshot?: SessionSnapshot) => {
+    setMessages(snapshot?.messages ?? []);
+    setPendingResponse(Boolean(snapshot?.pendingResponse || snapshot?.messages.some((message) => message.pending)));
+    coreFieldsRef.current = snapshot?.coreFields;
   }, []);
 
   const markInteractionResolved = useCallback((messageId?: string, note?: string) => {
@@ -341,6 +386,7 @@ export function useMessageSession({
       return;
     }
     const activeSessionId = currentSessionIdRef.current;
+    rememberSessionSnapshot(activeSessionId);
     if (activeSessionId) {
       if (silent) {
         resumableSessionIdsRef.current.add(activeSessionId);
@@ -348,7 +394,9 @@ export function useMessageSession({
         manuallyPausedSessionIdsRef.current.add(activeSessionId);
       }
     }
-    shouldSuppressCloseNoticeRef.current = silent;
+    if (silent) {
+      suppressedSocketClosuresRef.current.add(socket);
+    }
     socketRef.current = null;
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
       socket.close();
@@ -356,7 +404,7 @@ export function useMessageSession({
     setConnecting(false);
     setConnected(false);
     setPendingResponse(false);
-  }, []);
+  }, [rememberSessionSnapshot]);
 
   const sendNormalizedMessage = useCallback((normalizedMessage: string, options?: SendMessageOptions) => {
     const socket = socketRef.current;
@@ -439,6 +487,9 @@ export function useMessageSession({
     let connectionEstablished = false;
 
     socket.onopen = () => {
+      if (socketRef.current !== socket || currentSessionIdRef.current !== targetSession.sessionId) {
+        return;
+      }
       connectionEstablished = true;
       setConnecting(false);
       setConnected(true);
@@ -455,30 +506,42 @@ export function useMessageSession({
     };
 
     socket.onmessage = (event) => {
+      if (socketRef.current !== socket || currentSessionIdRef.current !== targetSession.sessionId) {
+        return;
+      }
       if (typeof event.data === "string") {
         handleSocketMessage(event.data);
       }
     };
 
     socket.onerror = () => {
+      if (socketRef.current !== socket || currentSessionIdRef.current !== targetSession.sessionId) {
+        return;
+      }
       setError(messagePageText.sessionConnectFailed);
     };
 
     socket.onclose = () => {
-      if (rawLineBufferRef.current.trim()) {
+      const isCurrentSession = currentSessionIdRef.current === targetSession.sessionId;
+      const shouldSuppressNotice = suppressedSocketClosuresRef.current.has(socket);
+      suppressedSocketClosuresRef.current.delete(socket);
+
+      if (isCurrentSession && rawLineBufferRef.current.trim()) {
         processRawLine(rawLineBufferRef.current);
         rawLineBufferRef.current = "";
       }
-      finalizeRawAssistantMessage();
+      if (isCurrentSession) {
+        finalizeRawAssistantMessage();
+      }
       if (socketRef.current === socket) {
         socketRef.current = null;
       }
-      setConnecting(false);
-      setConnected(false);
-      setPendingResponse(false);
-      const shouldSuppressNotice = shouldSuppressCloseNoticeRef.current;
-      shouldSuppressCloseNoticeRef.current = false;
-      if (!shouldSuppressNotice && selectedRobotIdRef.current === selectedRobot.id) {
+      if (isCurrentSession) {
+        setConnecting(false);
+        setConnected(false);
+        setPendingResponse(false);
+      }
+      if (isCurrentSession && !shouldSuppressNotice && selectedRobotIdRef.current === selectedRobot.id) {
         setNotice(connectionEstablished ? messagePageText.sessionDisconnected : messagePageText.sessionInterrupted);
       }
       void refreshSessions?.();
@@ -664,16 +727,25 @@ export function useMessageSession({
       return;
     }
 
+    setSessionLoading(Boolean(nextSessionId));
+    rememberSessionSnapshot(currentSessionIdRef.current);
     disconnect(true);
     resetConversationState();
     selectedRobotIdRef.current = selectedRobot?.id;
 
     if (!nextSessionId) {
+      setSessionLoading(false);
       return;
     }
 
     currentSessionIdRef.current = nextSessionId;
     setCurrentSessionId(nextSessionId);
+    setNotice(undefined);
+
+    const cachedSnapshot = sessionSnapshotsRef.current.get(nextSessionId);
+    if (cachedSnapshot) {
+      restoreSessionSnapshot(cachedSnapshot);
+    }
 
     let cancelled = false;
     void (async () => {
@@ -685,18 +757,54 @@ export function useMessageSession({
         const historyMessages = response.items
           .map((item, index) => normalizeHistoryMessage(item, index))
           .filter((item): item is AgentChatMessage => item !== null);
-        setMessages(historyMessages);
+        const snapshot = sessionSnapshotsRef.current.get(nextSessionId);
+        const snapshotPending = Boolean(
+          snapshot?.pendingResponse || snapshot?.messages.some((message) => message.pending),
+        );
+        const shouldPreferSnapshot = Boolean(
+          snapshot
+          && selectedSession?.status === "ACTIVE"
+          && !manuallyPausedSessionIdsRef.current.has(nextSessionId)
+          && (
+            snapshotPending
+            || resumableSessionIdsRef.current.has(nextSessionId)
+            || selectedSession?.remoteConnected
+            || selectedSession?.generating
+          ),
+        );
+        const nextMessages = shouldPreferSnapshot
+          ? mergeHistoryWithSnapshot(historyMessages, snapshot)
+          : historyMessages;
+        const nextPendingResponse = shouldPreferSnapshot
+          ? Boolean(snapshotPending || nextMessages.some((message) => message.pending))
+          : nextMessages.some((message) => message.pending);
+
+        setMessages(nextMessages);
+        setPendingResponse(nextPendingResponse);
+        coreFieldsRef.current = shouldPreferSnapshot ? snapshot?.coreFields : undefined;
+        sessionSnapshotsRef.current.set(nextSessionId, {
+          messages: nextMessages,
+          pendingResponse: nextPendingResponse,
+          coreFields: coreFieldsRef.current,
+        });
         if (
           selectedSession?.status === "ACTIVE"
-          && resumableSessionIdsRef.current.has(nextSessionId)
           && !manuallyPausedSessionIdsRef.current.has(nextSessionId)
+          && (
+            resumableSessionIdsRef.current.has(nextSessionId)
+            || selectedSession?.remoteConnected
+            || selectedSession?.generating
+          )
         ) {
+          setNotice(undefined);
           void openSocketForSession(selectedSession);
         }
+        setSessionLoading(false);
       } catch (loadError) {
         if (cancelled || currentSessionIdRef.current !== nextSessionId) {
           return;
         }
+        setSessionLoading(false);
         setError(loadError instanceof Error ? loadError.message : "加载会话消息失败");
       }
     })();
@@ -704,7 +812,15 @@ export function useMessageSession({
     return () => {
       cancelled = true;
     };
-  }, [disconnect, openSocketForSession, resetConversationState, selectedRobot?.id, selectedSession]);
+  }, [
+    disconnect,
+    openSocketForSession,
+    rememberSessionSnapshot,
+    resetConversationState,
+    restoreSessionSnapshot,
+    selectedRobot?.id,
+    selectedSession,
+  ]);
 
   useEffect(() => () => {
     disconnect(true);
@@ -713,6 +829,7 @@ export function useMessageSession({
   const hasConversation = messages.length > 0;
   const canSend = Boolean(selectedRobot?.isAvailable)
     && !connecting
+    && !sessionLoading
     && input.trim().length > 0
     && (!selectedSession || selectedSession.status === "ACTIVE");
   const assistantIsStreaming = useMemo(
@@ -732,6 +849,7 @@ export function useMessageSession({
     notice,
     interactionDraft,
     currentSessionId,
+    sessionLoading,
     canSend,
     connect,
     disconnect,

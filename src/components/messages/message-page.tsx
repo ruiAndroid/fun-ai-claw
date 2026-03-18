@@ -192,6 +192,8 @@ export function MessagePage() {
             loading={loading}
             connected={session.connected}
             connecting={session.connecting}
+            remoteConnected={selectedSession?.remoteConnected}
+            generating={selectedSession?.generating}
             notice={session.notice}
             error={session.error ?? sessionList.error}
             hasConversation={session.hasConversation}
@@ -214,6 +216,7 @@ export function MessagePage() {
               selectedRobot={selectedRobot}
               messages={session.messages}
               pendingResponse={session.pendingResponse}
+              loading={session.sessionLoading}
               selectedSessionTitle={selectedSession?.title}
               emptyNotice={threadEmptyNotice}
               interactionsEnabled={!viewOnly}
@@ -224,7 +227,7 @@ export function MessagePage() {
               selectedRobot={selectedRobot}
               input={session.input}
               canSend={session.canSend && !viewOnly}
-              connecting={session.connecting}
+              connecting={session.connecting || session.sessionLoading}
               connected={session.connected}
               interactionDraft={session.interactionDraft}
               viewOnly={viewOnly}
@@ -249,6 +252,7 @@ export function MessagePage() {
             sessions={panelSessions}
             selectedSessionId={sessionList.selectedSessionId}
             loading={sessionList.loading}
+            switching={session.sessionLoading}
             error={sessionList.error}
             onSelect={sessionList.setSelectedSessionId}
             onRefresh={() => {

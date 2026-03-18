@@ -1,9 +1,9 @@
 ---
-title: 用户中心外部用户同步接口
+title: 用户中心 syncUserInfo 接口
 description: 外部用户中心向 funClaw 同步用户资料的接口文档
 ---
 
-# 用户中心外部用户同步接口
+# 用户中心 syncUserInfo 接口
 
 本文档面向外部用户中心或统一账号系统，用于在用户注册成功、资料更新或首次登录后，将用户基础资料同步到 funClaw 本地数据库。
 
@@ -12,12 +12,43 @@ description: 外部用户中心向 funClaw 同步用户资料的接口文档
 - 该接口的目标是同步 `consumer_account`
 - 该接口不负责聊天、实例绑定或积分扣减
 - 该接口当前由 funClaw API 提供，不属于 `/open/v1/**`
+- 对外推荐将该接口名称统一称为 `syncUserInfo`
 
 ## 基础信息
 
 - Base URL：`/integration/v1`
-- 接口路径：`POST /integration/v1/consumer/accounts/sync`
+- 接口路径：`POST /integration/v1/consumer/accounts/syncUserInfo`
 - Content-Type：`application/json`
+
+## 推荐时序
+
+推荐由外部用户中心服务端在“注册成功 / 登录成功”前完成 `syncUserInfo` 调用。
+
+```text
+用户前端            外部用户中心前端        外部用户中心服务端            funClaw API
+   |                      |                        |                           |
+   | 输入手机号/验证码      |                        |                           |
+   |--------------------->|                        |                           |
+   |                      | 提交登录/注册请求        |                           |
+   |                      |----------------------->|                           |
+   |                      |                        | 校验验证码/创建登录态        |
+   |                      |                        |-------------------------->|
+   |                      |                        |<--------------------------|
+   |                      |                        |                           |
+   |                      |                        | 调用 syncUserInfo          |
+   |                      |                        |-------------------------->|
+   |                      |                        |<--------------------------|
+   |                      |                        |                           |
+   |                      |                        | 同步成功，返回登录成功       |
+   |                      |<-----------------------|                           |
+   |<---------------------|                        |                           |
+```
+
+### 成功判定建议
+
+- 只有当外部用户中心自己的登录/注册逻辑成功，且 `syncUserInfo` 返回成功时，才向用户前端返回“登录成功”或“注册成功”
+- 如果用户中心本身登录成功，但 `syncUserInfo` 失败，建议整体视为失败或进入可重试状态
+- 不建议把 `syncUserInfo` 放到浏览器侧调用，因为同步密钥不应暴露给前端
 
 ## 鉴权
 
@@ -62,8 +93,7 @@ Content-Type: application/json
   "lastLogin": "2026-03-18T10:30:00Z",
   "status": "1",
   "type": "0",
-  "createdAt": "2026-03-01T08:00:00Z",
-  "sourceSystem": "user-center"
+  "createdAt": "2026-03-01T08:00:00Z"
 }
 ```
 
@@ -80,7 +110,7 @@ Content-Type: application/json
 - `status`：可选；当前已兼容 `1 -> ACTIVE`、`0 -> DISABLED`
 - `type`：可选；当前只接收，不参与本地账户主逻辑
 - `createdAt`：可选；外部账户创建时间，建议传 ISO-8601 时间字符串
-- `sourceSystem`：可选；外部来源系统名，默认回退到服务端配置的 `user-center`
+- `sourceSystem`：当前无需传；本地 `consumer_account.source_system` 固定写入 `user-center`
 
 ## 字段映射
 
@@ -141,7 +171,7 @@ Content-Type: application/json
 ### cURL
 
 ```bash
-curl -X POST "http://your-host/integration/v1/consumer/accounts/sync" \
+curl -X POST "http://your-host/integration/v1/consumer/accounts/syncUserInfo" \
   -H "Content-Type: application/json" \
   -H "X-Consumer-Sync-Secret: your-sync-secret" \
   -d '{
@@ -153,8 +183,7 @@ curl -X POST "http://your-host/integration/v1/consumer/accounts/sync" \
     "payUserId": "998877",
     "lastLogin": "2026-03-18T10:30:00Z",
     "status": "1",
-    "createdAt": "2026-03-01T08:00:00Z",
-    "sourceSystem": "user-center"
+    "createdAt": "2026-03-01T08:00:00Z"
   }'
 ```
 
@@ -168,7 +197,7 @@ curl -X POST "http://your-host/integration/v1/consumer/accounts/sync" \
 ## 错误说明
 
 - `401 Unauthorized`：同步密钥错误或未传
-- `404 Not Found`：同步接口已被关闭
+- `404 Not Found`：`syncUserInfo` 接口已被关闭
 - `400 Bad Request`：请求体缺少 `id` 等关键字段
 - `503 Service Unavailable`：服务端未配置同步密钥
 
@@ -178,3 +207,4 @@ curl -X POST "http://your-host/integration/v1/consumer/accounts/sync" \
 - 当前不处理积分、支付、邀请码核销等业务
 - `phone` 目前直接写入本地手机号字段，未额外做脱敏
 - `createdAt` / `lastLogin` 当前推荐使用 ISO-8601；格式不合法时会被忽略
+- 本地 `consumer_account.source_system` 当前固定为 `user-center`

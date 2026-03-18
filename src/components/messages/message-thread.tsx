@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { Bot, CheckCircle2, Sparkles, UserRound } from "lucide-react";
+import { Bot, CheckCircle2, LoaderCircle, Sparkles, UserRound } from "lucide-react";
 import type { AgentChatMessage, AgentInteractionAction } from "@/lib/agent-session-protocol";
 import { cn } from "@/lib/utils";
 import { formatInteractionDraftLabel, formatMessageTimestamp } from "./messages-data";
@@ -131,6 +131,7 @@ export function MessageThread({
   selectedRobot,
   messages,
   pendingResponse,
+  loading = false,
   selectedSessionTitle,
   emptyNotice,
   interactionsEnabled = true,
@@ -139,6 +140,7 @@ export function MessageThread({
   selectedRobot?: MessageRobotTarget;
   messages: AgentChatMessage[];
   pendingResponse: boolean;
+  loading?: boolean;
   selectedSessionTitle?: string;
   emptyNotice?: string;
   interactionsEnabled?: boolean;
@@ -163,7 +165,15 @@ export function MessageThread({
   }, [messages, pendingResponse]);
 
   return (
-    <div ref={containerRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+    <div ref={containerRef} className="relative min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+      {loading ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/62 backdrop-blur-[2px]">
+          <div className="inline-flex items-center gap-3 rounded-full border border-white/80 bg-white/92 px-5 py-3 text-sm font-semibold text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
+            <LoaderCircle size={16} className="animate-spin text-violet-600" />
+            正在切换会话...
+          </div>
+        </div>
+      ) : null}
       {selectedRobot ? (
         messages.length > 0 ? (
           <div className="space-y-4">

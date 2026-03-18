@@ -9,6 +9,8 @@ export function MessageTopbar({
   loading,
   connected,
   connecting,
+  remoteConnected,
+  generating,
   notice,
   error,
   hasConversation,
@@ -21,6 +23,8 @@ export function MessageTopbar({
   loading: boolean;
   connected: boolean;
   connecting: boolean;
+  remoteConnected?: boolean;
+  generating?: boolean;
   notice?: string;
   error?: string;
   hasConversation: boolean;
@@ -29,6 +33,17 @@ export function MessageTopbar({
   onDisconnect: () => void;
   onNewSession: () => void;
 }) {
+  const hasRemotePresence = Boolean(connected || generating || remoteConnected);
+  const statusLabel = connected
+    ? "对话中"
+    : generating
+      ? "思考中"
+      : remoteConnected
+        ? "后台在线"
+        : connecting
+          ? "准备中"
+          : "待开始";
+
   return (
     <header className="rounded-[28px] border border-white/70 bg-white/80 px-5 py-4 shadow-[0_20px_50px_rgba(81,38,145,0.08)] backdrop-blur-xl sm:px-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -43,8 +58,8 @@ export function MessageTopbar({
               </div>
               <div className="truncate text-sm text-slate-500">
                 {selectedRobot
-                  ? "已为你准备好，直接开始对话吧"
-                  : "选择一个机器人后，就可以开始对话"}
+                  ? "已为你准备就绪，直接开始对话即可"
+                  : "选择一个机器人后，即可开始专属会话"}
               </div>
             </div>
           </div>
@@ -55,14 +70,16 @@ export function MessageTopbar({
             className={cn(
               "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold shadow-sm",
               connected
-                  ? "bg-orange-50 text-orange-700"
-                  : connecting
+                ? "bg-orange-50 text-orange-700"
+                : generating
+                  ? "bg-rose-50 text-rose-600"
+                  : remoteConnected || connecting
                     ? "bg-violet-50 text-violet-700"
-                  : "bg-slate-100 text-slate-600",
+                    : "bg-slate-100 text-slate-600",
             )}
           >
-            {connected ? <Wifi size={16} /> : <WifiOff size={16} />}
-            {connected ? "对话中" : connecting ? "准备中" : "待开始"}
+            {hasRemotePresence || connecting ? <Wifi size={16} /> : <WifiOff size={16} />}
+            {statusLabel}
           </div>
 
           <button
@@ -79,7 +96,7 @@ export function MessageTopbar({
             onClick={onNewSession}
             className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(139,61,255,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(139,61,255,0.24)]"
           >
-            新对话
+            新会话
           </button>
 
           {connected ? (
@@ -99,7 +116,7 @@ export function MessageTopbar({
               className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(139,61,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
             >
               <Wifi size={16} />
-              {hasConversation ? "继续对话" : "开始对话"}
+              {hasRemotePresence ? "接管会话" : hasConversation ? "继续对话" : "开始对话"}
             </button>
           )}
         </div>

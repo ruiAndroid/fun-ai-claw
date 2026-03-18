@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { Popconfirm } from "antd";
-import { Clock3, MessagesSquare, Radio, RefreshCw } from "lucide-react";
+import { Clock3, LoaderCircle, MessagesSquare, Radio, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatMessageTimestamp } from "./messages-data";
 import type { MessageSessionListItem } from "./use-message-session-list";
@@ -10,6 +10,7 @@ export function MessageSessionPanel({
   sessions,
   selectedSessionId,
   loading,
+  switching,
   error,
   onSelect,
   onRefresh,
@@ -21,6 +22,7 @@ export function MessageSessionPanel({
   sessions: MessageSessionListItem[];
   selectedSessionId?: string;
   loading: boolean;
+  switching?: boolean;
   error?: string;
   onSelect: (sessionId: string) => void;
   onRefresh: () => void;
@@ -59,6 +61,7 @@ export function MessageSessionPanel({
               const isSelected = session.sessionId === selectedSessionId;
               const isClosing = closingSessionId === session.sessionId;
               const isDeleting = deletingSessionId === session.sessionId;
+              const isSwitching = Boolean(switching && isSelected);
 
               return (
                 <div
@@ -73,7 +76,8 @@ export function MessageSessionPanel({
                   <button
                     type="button"
                     onClick={() => onSelect(session.sessionId)}
-                    className="min-w-0 flex-1 text-left"
+                    disabled={switching}
+                    className="min-w-0 flex-1 text-left disabled:cursor-wait disabled:opacity-80"
                   >
                     <div className="flex items-start gap-3">
                       <div
@@ -97,6 +101,12 @@ export function MessageSessionPanel({
                           {session.isCurrent ? (
                             <span className="inline-flex rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
                               当前
+                            </span>
+                          ) : null}
+                          {isSwitching ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                              <LoaderCircle size={11} className="animate-spin" />
+                              切换中
                             </span>
                           ) : null}
                         </div>
@@ -137,7 +147,7 @@ export function MessageSessionPanel({
                   {session.canClose ? (
                     <button
                       type="button"
-                      disabled={isClosing || isDeleting}
+                      disabled={isClosing || isDeleting || switching}
                       className={cn(
                         "mt-1 inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold transition",
                         "border-slate-200 bg-white text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700",
@@ -162,7 +172,7 @@ export function MessageSessionPanel({
                         loading: isDeleting,
                       }}
                       cancelButtonProps={{
-                        disabled: isDeleting,
+                        disabled: isDeleting || switching,
                       }}
                       onConfirm={(event) => {
                         event?.stopPropagation();
@@ -171,7 +181,7 @@ export function MessageSessionPanel({
                     >
                       <button
                         type="button"
-                        disabled={isDeleting}
+                        disabled={isDeleting || switching}
                         className={cn(
                           "mt-1 inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold transition",
                           "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700",

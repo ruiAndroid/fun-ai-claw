@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Bot, Cpu, RefreshCw, Sparkles, Wrench } from "lucide-react";
+import { Bot, Cpu, RefreshCw, Sparkles } from "lucide-react";
 import { HomepageSectionHeader } from "./homepage-section-header";
 import { listHomepageAgents } from "@/lib/homepage-api";
 import type { AgentBaselineSummary } from "@/types/contracts";
@@ -19,14 +19,6 @@ function formatTimestamp(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
-}
-
-function getAllowedToolsCount(agent: AgentBaselineSummary) {
-  return agent.allowedTools?.length ?? 0;
-}
-
-function getAllowedSkillsCount(agent: AgentBaselineSummary) {
-  return agent.allowedSkills?.length ?? 0;
 }
 
 function AgentSectionSkeleton() {
@@ -186,33 +178,16 @@ export function HomepageAgentSection({
                   ) : null}
                 </div>
 
-                <div className="mt-6 grid grid-cols-3 gap-3">
-                  <div className="rounded-[18px] border border-md-outline-variant/25 bg-white/72 px-3 py-3">
-                    <div className="text-[11px] font-semibold text-md-on-surface-variant">工具</div>
-                    <div className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-md-on-surface">
-                      <Wrench size={14} />
-                      {getAllowedToolsCount(agent)}
-                    </div>
-                  </div>
-                  <div className="rounded-[18px] border border-md-outline-variant/25 bg-white/72 px-3 py-3">
-                    <div className="text-[11px] font-semibold text-md-on-surface-variant">技能</div>
-                    <div className="mt-1 text-sm font-bold text-md-on-surface">
-                      {getAllowedSkillsCount(agent)}
-                    </div>
-                  </div>
-                  <div className="rounded-[18px] border border-md-outline-variant/25 bg-white/72 px-3 py-3">
-                    <div className="text-[11px] font-semibold text-md-on-surface-variant">更新</div>
-                    <div className="mt-1 text-sm font-bold text-md-on-surface">
-                      {formatTimestamp(agent.updatedAt)}
-                    </div>
+                <div className="mt-6 rounded-[20px] border border-md-outline-variant/25 bg-white/72 px-4 py-4">
+                  <div className="text-[11px] font-semibold text-md-on-surface-variant">简介</div>
+                  <div className="mt-2 text-sm leading-6 text-md-on-surface">
+                    {agent.description?.trim() || "当前暂无机器人简介。"}
                   </div>
                 </div>
 
                 <div className="mt-6 flex items-center justify-between gap-3">
                   <span className="text-xs text-md-on-surface-variant">
-                    {getAllowedSkillsCount(agent) > 0
-                      ? `已配置 ${getAllowedSkillsCount(agent)} 个扩展能力`
-                      : "当前未配置扩展能力"}
+                    最近更新：{formatTimestamp(agent.updatedAt)}
                   </span>
                   <Link
                     href={messagesHref}

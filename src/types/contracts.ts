@@ -53,6 +53,7 @@ export interface AgentSystemPrompt {
 export interface AgentBaselineSummary {
   agentKey: string;
   displayName: string;
+  description?: string | null;
   runtime: string;
   sourceType: string;
   sourceRef?: string | null;

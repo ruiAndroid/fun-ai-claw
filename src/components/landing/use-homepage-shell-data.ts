@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildSidebarNavItems, type SidebarMessageItem } from "./homepage-data";
-import { loadHomepageShellSnapshot } from "@/lib/homepage-api";
+import { getInitialHomepageShellSnapshot, loadHomepageShellSnapshot } from "@/lib/homepage-api";
 
 export type HomepageUserCard = {
   title: string;
@@ -16,7 +16,7 @@ function formatErrorMessage(error: unknown) {
 }
 
 export function useHomepageShellData() {
-  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof loadHomepageShellSnapshot>> | null>(null);
+  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof loadHomepageShellSnapshot>>>(() => getInitialHomepageShellSnapshot());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
@@ -28,7 +28,6 @@ export function useHomepageShellData() {
       const nextSnapshot = await loadHomepageShellSnapshot();
       setSnapshot(nextSnapshot);
     } catch (loadError) {
-      setSnapshot(null);
       setError(formatErrorMessage(loadError));
     } finally {
       setLoading(false);

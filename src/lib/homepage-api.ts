@@ -3,7 +3,12 @@
 import { appConfig } from "@/config/app-config";
 import { listConsumerChatSessions, listConsumerInstances } from "@/lib/consumer-api";
 import { listInstanceAgentBindings } from "@/lib/control-api";
-import { getUserCenterAuthSnapshot, getUserCenterMe, isUserCenterUnauthorizedError } from "@/lib/user-center-api";
+import {
+  getCachedUserCenterMe,
+  getUserCenterAuthSnapshot,
+  getUserCenterMe,
+  isUserCenterUnauthorizedError,
+} from "@/lib/user-center-api";
 import type { AgentBaselineSummary, ListResponse } from "@/types/contracts";
 import type { ConsumerBoundInstance, ConsumerChatSession } from "@/types/consumer";
 import type { UserCenterMe } from "@/types/user-center";
@@ -26,6 +31,22 @@ export type HomepageShellSnapshot = {
   supportsRecentSessions: boolean;
   xiamiBalance: number | null;
 };
+
+export function getInitialHomepageShellSnapshot(): HomepageShellSnapshot {
+  const authSnapshot = getUserCenterAuthSnapshot();
+  const hasAuth = Boolean(authSnapshot.accessToken || authSnapshot.refreshToken);
+  const cachedProfile = hasAuth ? getCachedUserCenterMe() : null;
+
+  return {
+    authenticated: hasAuth,
+    profile: cachedProfile,
+    instances: [],
+    recentSessions: [],
+    supportsXiamiBalance: false,
+    supportsRecentSessions: false,
+    xiamiBalance: null,
+  };
+}
 
 async function buildRequestError(response: Response): Promise<Error> {
   const body = await response.text();
@@ -139,19 +160,10 @@ function buildRecentSessions(
 }
 
 export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot> {
-  const authSnapshot = getUserCenterAuthSnapshot();
-  const hasAuth = Boolean(authSnapshot.accessToken || authSnapshot.refreshToken);
+  const initialSnapshot = getInitialHomepageShellSnapshot();
 
-  if (!hasAuth) {
-    return {
-      authenticated: false,
-      profile: null,
-      instances: [],
-      recentSessions: [],
-      supportsXiamiBalance: false,
-      supportsRecentSessions: false,
-      xiamiBalance: null,
-    };
+  if (!initialSnapshot.authenticated) {
+    return initialSnapshot;
   }
 
   const [profileResult, instancesResult, recentSessionsResult] = await Promise.allSettled([

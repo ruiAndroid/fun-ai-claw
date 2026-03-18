@@ -1,16 +1,18 @@
-"use client";
+﻿"use client";
 
 import { appConfig } from "@/config/app-config";
 import type {
   UserCenterApiEnvelope,
   UserCenterAuthResponse,
   UserCenterAuthSnapshot,
+  UserCenterCurrentUserResponseData,
   UserCenterLoginResponseData,
   UserCenterMe,
   UserCenterRefreshTokenRequest,
   UserCenterSmsSendCodeRequest,
   UserCenterSmsSendCodeResponse,
   UserCenterSmsVerifyRequest,
+  UserCenterUserInfo,
 } from "@/types/user-center";
 
 const USER_CENTER_BASE_URL = appConfig.userCenterBaseUrl;
@@ -111,15 +113,12 @@ function getOrCreateSessionKey() {
   return created;
 }
 
-function storeAuthTokens(response: UserCenterAuthResponse) {
-  accessTokenMemoryCache = response.accessToken;
-  setStoredValue(ACCESS_TOKEN_KEY, response.accessToken);
-  setStoredValue(REFRESH_TOKEN_KEY, response.refreshToken);
-  setStoredValue(TOKEN_TYPE_KEY, response.tokenType);
-  setStoredValue(ACCESS_TOKEN_EXPIRES_AT_KEY, response.accessTokenExpiresAt);
-  setStoredValue(REFRESH_TOKEN_EXPIRES_AT_KEY, response.refreshTokenExpiresAt);
-  setStoredValue(ME_KEY, JSON.stringify(response.me));
-  getOrCreateSessionKey();
+function maskPhone(phone?: string | null) {
+  const normalized = phone?.trim() || "";
+  if (!/^1\d{10}$/.test(normalized)) {
+    return normalized || null;
+  }
+  return `${normalized.slice(0, 3)}****${normalized.slice(-4)}`;
 }
 
 function addSecondsToNow(seconds?: number | null) {
@@ -129,24 +128,39 @@ function addSecondsToNow(seconds?: number | null) {
   return new Date(Date.now() + seconds * 1000).toISOString();
 }
 
-function mapLoginResponseToAuthResponse(payload: UserCenterLoginResponseData): UserCenterAuthResponse {
-  const userInfo = payload.userInfo;
-  const resolvedUserId = String(userInfo.id ?? "").trim();
-  const resolvedPhone = userInfo.phone?.trim() || "";
-  const payUserId = userInfo.payUserId == null ? "" : String(userInfo.payUserId).trim();
+function normalizeUserCenterProfile(
+  payload: UserCenterUserInfo,
+  previousProfile?: UserCenterMe | null,
+): UserCenterMe {
+  const resolvedUserId = String(payload.id ?? "").trim();
+  const resolvedPhone = payload.phone?.trim() || "";
+  const payUserId = payload.payUserId == null ? "" : String(payload.payUserId).trim();
+  const nickname = payload.username?.trim()
+    || payload.userName?.trim()
+    || previousProfile?.nickname?.trim()
+    || maskPhone(resolvedPhone)
+    || resolvedUserId;
 
   return {
-    me: {
-      userId: resolvedUserId,
-      uid: payUserId || resolvedUserId,
-      nickname: userInfo.userName?.trim() || resolvedPhone || resolvedUserId || null,
-      avatarUrl: userInfo.avatar?.trim() || null,
-      phoneMasked: resolvedPhone,
-      phoneE164: resolvedPhone || null,
-      status: userInfo.status == null ? "" : String(userInfo.status),
-      createdAt: new Date().toISOString(),
-      lastLoginAt: userInfo.lastLogin?.trim() || null,
-    },
+    userId: resolvedUserId,
+    uid: payUserId || previousProfile?.uid || resolvedUserId,
+    nickname,
+    avatarUrl: payload.avatar?.trim() || previousProfile?.avatarUrl || null,
+    phone: resolvedPhone || previousProfile?.phone || null,
+    phoneMasked: maskPhone(resolvedPhone) || previousProfile?.phoneMasked || null,
+    phoneE164: resolvedPhone || previousProfile?.phoneE164 || null,
+    userType: payload.type == null ? previousProfile?.userType || null : String(payload.type),
+    invitationCode: payload.invitationCode?.trim() || previousProfile?.invitationCode || null,
+    payUserId: payUserId || previousProfile?.payUserId || null,
+    status: payload.status == null ? previousProfile?.status || "" : String(payload.status),
+    createdAt: previousProfile?.createdAt || new Date().toISOString(),
+    lastLoginAt: payload.lastLogin?.trim() || previousProfile?.lastLoginAt || null,
+  };
+}
+
+function mapLoginResponseToAuthResponse(payload: UserCenterLoginResponseData): UserCenterAuthResponse {
+  return {
+    me: normalizeUserCenterProfile(payload.userInfo),
     newUser: false,
     tokenType: payload.tokenType?.trim() || "Bearer",
     accessToken: payload.accessToken,
@@ -154,6 +168,17 @@ function mapLoginResponseToAuthResponse(payload: UserCenterLoginResponseData): U
     refreshToken: payload.refreshToken,
     refreshTokenExpiresAt: "",
   };
+}
+
+function storeAuthTokens(response: UserCenterAuthResponse) {
+  accessTokenMemoryCache = response.accessToken;
+  setStoredValue(ACCESS_TOKEN_KEY, response.accessToken);
+  setStoredValue(REFRESH_TOKEN_KEY, response.refreshToken);
+  setStoredValue(TOKEN_TYPE_KEY, response.tokenType);
+  setStoredValue(ACCESS_TOKEN_EXPIRES_AT_KEY, response.accessTokenExpiresAt);
+  setStoredValue(REFRESH_TOKEN_EXPIRES_AT_KEY, response.refreshTokenExpiresAt);
+  setStoredValue(ME_KEY, JSON.stringify(response.me));
+  getOrCreateSessionKey();
 }
 
 export function clearUserCenterAuthState() {
@@ -175,6 +200,14 @@ export function getUserCenterAuthSnapshot(): UserCenterAuthSnapshot {
     refreshTokenExpiresAt: getStoredRefreshTokenExpiresAt(),
     sessionKey: getOrCreateSessionKey(),
   };
+}
+
+function buildRequestHeaders(init?: RequestInit) {
+  const headers = new Headers(init?.headers ?? {});
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  return headers;
 }
 
 async function buildRequestError(response: Response): Promise<Error> {
@@ -215,6 +248,7 @@ async function fetchUserCenter(path: string, init?: RequestInit): Promise<Respon
   try {
     return await fetch(`${requireUserCenterBaseUrl()}${path}`, {
       ...init,
+      headers: buildRequestHeaders(init),
       signal: controller.signal,
       cache: "no-store",
       credentials: "include",
@@ -230,13 +264,7 @@ async function fetchUserCenter(path: string, init?: RequestInit): Promise<Respon
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetchUserCenter(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  const response = await fetchUserCenter(path, init);
   if (!response.ok) {
     throw await buildRequestError(response);
   }
@@ -244,13 +272,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function requestEnvelope<T>(path: string, init?: RequestInit): Promise<UserCenterApiEnvelope<T>> {
-  const response = await fetchUserCenter(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  const response = await fetchUserCenter(path, init);
   if (!response.ok) {
     throw await buildRequestError(response);
   }
@@ -263,13 +285,7 @@ async function requestEnvelope<T>(path: string, init?: RequestInit): Promise<Use
 }
 
 async function requestVoid(path: string, init?: RequestInit): Promise<void> {
-  const response = await fetchUserCenter(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  const response = await fetchUserCenter(path, init);
   if (!response.ok) {
     throw await buildRequestError(response);
   }
@@ -295,10 +311,13 @@ async function refreshUserCenterToken(request?: UserCenterRefreshTokenRequest): 
   return refreshPromise;
 }
 
-async function requestAuthedJson<T>(path: string, init?: RequestInit, hasRetried = false): Promise<T> {
+async function requestAuthedEnvelope<T>(
+  path: string,
+  init?: RequestInit,
+  hasRetried = false,
+): Promise<UserCenterApiEnvelope<T>> {
   const token = getAccessToken();
-  const headers = new Headers(init?.headers ?? {});
-  headers.set("Content-Type", "application/json");
+  const headers = buildRequestHeaders(init);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -310,14 +329,22 @@ async function requestAuthedJson<T>(path: string, init?: RequestInit, hasRetried
 
   if (response.status === 401 && !hasRetried) {
     await refreshUserCenterToken();
-    return requestAuthedJson<T>(path, init, true);
+    return requestAuthedEnvelope<T>(path, init, true);
   }
 
   if (!response.ok) {
     throw await buildRequestError(response);
   }
 
-  return (await response.json()) as T;
+  const payload = (await response.json()) as UserCenterApiEnvelope<T>;
+  if (!isUserCenterSuccessCode(payload?.code)) {
+    throw new Error(payload.msg?.trim() || `用户中心请求失败 (code: ${payload.code})`);
+  }
+  return payload;
+}
+
+function isUnauthorizedError(error: unknown) {
+  return error instanceof Error && /HTTP 401|authentication failed/i.test(error.message);
 }
 
 export async function sendUserCenterSmsCode(request: UserCenterSmsSendCodeRequest) {
@@ -346,16 +373,23 @@ export async function verifyUserCenterSmsCode(request: UserCenterSmsVerifyReques
 
 export async function getUserCenterMe() {
   const cachedMe = getStoredMe();
-  if (cachedMe && getAccessToken()) {
-    return cachedMe;
-  }
   const token = getAccessToken();
+
   if (!token && getRefreshToken()) {
     await refreshUserCenterToken();
   }
-  const remoteMe = await requestAuthedJson<UserCenterMe>("/me");
-  setStoredValue(ME_KEY, JSON.stringify(remoteMe));
-  return remoteMe;
+
+  try {
+    const envelope = await requestAuthedEnvelope<UserCenterCurrentUserResponseData>("/auth/current-user");
+    const remoteMe = normalizeUserCenterProfile(envelope.data, cachedMe);
+    setStoredValue(ME_KEY, JSON.stringify(remoteMe));
+    return remoteMe;
+  } catch (error) {
+    if (cachedMe && !isUnauthorizedError(error)) {
+      return cachedMe;
+    }
+    throw error;
+  }
 }
 
 export async function logoutUserCenter() {

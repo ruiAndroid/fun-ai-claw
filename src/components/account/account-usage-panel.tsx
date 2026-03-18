@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import type { UsageFilterKey } from "./account-data";
@@ -17,7 +17,7 @@ export function AccountUsagePanel() {
   return (
     <div>
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">积分明细</h1>
+        <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">积分中心</h1>
         <div className="flex flex-wrap gap-4">
           <button
             type="button"
@@ -35,12 +35,14 @@ export function AccountUsagePanel() {
       </div>
 
       <div className="mt-16 text-center">
-        <div className="text-4xl font-black tracking-[-0.04em] text-slate-950">当前余额</div>
+        <div className="text-4xl font-black tracking-[-0.04em] text-slate-950">当前积分</div>
         <div className="mt-6 flex items-center justify-center gap-4 text-[64px] font-black leading-none tracking-[-0.05em] text-slate-950">
           <span>{accountBalance ?? "--"}</span>
           <span className="text-[40px]">积分</span>
         </div>
-        <div className="mt-4 text-lg font-semibold text-slate-400">积分账单能力后续会与统一用户中心数据对齐</div>
+        <div className="mt-4 text-lg font-semibold text-slate-400">
+          积分与账单能力后续会和用户中心或支付系统数据打通。
+        </div>
       </div>
 
       <section className="mt-12 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
@@ -82,7 +84,7 @@ export function AccountUsagePanel() {
           <div className="mt-14 rounded-[24px] border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center">
             <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">暂无积分明细</div>
             <div className="mt-3 text-lg font-semibold text-slate-400">
-              后续接入外部用户中心或本地账单同步后，这里会展示真实积分记录。
+              后续接入用户中心或支付系统后，这里会展示真实的积分记录。
             </div>
           </div>
         )}

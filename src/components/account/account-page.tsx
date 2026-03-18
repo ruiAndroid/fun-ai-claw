@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -20,34 +20,11 @@ function isUnauthorizedError(error: unknown): boolean {
   return extractErrorMessage(error).includes("HTTP 401");
 }
 
-function buildFallbackAccount(profile: UserCenterMe): ConsumerAccount {
-  const now = new Date().toISOString();
-  const resolvedUserId = profile.userId?.trim() || profile.uid?.trim() || "user-center";
-
-  return {
-    accountId: `user-center:${resolvedUserId}`,
-    externalUserId: resolvedUserId,
-    externalUid: profile.uid?.trim() || null,
-    sourceSystem: "user-center",
-    phoneE164: profile.phoneE164?.trim() || null,
-    phoneMasked: profile.phoneMasked?.trim() || null,
-    displayName: profile.nickname?.trim() || profile.phoneMasked?.trim() || resolvedUserId,
-    avatarUrl: profile.avatarUrl?.trim() || null,
-    status: profile.status?.trim() || "ACTIVE",
-    externalCreatedAt: profile.createdAt || null,
-    linkedAt: now,
-    updatedAt: now,
-    lastLoginAt: profile.lastLoginAt || null,
-    lastVerifiedAt: now,
-    activeSessionCount: 0,
-    activeInstanceCount: 0,
-  };
-}
-
 export function AccountPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AccountTabKey>("settings");
-  const [account, setAccount] = useState<ConsumerAccount | null>(null);
+  const [profile, setProfile] = useState<UserCenterMe | null>(null);
+  const [localAccount, setLocalAccount] = useState<ConsumerAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -59,24 +36,26 @@ export function AccountPage() {
     setNotice(null);
 
     try {
-      const current = await getConsumerAccount();
-      setAccount(current);
-      return;
+      const currentProfile = await getUserCenterMe();
+      setProfile(currentProfile);
     } catch (requestError) {
       if (isUnauthorizedError(requestError)) {
         router.replace("/login");
         return;
       }
+      setProfile(null);
+      setLocalAccount(null);
+      setError(extractErrorMessage(requestError));
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const fallbackProfile = await getUserCenterMe();
-        setAccount(buildFallbackAccount(fallbackProfile));
-        setNotice("本地账号档案暂未同步完成，当前先展示用户中心资料。");
-        return;
-      } catch {
-        setAccount(null);
-        setError(extractErrorMessage(requestError));
-      }
+    try {
+      const currentLocalAccount = await getConsumerAccount();
+      setLocalAccount(currentLocalAccount);
+    } catch {
+      setLocalAccount(null);
+      setNotice("用户中心资料已加载，本平台补充数据暂不可用。");
     } finally {
       setLoading(false);
     }
@@ -97,7 +76,7 @@ export function AccountPage() {
   }, [router]);
 
   const content = useMemo(() => {
-    if (!account) {
+    if (!profile) {
       return null;
     }
 
@@ -108,25 +87,25 @@ export function AccountPage() {
         return <AccountWorksPanel />;
       case "settings":
       default:
-        return <AccountSettingsPanel account={account} />;
+        return <AccountSettingsPanel profile={profile} localAccount={localAccount} />;
     }
-  }, [account, activeTab]);
+  }, [activeTab, localAccount, profile]);
 
   if (loading) {
     return (
       <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fffaf7_100%)] px-5 py-4 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-[1800px] rounded-[28px] bg-white/70 px-8 py-12 text-center shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
-          <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">正在加载账号信息...</div>
+          <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">正在加载用户中心资料...</div>
         </div>
       </main>
     );
   }
 
-  if (error || !account) {
+  if (error || !profile) {
     return (
       <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fffaf7_100%)] px-5 py-4 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-[960px] rounded-[28px] bg-white/70 px-8 py-12 text-center shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
-          <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">账号信息加载失败</div>
+          <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">用户中心资料加载失败</div>
           <div className="mt-4 text-lg font-semibold text-slate-500">{error ?? "请重新登录后再试"}</div>
           <div className="mt-8 flex items-center justify-center gap-4">
             <button

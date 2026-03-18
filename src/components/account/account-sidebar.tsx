@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { ArrowLeft, LogOut } from "lucide-react";
@@ -56,7 +56,7 @@ export function AccountSidebar({
         className="mt-auto inline-flex items-center gap-2 text-[18px] font-black tracking-[-0.02em] text-red-500 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <LogOut size={20} />
-        {loggingOut ? "退出中…" : "退出登录"}
+        {loggingOut ? "退出中..." : "退出登录"}
       </button>
     </aside>
   );

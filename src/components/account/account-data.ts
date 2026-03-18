@@ -1,4 +1,4 @@
-import { CreditCard, FileText, Settings2 } from "lucide-react";
+﻿import { CreditCard, FileText, Settings2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type AccountTabKey = "settings" | "usage" | "works";
@@ -25,15 +25,15 @@ export type WorkItem = {
 };
 
 export const accountNavItems: AccountNavItem[] = [
-  { key: "settings", label: "账号设置", icon: Settings2 },
-  { key: "usage", label: "积分明细", icon: CreditCard },
+  { key: "settings", label: "用户资料", icon: Settings2 },
+  { key: "usage", label: "积分中心", icon: CreditCard },
   { key: "works", label: "我的作品", icon: FileText },
 ];
 
 export const usageFilters: Array<{ key: UsageFilterKey; label: string }> = [
   { key: "all", label: "全部" },
-  { key: "spent", label: "消耗" },
-  { key: "added", label: "新增" },
+  { key: "spent", label: "支出" },
+  { key: "added", label: "收入" },
 ];
 
 export const accountBalance: number | null = null;

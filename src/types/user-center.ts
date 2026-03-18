@@ -1,10 +1,14 @@
-export interface UserCenterMe {
+﻿export interface UserCenterMe {
   userId: string;
   uid: string;
   nickname?: string | null;
   avatarUrl?: string | null;
-  phoneMasked: string;
+  phone?: string | null;
+  phoneMasked?: string | null;
   phoneE164?: string | null;
+  userType?: string | null;
+  invitationCode?: string | null;
+  payUserId?: string | null;
   status: string;
   createdAt: string;
   lastLoginAt?: string | null;
@@ -32,9 +36,10 @@ export interface UserCenterSmsVerifyRequest {
   inviteCode?: string | null;
 }
 
-export interface UserCenterLoginUserInfo {
+export interface UserCenterUserInfo {
   id: number | string;
   type?: number | string | null;
+  username?: string | null;
   userName?: string | null;
   avatar?: string | null;
   invitationCode?: string | null;
@@ -49,8 +54,10 @@ export interface UserCenterLoginResponseData {
   refreshToken: string;
   tokenType?: string | null;
   expiresIn?: number | null;
-  userInfo: UserCenterLoginUserInfo;
+  userInfo: UserCenterUserInfo;
 }
+
+export type UserCenterCurrentUserResponseData = UserCenterUserInfo;
 
 export interface UserCenterAuthResponse {
   me: UserCenterMe;

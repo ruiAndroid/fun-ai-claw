@@ -105,7 +105,7 @@ function ChatBubble({
         ) : null}
 
         <div className="mt-3 whitespace-pre-wrap text-[15px] leading-7">
-          {message.content || (message.pending ? "正在生成中…" : "")}
+          {message.content || (message.pending ? "正在思考..." : "")}
         </div>
 
         {message.interactionResolved && message.interactionResolvedNote ? (
@@ -182,7 +182,7 @@ export function MessageThread({
                   <Bot size={18} />
                 </div>
                 <div className="rounded-[28px] border border-white/80 bg-white/90 px-5 py-4 text-sm text-slate-500 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-                  正在思考中…
+                  正在思考...
                 </div>
               </div>
             ) : null}

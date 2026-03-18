@@ -18,9 +18,43 @@ import type {
 } from "@/types/consumer";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
+const CONSUMER_ACCOUNT_KEY = "fun_claw_consumer_account";
+const CONSUMER_BOOTSTRAP_KEY = "fun_claw_consumer_bootstrap_key";
 let consumerSessionReadyKey: string | null = null;
 let consumerSessionAccount: ConsumerAccount | null = null;
 let consumerSessionBootstrapPromise: Promise<ConsumerAccount | null> | null = null;
+
+function getStoredValue(key: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const value = window.localStorage.getItem(key);
+  return value && value.trim() ? value.trim() : null;
+}
+
+function setStoredValue(key: string, value?: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (value && value.trim()) {
+    window.localStorage.setItem(key, value.trim());
+  } else {
+    window.localStorage.removeItem(key);
+  }
+}
+
+function getStoredConsumerAccount() {
+  const raw = getStoredValue(CONSUMER_ACCOUNT_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as ConsumerAccount;
+  } catch {
+    setStoredValue(CONSUMER_ACCOUNT_KEY, null);
+    return null;
+  }
+}
 
 function buildHeaders(init?: RequestInit) {
   const snapshot = getUserCenterAuthSnapshot();
@@ -65,6 +99,36 @@ function hasConsumerCredentials() {
 function invalidateConsumerSessionBootstrap() {
   consumerSessionReadyKey = null;
   consumerSessionAccount = null;
+  setStoredValue(CONSUMER_BOOTSTRAP_KEY, null);
+  setStoredValue(CONSUMER_ACCOUNT_KEY, null);
+}
+
+function restoreCachedConsumerSession(bootstrapKey: string) {
+  if (consumerSessionReadyKey === bootstrapKey && consumerSessionAccount) {
+    return consumerSessionAccount;
+  }
+
+  const storedBootstrapKey = getStoredValue(CONSUMER_BOOTSTRAP_KEY);
+  if (storedBootstrapKey !== bootstrapKey) {
+    return null;
+  }
+
+  const storedAccount = getStoredConsumerAccount();
+  if (!storedAccount) {
+    setStoredValue(CONSUMER_BOOTSTRAP_KEY, null);
+    return null;
+  }
+
+  consumerSessionReadyKey = storedBootstrapKey;
+  consumerSessionAccount = storedAccount;
+  return storedAccount;
+}
+
+function cacheConsumerSession(account: ConsumerAccount, bootstrapKey = getConsumerSessionKey()) {
+  consumerSessionReadyKey = bootstrapKey;
+  consumerSessionAccount = account;
+  setStoredValue(CONSUMER_BOOTSTRAP_KEY, bootstrapKey);
+  setStoredValue(CONSUMER_ACCOUNT_KEY, JSON.stringify(account));
 }
 
 async function buildRequestError(response: Response): Promise<Error> {
@@ -132,15 +196,17 @@ async function ensureConsumerSessionInitialized(force = false) {
   }
 
   const bootstrapKey = getConsumerSessionKey();
-  if (!force && consumerSessionReadyKey === bootstrapKey && consumerSessionAccount) {
-    return consumerSessionAccount;
+  if (!force) {
+    const cachedAccount = restoreCachedConsumerSession(bootstrapKey);
+    if (cachedAccount) {
+      return cachedAccount;
+    }
   }
 
   if (!consumerSessionBootstrapPromise || force) {
     consumerSessionBootstrapPromise = requestStrongConsumerJson<ConsumerAccount>("/app/v1/consumer/me")
       .then((account) => {
-        consumerSessionReadyKey = getConsumerSessionKey();
-        consumerSessionAccount = account;
+        cacheConsumerSession(account, getConsumerSessionKey());
         return account;
       })
       .finally(() => {

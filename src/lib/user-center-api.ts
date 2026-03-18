@@ -394,6 +394,10 @@ async function requestAuthedEnvelope<T>(
   return payload;
 }
 
+export async function requestUserCenterAuthedEnvelope<T>(path: string, init?: RequestInit) {
+  return requestAuthedEnvelope<T>(path, init);
+}
+
 export function isUserCenterUnauthorizedError(error: unknown) {
   if (typeof error === "string") {
     return /HTTP 401|authentication failed|访问令牌无效|令牌无效|令牌已过期|token invalid|token expired/i.test(error);

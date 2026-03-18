@@ -4,6 +4,14 @@ import { XiamiIcon } from "@/components/ui/xiami-icon";
 import { cn } from "@/lib/utils";
 import type { RechargePlan } from "./recharge-data";
 
+const currencyFormatter = new Intl.NumberFormat("zh-CN", {
+  maximumFractionDigits: 2,
+});
+
+function formatCurrency(value: number) {
+  return currencyFormatter.format(Number.isFinite(value) ? value : 0);
+}
+
 export function RechargePlanCard({
   plan,
   selected,
@@ -22,19 +30,45 @@ export function RechargePlanCard({
           : "border-white hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(15,23,42,0.12)]",
       )}
     >
+      {plan.badge ? (
+        <div className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600">
+          {plan.badge}
+        </div>
+      ) : null}
+
       <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950 sm:text-[32px]">
         {plan.title}
       </div>
 
       <div className="mt-10 text-[64px] font-black tracking-[-0.07em] text-slate-950 sm:text-[78px]">
-        ¥ {plan.price}
+        ¥ {formatCurrency(plan.price)}
       </div>
 
-      <div className="mt-7 flex items-center gap-3 text-[36px] font-black tracking-[-0.04em] text-slate-950 sm:text-[44px]">
-        <span>{plan.xiami}</span>
-        <XiamiIcon size={34} />
-        <span className="text-[24px] font-bold text-slate-500 sm:text-[28px]">虾米</span>
+      {typeof plan.originalPrice === "number" && plan.originalPrice > plan.price ? (
+        <div className="mt-3 text-lg font-bold text-slate-400 line-through">
+          原价 ¥ {formatCurrency(plan.originalPrice)}
+        </div>
+      ) : null}
+
+      <div className="mt-7 flex flex-wrap items-center gap-3 text-[36px] font-black tracking-[-0.04em] text-slate-950 sm:text-[44px]">
+        <span>{plan.benefitValue}</span>
+        {plan.benefitLabel === "虾米" ? (
+          <>
+            <XiamiIcon size={34} />
+            <span className="text-[24px] font-bold text-slate-500 sm:text-[28px]">虾米</span>
+          </>
+        ) : (
+          <span className="rounded-full bg-slate-100 px-4 py-2 text-[18px] font-bold text-slate-500 sm:text-[22px]">
+            {plan.benefitLabel}
+          </span>
+        )}
       </div>
+
+      {plan.meta ? (
+        <div className="mt-4 text-base font-semibold text-slate-500">
+          {plan.meta}
+        </div>
+      ) : null}
 
       <p className="mt-12 min-h-[96px] text-[18px] font-bold leading-9 text-slate-400">
         {plan.description}

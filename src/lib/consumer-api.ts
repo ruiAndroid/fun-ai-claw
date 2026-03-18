@@ -151,45 +151,7 @@ async function buildRequestError(response: Response): Promise<Error> {
   return new Error(`HTTP ${response.status}: ${detail}`);
 }
 
-async function requestStrongConsumerJson<T>(path: string, init?: RequestInit, hasRetried = false): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: buildHeaders(init),
-    cache: "no-store",
-  });
-
-  if (response.status === 401 && !hasRetried) {
-    try {
-      await refreshUserCenterAuth();
-    } catch {
-      clearUserCenterAuthState();
-      invalidateConsumerSessionBootstrap();
-    }
-    return requestStrongConsumerJson<T>(path, init, true);
-  }
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      clearUserCenterAuthState();
-      invalidateConsumerSessionBootstrap();
-      notifyUserCenterAuthRequired();
-    }
-    throw await buildRequestError(response);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const contentType = response.headers.get("Content-Type") ?? "";
-  if (!contentType.includes("application/json")) {
-    return undefined as T;
-  }
-
-  return (await response.json()) as T;
-}
-
-async function ensureConsumerSessionInitialized(force = false) {
+async function loadCurrentConsumerAccount(force = false) {
   if (!hasConsumerCredentials()) {
     invalidateConsumerSessionBootstrap();
     return null;
@@ -204,7 +166,7 @@ async function ensureConsumerSessionInitialized(force = false) {
   }
 
   if (!consumerSessionBootstrapPromise || force) {
-    consumerSessionBootstrapPromise = requestStrongConsumerJson<ConsumerAccount>("/app/v1/consumer/me")
+    consumerSessionBootstrapPromise = requestConsumerJson<ConsumerAccount>("/app/v1/consumer/me")
       .then((account) => {
         cacheConsumerSession(account, getConsumerSessionKey());
         return account;
@@ -218,8 +180,6 @@ async function ensureConsumerSessionInitialized(force = false) {
 }
 
 async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetried = false): Promise<T> {
-  await ensureConsumerSessionInitialized();
-
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: buildHeaders(init),
@@ -228,7 +188,13 @@ async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetri
 
   if (response.status === 401 && !hasRetried) {
     invalidateConsumerSessionBootstrap();
-    await ensureConsumerSessionInitialized(true);
+    try {
+      await refreshUserCenterAuth();
+    } catch {
+      clearUserCenterAuthState();
+      notifyUserCenterAuthRequired();
+      throw await buildRequestError(response);
+    }
     return requestConsumerJson<T>(path, init, true);
   }
 
@@ -284,7 +250,7 @@ export async function listConsumerRobotTemplates() {
 }
 
 export async function getCurrentConsumerAccount() {
-  const account = await ensureConsumerSessionInitialized();
+  const account = await loadCurrentConsumerAccount();
   if (!account) {
     throw new Error("HTTP 401: consumer authentication required");
   }

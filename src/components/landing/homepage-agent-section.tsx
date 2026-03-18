@@ -82,7 +82,7 @@ export function HomepageAgentSection({
       setAgents(response.items ?? []);
     } catch (loadError) {
       setAgents([]);
-      setError(loadError instanceof Error ? loadError.message : "加载 Agent 列表失败");
+      setError(loadError instanceof Error ? loadError.message : "加载 AI 龙虾列表失败");
     } finally {
       setLoading(false);
     }
@@ -94,19 +94,19 @@ export function HomepageAgentSection({
 
   const sectionDescription = useMemo(() => {
     if (loading) {
-      return "正在同步控制台里的 Agent 基线配置，首页会直接展示正式数据。";
+      return "正在为你加载已正式上线的 AI 龙虾，稍候即可挑选体验。";
     }
     if (error) {
-      return "首页 Agent 数据暂时不可用，可以稍后重试。";
+      return "AI 龙虾列表暂时不可用，请稍后刷新重试。";
     }
-    return `当前共展示 ${agents.length} 个 Agent，数据直接来自后台 Agent 基线配置。`;
+    return `当前已上线 ${agents.length} 只 AI 龙虾，覆盖剧本创作、漫剧生成等热门场景，选择一只即可开始体验。`;
   }, [agents.length, error, loading]);
 
   return (
     <section>
       <HomepageSectionHeader
-        eyebrow="Agent Plaza"
-        title="首页直接展示正式 Agent 集合"
+        eyebrow="Featured Lobsters"
+        title="精选 AI 龙虾，随时开聊"
         description={sectionDescription}
       />
 
@@ -116,7 +116,7 @@ export function HomepageAgentSection({
         <div className="rounded-[28px] border border-rose-100 bg-white/88 p-6 shadow-[0_24px_60px_rgba(81,38,145,0.08)]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="text-lg font-bold text-md-on-surface">Agent 列表加载失败</div>
+              <div className="text-lg font-bold text-md-on-surface">AI 龙虾列表加载失败</div>
               <p className="mt-2 text-sm leading-7 text-md-on-surface-variant">{error}</p>
             </div>
             <button
@@ -133,7 +133,7 @@ export function HomepageAgentSection({
 
       {!loading && !error && agents.length === 0 ? (
         <div className="rounded-[28px] border border-dashed border-md-outline-variant/40 bg-white/76 p-8 text-center text-sm text-md-on-surface-variant">
-          暂无 Agent 数据，请先在控制台的 Agents 页签中创建 Agent。
+          暂无 AI 龙虾可展示，请先在控制台创建并启用对应 Agent。
         </div>
       ) : null}
 
@@ -224,14 +224,14 @@ export function HomepageAgentSection({
                 <div className="mt-6 flex items-center justify-between gap-3">
                   <span className="text-xs text-md-on-surface-variant">
                     {getAllowedSkillsCount(agent) > 0
-                      ? `已绑定 ${getAllowedSkillsCount(agent)} 个 skills`
-                      : "当前未绑定 skills"}
+                      ? `已配置 ${getAllowedSkillsCount(agent)} 个扩展能力`
+                      : "当前未配置扩展能力"}
                   </span>
                   <Link
                     href={messagesHref}
                     className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-4 py-2 text-sm font-semibold text-md-on-primary shadow-[0_14px_28px_rgba(139,61,255,0.16)] transition-all duration-300 hover:shadow-[0_18px_36px_rgba(139,61,255,0.22)]"
                   >
-                    {authenticated ? "进入会话" : "登录后体验"}
+                    {authenticated ? "立即体验" : "登录后体验"}
                   </Link>
                 </div>
               </div>

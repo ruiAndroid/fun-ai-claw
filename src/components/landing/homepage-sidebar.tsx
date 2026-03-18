@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -130,9 +131,12 @@ function SidebarUserCard({
   return (
     <div className="mt-auto flex items-center gap-3 rounded-[24px] border border-white/70 bg-white/82 p-3 shadow-[0_18px_36px_rgba(81,38,145,0.08)]">
       {userCard.avatarUrl ? (
-        <img
+        <Image
           src={userCard.avatarUrl}
           alt={userCard.title}
+          width={56}
+          height={56}
+          unoptimized
           className="h-14 w-14 rounded-full object-cover shadow-[0_14px_30px_rgba(139,61,255,0.14)]"
         />
       ) : (

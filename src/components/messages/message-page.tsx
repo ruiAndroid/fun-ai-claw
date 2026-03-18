@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { MessageComposer } from "./message-composer";
 import { MessageSessionPanel } from "./message-session-panel";
 import { MessageSidebar } from "./message-sidebar";
@@ -21,37 +21,62 @@ export function MessagePage() {
     refresh,
   } = useMessageRobots();
 
-  const session = useMessageSession(selectedRobot);
   const sessionList = useMessageSessionList({
     selectedRobot,
-    currentSessionId: session.currentSessionId,
-    hasConversation: session.hasConversation,
-    sessionArchives: session.sessionArchives,
   });
 
-  const selectedArchive = useMemo(
-    () => session.sessionArchives.find((item) => item.sessionId === sessionList.selectedSessionId),
-    [session.sessionArchives, sessionList.selectedSessionId],
+  const session = useMessageSession({
+    selectedRobot,
+    selectedSession: sessionList.selectedSession,
+    ensureSession: sessionList.ensureSession,
+    refreshSessions: sessionList.refresh,
+  });
+
+  const panelSessions = useMemo(
+    () => sessionList.sessionItems.map((item) => {
+      const isCurrent = item.sessionId === session.currentSessionId;
+      const connected = session.connected && isCurrent;
+
+      return {
+        ...item,
+        isCurrent,
+        connected,
+        statusLabel: connected ? "连接中" : item.status === "ACTIVE" ? "活跃" : "已关闭",
+      };
+    }),
+    [session.connected, session.currentSessionId, sessionList.sessionItems],
   );
 
-  const isViewingCurrentSession = !sessionList.selectedSessionId
-    || sessionList.selectedSessionId === session.currentSessionId
-    || (session.hasConversation && !session.currentSessionId && sessionList.selectedSession?.isDraft);
-
-  const threadMessages = isViewingCurrentSession
-    ? session.messages
-    : selectedArchive?.messages ?? [];
-
-  const viewOnly = Boolean(
-    sessionList.selectedSessionId
-    && !isViewingCurrentSession,
+  const selectedSession = useMemo(
+    () => panelSessions.find((item) => item.sessionId === sessionList.selectedSessionId),
+    [panelSessions, sessionList.selectedSessionId],
   );
 
+  const viewOnly = selectedSession?.status === "CLOSED";
   const threadEmptyNotice = viewOnly
-    ? selectedArchive
-      ? "这是你在当前页面里已打开过的旧会话快照；本版先支持查看，若要继续聊天请切回当前会话或新建会话。"
-      : "该会话目前只能展示概要信息，因为控制台接口暂未提供按 sessionId 回放历史消息的能力。"
-    : undefined;
+    ? "当前会话已关闭，可以查看历史记录；如需继续聊天，请新建一个会话。"
+    : !selectedSession
+      ? "当前 Agent 还没有会话，点击“新会话”或直接发送第一条消息即可开始。"
+      : undefined;
+
+  const handleCreateSession = useCallback(async () => {
+    try {
+      await sessionList.createSession();
+    } catch (createError) {
+      session.setError(createError instanceof Error ? createError.message : "创建会话失败");
+    }
+  }, [session, sessionList]);
+
+  const handleCloseSession = useCallback(async (sessionId: string) => {
+    try {
+      if (session.currentSessionId === sessionId) {
+        session.disconnect(true);
+      }
+      await sessionList.closeSession(sessionId);
+    } catch (closeError) {
+      session.setError(closeError instanceof Error ? closeError.message : "关闭会话失败");
+    }
+  }, [session, sessionList]);
 
   useEffect(() => {
     const previousHtmlOverflow = document.documentElement.style.overflow;
@@ -85,24 +110,26 @@ export function MessagePage() {
             connected={session.connected}
             connecting={session.connecting}
             notice={session.notice}
-            error={session.error}
+            error={session.error ?? sessionList.error}
             hasConversation={session.hasConversation}
             onRefreshRobots={() => void refresh()}
             onReconnect={() => {
-              session.reconnect();
+              void session.reconnect();
             }}
             onDisconnect={() => {
               session.disconnect();
             }}
-            onNewSession={session.startNewSession}
+            onNewSession={() => {
+              void handleCreateSession();
+            }}
           />
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[32px] border border-white/70 bg-white/78 shadow-[0_24px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl">
             <MessageThread
               selectedRobot={selectedRobot}
-              messages={threadMessages}
-              pendingResponse={isViewingCurrentSession ? session.pendingResponse : false}
-              selectedSessionTitle={sessionList.selectedSession?.title}
+              messages={session.messages}
+              pendingResponse={session.pendingResponse}
+              selectedSessionTitle={selectedSession?.title}
               emptyNotice={threadEmptyNotice}
               interactionsEnabled={!viewOnly}
               onAction={session.runInteractionAction}
@@ -119,7 +146,7 @@ export function MessagePage() {
               viewOnlyHint={threadEmptyNotice}
               onInputChange={session.setInput}
               onSend={() => {
-                session.sendMessage();
+                void session.sendMessage();
               }}
               onCancelDraft={() => {
                 session.setInput("");
@@ -134,12 +161,15 @@ export function MessagePage() {
 
         <div className="hidden min-h-0 xl:block">
           <MessageSessionPanel
-            sessions={sessionList.sessionItems}
+            sessions={panelSessions}
             selectedSessionId={sessionList.selectedSessionId}
             loading={sessionList.loading}
             error={sessionList.error}
             onSelect={sessionList.setSelectedSessionId}
             onRefresh={() => void sessionList.refresh()}
+            onClose={(sessionId) => {
+              void handleCloseSession(sessionId);
+            }}
           />
         </div>
       </div>

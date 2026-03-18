@@ -6,10 +6,7 @@ import type { ClawInstance, InstanceAgentBinding } from "@/types/contracts";
 import { messagePageText } from "./messages-data";
 import type { MessageRobotTarget } from "./messages-types";
 
-function buildRobotTargets(
-  instances: ClawInstance[],
-  bindingsByInstance: Map<string, InstanceAgentBinding[]>,
-) {
+function buildRobotTargets(instances: ClawInstance[], bindingsByInstance: Map<string, InstanceAgentBinding[]>) {
   return instances
     .flatMap((instance) => {
       const bindings = bindingsByInstance.get(instance.id) ?? [];

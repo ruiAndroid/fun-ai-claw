@@ -18,21 +18,20 @@ export const messagePageText = {
   interactionSubmitted: "已提交交互",
 } as const;
 
-export function buildMessageSessionWebSocketUrl(instanceId: string, agentId: string) {
+export function buildMessageSessionWebSocketUrl(websocketPath?: string | null) {
+  if (!websocketPath) {
+    return "";
+  }
   const apiBase = appConfig.controlApiBaseUrl;
-  const query = [
-    `instanceId=${encodeURIComponent(instanceId)}`,
-    `agentId=${encodeURIComponent(agentId)}`,
-  ].join("&");
 
   if (apiBase.startsWith("http://") || apiBase.startsWith("https://")) {
     const wsBase = apiBase.replace(/^http/i, "ws").replace(/\/$/, "");
-    return `${wsBase}/ops/v1/agent-session/ws?${query}`;
+    return `${wsBase}${websocketPath.startsWith("/") ? websocketPath : `/${websocketPath}`}`;
   }
 
   const normalizedApiBase = apiBase.startsWith("/") ? apiBase : `/${apiBase}`;
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${protocol}://${window.location.host}${normalizedApiBase}/ops/v1/agent-session/ws?${query}`;
+  return `${protocol}://${window.location.host}${normalizedApiBase}${websocketPath.startsWith("/") ? websocketPath : `/${websocketPath}`}`;
 }
 
 export function normalizeMessageInput(rawInput: string) {

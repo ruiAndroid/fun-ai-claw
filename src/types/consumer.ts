@@ -1,3 +1,5 @@
+import type { DesiredState, InstanceStatus, RuntimeType } from "@/types/contracts";
+
 export interface ConsumerAccount {
   accountId: string;
   externalUserId: string;
@@ -25,9 +27,9 @@ export interface ConsumerBoundInstance {
   gatewayHostPort?: number | null;
   gatewayUrl?: string | null;
   remoteConnectCommand?: string | null;
-  runtime: string;
-  status: string;
-  desiredState: string;
+  runtime: RuntimeType;
+  status: InstanceStatus;
+  desiredState: DesiredState;
   restartRequired: boolean;
   bindingStatus: string;
   sourceType: string;

@@ -348,11 +348,6 @@ export function HomepageRobotAdoptionModal({
                       <Rocket size={15} />
                       已选龙虾：{selectedTemplate.displayName}
                     </div>
-                    <div className="mt-2 text-xs leading-6 text-md-on-surface-variant">
-                      {selectedTemplate.primaryAgentKey?.trim()
-                        ? `默认会进入 ${selectedTemplate.primaryAgentKey} 对话。`
-                        : "创建完成后会自动进入可用对话。"}
-                    </div>
                   </div>
                 ) : null}
 

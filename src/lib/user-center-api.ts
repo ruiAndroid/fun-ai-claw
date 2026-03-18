@@ -217,7 +217,7 @@ async function fetchUserCenter(path: string, init?: RequestInit): Promise<Respon
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("用户中心请求超时，请稍后重试");
+      throw new Error("请求超时，请稍后重试");
     }
     throw error;
   } finally {

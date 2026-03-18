@@ -94,19 +94,6 @@ function applyAgentDelta(messages: AgentChatMessage[], delta: AgentSessionDelta)
   return upsertAgentMessage(messages, nextMessage);
 }
 
-function isInternalRawSystemMessage(line: string) {
-  const normalizedLine = line.trim();
-  if (!normalizedLine) {
-    return true;
-  }
-  const ignoredPrefixes = [
-    "connected:",
-    "agent session ready:",
-    "tip:",
-  ];
-  return ignoredPrefixes.some((prefix) => normalizedLine.startsWith(prefix));
-}
-
 function isRawLogLine(line: string) {
   const normalizedLine = line.trim();
   return [
@@ -129,6 +116,7 @@ function normalizeHistoryMessage(message: ConsumerChatSessionMessage, index: num
   if (!message.content && !message.thinkingContent) {
     return null;
   }
+
   return {
     id: message.providerMessageId?.trim() || `${message.eventType}-${message.createdAt}-${index}`,
     role,
@@ -259,14 +247,12 @@ export function useMessageSession({
     if (normalizedLine.startsWith("[system]")) {
       finalizeRawAssistantMessage();
       const systemContent = normalizedLine.replace(/^\[system\]\s*/, "");
-      if (!isInternalRawSystemMessage(systemContent)) {
-        setMessages((current) => [...current, {
-          id: nextLocalMessageId(localMessageSeqRef, "system"),
-          role: "system",
-          content: systemContent,
-          createdAt: new Date().toISOString(),
-        }]);
-      }
+      setMessages((current) => [...current, {
+        id: nextLocalMessageId(localMessageSeqRef, "system"),
+        role: "system",
+        content: systemContent,
+        createdAt: new Date().toISOString(),
+      }]);
       return;
     }
 

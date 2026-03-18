@@ -49,8 +49,12 @@ async function buildRequestError(response: Response): Promise<Error> {
 
   if (body) {
     try {
-      const parsed = JSON.parse(body) as { message?: string; detail?: string; error?: string };
-      detail = parsed.message?.trim() || parsed.detail?.trim() || parsed.error?.trim() || detail;
+      const parsed = JSON.parse(body) as { message?: string; detail?: string; msg?: string; error?: string };
+      detail = parsed.message?.trim()
+        || parsed.detail?.trim()
+        || parsed.msg?.trim()
+        || parsed.error?.trim()
+        || detail;
     } catch {
       detail = body;
     }

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MessageComposer } from "./message-composer";
 import { MessageSessionPanel } from "./message-session-panel";
@@ -37,6 +37,8 @@ export function MessagePage() {
   });
 
   const sessionActivity = useMessageSessionActivity();
+  const [closingSessionId, setClosingSessionId] = useState<string>();
+  const [deletingSessionId, setDeletingSessionId] = useState<string>();
 
   const session = useMessageSession({
     selectedRobot,
@@ -127,6 +129,7 @@ export function MessagePage() {
   }, [session, sessionActivity, sessionList]);
 
   const handleCloseSession = useCallback(async (sessionId: string) => {
+    setClosingSessionId(sessionId);
     try {
       if (session.currentSessionId === sessionId) {
         session.disconnect(true);
@@ -135,10 +138,13 @@ export function MessagePage() {
       await sessionActivity.refreshActivity();
     } catch (closeError) {
       session.setError(closeError instanceof Error ? closeError.message : "关闭会话失败");
+    } finally {
+      setClosingSessionId((current) => (current === sessionId ? undefined : current));
     }
   }, [session, sessionActivity, sessionList]);
 
   const handleDeleteSession = useCallback(async (sessionId: string) => {
+    setDeletingSessionId(sessionId);
     try {
       if (session.currentSessionId === sessionId) {
         session.disconnect(true);
@@ -147,6 +153,8 @@ export function MessagePage() {
       await sessionActivity.refreshActivity();
     } catch (deleteError) {
       session.setError(deleteError instanceof Error ? deleteError.message : "删除会话失败");
+    } finally {
+      setDeletingSessionId((current) => (current === sessionId ? undefined : current));
     }
   }, [session, sessionActivity, sessionList]);
 
@@ -252,6 +260,8 @@ export function MessagePage() {
             onDelete={(sessionId) => {
               void handleDeleteSession(sessionId);
             }}
+            closingSessionId={closingSessionId}
+            deletingSessionId={deletingSessionId}
           />
         </div>
       </div>

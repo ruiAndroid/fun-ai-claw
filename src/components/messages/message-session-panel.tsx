@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { Clock3, MessagesSquare, Radio, RefreshCw, X } from "lucide-react";
+import { Popconfirm } from "antd";
+import { Clock3, MessagesSquare, Radio, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatMessageTimestamp } from "./messages-data";
 import type { MessageSessionListItem } from "./use-message-session-list";
@@ -14,6 +15,7 @@ export function MessageSessionPanel({
   onRefresh,
   onClose,
   onDelete,
+  closingSessionId,
   deletingSessionId,
 }: {
   sessions: MessageSessionListItem[];
@@ -24,6 +26,7 @@ export function MessageSessionPanel({
   onRefresh: () => void;
   onClose?: (sessionId: string) => void;
   onDelete?: (sessionId: string) => void;
+  closingSessionId?: string;
   deletingSessionId?: string;
 }) {
   return (
@@ -54,6 +57,8 @@ export function MessageSessionPanel({
           <div className="space-y-3">
             {sessions.map((session) => {
               const isSelected = session.sessionId === selectedSessionId;
+              const isClosing = closingSessionId === session.sessionId;
+              const isDeleting = deletingSessionId === session.sessionId;
 
               return (
                 <div
@@ -129,23 +134,57 @@ export function MessageSessionPanel({
                     </div>
                   </button>
 
-                  {session.canClose || session.canDelete ? (
+                  {session.canClose ? (
                     <button
                       type="button"
-                      disabled={deletingSessionId === session.sessionId}
-                      className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label={`${session.canDelete ? "删除" : "关闭"}会话 ${session.title}`}
+                      disabled={isClosing || isDeleting}
+                      className={cn(
+                        "mt-1 inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                        "border-slate-200 bg-white text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-700",
+                        "disabled:cursor-not-allowed disabled:opacity-50",
+                      )}
+                      aria-label={`关闭会话 ${session.title}`}
                       onClick={(event) => {
                         event.stopPropagation();
-                        if (session.canDelete) {
-                          onDelete?.(session.sessionId);
-                          return;
-                        }
                         onClose?.(session.sessionId);
                       }}
                     >
-                      <X size={14} />
+                      {isClosing ? "关闭中..." : "关闭"}
                     </button>
+                  ) : session.canDelete ? (
+                    <Popconfirm
+                      title="确认删除会话？"
+                      description={`删除后将无法恢复「${session.title}」的聊天记录。`}
+                      okText="确认删除"
+                      cancelText="取消"
+                      okButtonProps={{
+                        danger: true,
+                        loading: isDeleting,
+                      }}
+                      cancelButtonProps={{
+                        disabled: isDeleting,
+                      }}
+                      onConfirm={(event) => {
+                        event?.stopPropagation();
+                        onDelete?.(session.sessionId);
+                      }}
+                    >
+                      <button
+                        type="button"
+                        disabled={isDeleting}
+                        className={cn(
+                          "mt-1 inline-flex shrink-0 items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                          "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700",
+                          "disabled:cursor-not-allowed disabled:opacity-50",
+                        )}
+                        aria-label={`删除会话 ${session.title}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                        }}
+                      >
+                        {isDeleting ? "删除中..." : "删除"}
+                      </button>
+                    </Popconfirm>
                   ) : null}
                 </div>
               );

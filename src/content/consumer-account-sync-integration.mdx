@@ -19,6 +19,18 @@ description: 外部用户中心向 funClaw 同步用户资料的接口文档
 - Base URL：`/integration/v1`
 - 接口路径：`POST /integration/v1/consumer/accounts/syncUserInfo`
 - Content-Type：`application/json`
+- 成功响应：`200 OK`
+
+### 公网访问示例
+
+- 如果服务直接暴露在应用根路径下，可访问：`http://your-host/integration/v1/consumer/accounts/syncUserInfo`
+- 如果服务通过反向代理暴露在 `/fun-claw/api` 前缀下，则外部应访问：`http://your-host/fun-claw/api/integration/v1/consumer/accounts/syncUserInfo`
+- 当前环境的公网联调示例：`http://8.152.159.249/fun-claw/api/integration/v1/consumer/accounts/syncUserInfo`
+
+说明：
+
+- 是否带 `/fun-claw/api` 以前置网关或 Nginx 实际暴露路径为准
+- 建议统一只对外公布一个正式地址，避免联调时混淆
 
 ## 推荐时序
 
@@ -74,6 +86,13 @@ Content-Type: application/json
 - 服务端会根据 `app_id` 查询已启用的开放平台应用，再校验 `app_secret`
 - 如果希望使用 `Authorization` 头，也可以把 `CONSUMER_AUTH_SYNC_SECRET_HEADER` 配成 `Authorization`
 
+### 接入前置条件
+
+- 开放平台中已创建对应应用，并拿到 `app_id`
+- 该应用已启用，即 `open_client_app.enabled = true`
+- 外部用户中心已拿到该应用对应的 `app_secret`
+- 用户中心服务端以服务端方式调用，不通过浏览器前端直调
+
 ## 适用场景
 
 - 用户在外部用户中心注册成功后，同步一份本地账户
@@ -99,6 +118,25 @@ Content-Type: application/json
   "createdAt": "2026-03-01T08:00:00Z"
 }
 ```
+
+### 最小请求示例
+
+当只需要完成最基础的账户落库时，最少可传：
+
+```json
+{
+  "id": "12345"
+}
+```
+
+建议生产环境至少补充以下字段：
+
+- `uid` 或 `payUserId`
+- `userName`
+- `phone`
+- `status`
+- `createdAt`
+- `lastLogin`
 
 ### 字段说明
 
@@ -191,6 +229,17 @@ curl -X POST "http://your-host/integration/v1/consumer/accounts/syncUserInfo" \
   }'
 ```
 
+### Postman 检查清单
+
+- Method 选择 `POST`
+- URL 填写公网完整地址，例如 `http://8.152.159.249/fun-claw/api/integration/v1/consumer/accounts/syncUserInfo`
+- Headers 至少包含：
+  - `Content-Type: application/json`
+  - `X-Open-App-Id: your-app-id`
+  - `X-Consumer-Sync-Secret: your-sync-secret`
+- Body 选择 `raw` + `JSON`
+- 请求体中至少包含 `id`
+
 ### 典型流程
 
 1. 外部用户中心完成注册或登录
@@ -203,6 +252,42 @@ curl -X POST "http://your-host/integration/v1/consumer/accounts/syncUserInfo" \
 - `401 Unauthorized`：`X-Open-App-Id` 或同步密钥错误、未传，或对应开放平台应用未启用
 - `404 Not Found`：`syncUserInfo` 接口已被关闭
 - `400 Bad Request`：请求体缺少 `id` 等关键字段
+
+## 联调排查
+
+### 遇到 `401 Unauthorized`
+
+优先检查：
+
+- 是否缺少 `X-Open-App-Id`
+- `X-Open-App-Id` 是否对应开放平台中真实存在且已启用的 `app_id`
+- `X-Consumer-Sync-Secret` 是否与该 `app_id` 的 `app_secret` 完全一致
+- 是否把旧的全局密钥方案误当成当前方案使用
+
+### 遇到 `404 Not Found`
+
+优先检查：
+
+- 请求路径是否写错
+- 是否漏掉了公网代理前缀 `/fun-claw/api`
+- 服务端是否把 `CONSUMER_AUTH_SYNC_ENABLED` 设成了 `false`
+
+### 遇到 `400 Bad Request`
+
+优先检查：
+
+- Body 是否选择了 `raw` + `JSON`
+- `Content-Type` 是否为 `application/json`
+- 请求体是否为空
+- 请求体中的 `id` 是否为空字符串或缺失
+
+### 遇到时间字段未生效
+
+优先检查：
+
+- `createdAt`、`lastLogin` 是否使用 ISO-8601 格式
+- 推荐格式如：`2026-03-18T10:30:00Z`
+- 如果格式不合法，服务端当前会忽略该字段，不会报错
 
 ## 当前限制
 

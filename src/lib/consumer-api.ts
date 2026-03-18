@@ -2,11 +2,12 @@ import { appConfig } from "@/config/app-config";
 import {
   clearUserCenterAuthState,
   getUserCenterAuthSnapshot,
-  getUserCenterMe,
   notifyUserCenterAuthRequired,
+  refreshUserCenterAuth,
 } from "@/lib/user-center-api";
 import type { ListResponse } from "@/types/contracts";
 import type {
+  ConsumerAccount,
   ConsumerRobotAdoptionResponse,
   ConsumerRobotTemplateSummary,
   ConsumerBoundInstance,
@@ -17,6 +18,9 @@ import type {
 } from "@/types/consumer";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
+let consumerSessionReadyKey: string | null = null;
+let consumerSessionAccount: ConsumerAccount | null = null;
+let consumerSessionBootstrapPromise: Promise<ConsumerAccount | null> | null = null;
 
 function buildHeaders(init?: RequestInit) {
   const snapshot = getUserCenterAuthSnapshot();
@@ -43,6 +47,26 @@ function buildHeaders(init?: RequestInit) {
   return headers;
 }
 
+function getConsumerSessionKey() {
+  const snapshot = getUserCenterAuthSnapshot();
+  return [
+    snapshot.tokenType?.trim() ?? "",
+    snapshot.accessToken?.trim() ?? "",
+    snapshot.refreshToken?.trim() ?? "",
+    snapshot.sessionKey?.trim() ?? "",
+  ].join("|");
+}
+
+function hasConsumerCredentials() {
+  const snapshot = getUserCenterAuthSnapshot();
+  return Boolean(snapshot.accessToken || snapshot.refreshToken);
+}
+
+function invalidateConsumerSessionBootstrap() {
+  consumerSessionReadyKey = null;
+  consumerSessionAccount = null;
+}
+
 async function buildRequestError(response: Response): Promise<Error> {
   const body = await response.text();
   let detail = body || response.statusText;
@@ -63,7 +87,7 @@ async function buildRequestError(response: Response): Promise<Error> {
   return new Error(`HTTP ${response.status}: ${detail}`);
 }
 
-async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetried = false): Promise<T> {
+async function requestStrongConsumerJson<T>(path: string, init?: RequestInit, hasRetried = false): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
     headers: buildHeaders(init),
@@ -72,16 +96,80 @@ async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetri
 
   if (response.status === 401 && !hasRetried) {
     try {
-      await getUserCenterMe();
+      await refreshUserCenterAuth();
     } catch {
       clearUserCenterAuthState();
+      invalidateConsumerSessionBootstrap();
     }
+    return requestStrongConsumerJson<T>(path, init, true);
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearUserCenterAuthState();
+      invalidateConsumerSessionBootstrap();
+      notifyUserCenterAuthRequired();
+    }
+    throw await buildRequestError(response);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+async function ensureConsumerSessionInitialized(force = false) {
+  if (!hasConsumerCredentials()) {
+    invalidateConsumerSessionBootstrap();
+    return null;
+  }
+
+  const bootstrapKey = getConsumerSessionKey();
+  if (!force && consumerSessionReadyKey === bootstrapKey && consumerSessionAccount) {
+    return consumerSessionAccount;
+  }
+
+  if (!consumerSessionBootstrapPromise || force) {
+    consumerSessionBootstrapPromise = requestStrongConsumerJson<ConsumerAccount>("/app/v1/consumer/me")
+      .then((account) => {
+        consumerSessionReadyKey = getConsumerSessionKey();
+        consumerSessionAccount = account;
+        return account;
+      })
+      .finally(() => {
+        consumerSessionBootstrapPromise = null;
+      });
+  }
+
+  return consumerSessionBootstrapPromise;
+}
+
+async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetried = false): Promise<T> {
+  await ensureConsumerSessionInitialized();
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: buildHeaders(init),
+    cache: "no-store",
+  });
+
+  if (response.status === 401 && !hasRetried) {
+    invalidateConsumerSessionBootstrap();
+    await ensureConsumerSessionInitialized(true);
     return requestConsumerJson<T>(path, init, true);
   }
 
   if (!response.ok) {
     if (response.status === 401) {
       clearUserCenterAuthState();
+      invalidateConsumerSessionBootstrap();
       notifyUserCenterAuthRequired();
     }
     throw await buildRequestError(response);
@@ -127,6 +215,14 @@ async function requestPublicJson<T>(path: string, init?: RequestInit): Promise<T
 
 export async function listConsumerRobotTemplates() {
   return requestPublicJson<ListResponse<ConsumerRobotTemplateSummary>>("/app/v1/public/robot-templates");
+}
+
+export async function getCurrentConsumerAccount() {
+  const account = await ensureConsumerSessionInitialized();
+  if (!account) {
+    throw new Error("HTTP 401: consumer authentication required");
+  }
+  return account;
 }
 
 export async function adoptConsumerRobot(request: CreateConsumerRobotRequest) {

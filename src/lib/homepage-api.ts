@@ -1,7 +1,7 @@
 "use client";
 
 import { appConfig } from "@/config/app-config";
-import { listConsumerChatSessions, listConsumerInstances } from "@/lib/consumer-api";
+import { getCurrentConsumerAccount, listConsumerChatSessions, listConsumerInstances } from "@/lib/consumer-api";
 import { listInstanceAgentBindings } from "@/lib/control-api";
 import {
   getCachedUserCenterMe,
@@ -10,7 +10,7 @@ import {
   isUserCenterUnauthorizedError,
 } from "@/lib/user-center-api";
 import type { AgentBaselineSummary, ListResponse } from "@/types/contracts";
-import type { ConsumerBoundInstance, ConsumerChatSession } from "@/types/consumer";
+import type { ConsumerAccount, ConsumerBoundInstance, ConsumerChatSession } from "@/types/consumer";
 import type { UserCenterMe } from "@/types/user-center";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
@@ -25,6 +25,7 @@ export type HomepageRecentSessionPreview = {
 export type HomepageShellSnapshot = {
   authenticated: boolean;
   profile: UserCenterMe | null;
+  consumerAccount: ConsumerAccount | null;
   instances: ConsumerBoundInstance[];
   recentSessions: HomepageRecentSessionPreview[];
   supportsXiamiBalance: boolean;
@@ -40,6 +41,7 @@ export function getInitialHomepageShellSnapshot(): HomepageShellSnapshot {
   return {
     authenticated: hasAuth,
     profile: cachedProfile,
+    consumerAccount: null,
     instances: [],
     recentSessions: [],
     supportsXiamiBalance: false,
@@ -166,13 +168,15 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
     return initialSnapshot;
   }
 
-  const [profileResult, instancesResult, recentSessionsResult] = await Promise.allSettled([
+  const [profileResult, consumerAccountResult, instancesResult, recentSessionsResult] = await Promise.allSettled([
     getUserCenterMe(),
+    getCurrentConsumerAccount(),
     listConsumerInstances(),
     listConsumerChatSessions(),
   ]);
 
   const profile = profileResult.status === "fulfilled" ? profileResult.value : null;
+  const consumerAccount = consumerAccountResult.status === "fulfilled" ? consumerAccountResult.value : null;
   const instances = instancesResult.status === "fulfilled" ? instancesResult.value.items : [];
   const agentDisplayNameByKey = recentSessionsResult.status === "fulfilled"
     ? await loadAgentDisplayNameMap(instances, recentSessionsResult.value.items)
@@ -181,19 +185,22 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
     ? buildRecentSessions(recentSessionsResult.value.items, instances, agentDisplayNameByKey)
     : [];
 
-  if (!profile && instances.length === 0) {
+  if (!profile && !consumerAccount && instances.length === 0) {
     const rejectedReason = profileResult.status === "rejected"
       ? profileResult.reason
-      : instancesResult.status === "rejected"
-        ? instancesResult.reason
-        : recentSessionsResult.status === "rejected"
-          ? recentSessionsResult.reason
+      : consumerAccountResult.status === "rejected"
+        ? consumerAccountResult.reason
+        : instancesResult.status === "rejected"
+          ? instancesResult.reason
+          : recentSessionsResult.status === "rejected"
+            ? recentSessionsResult.reason
           : null;
 
     if (isUserCenterUnauthorizedError(rejectedReason)) {
       return {
         authenticated: false,
         profile: null,
+        consumerAccount: null,
         instances: [],
         recentSessions: [],
         supportsXiamiBalance: false,
@@ -211,6 +218,7 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
   return {
     authenticated: true,
     profile,
+    consumerAccount,
     instances,
     recentSessions,
     supportsXiamiBalance: false,

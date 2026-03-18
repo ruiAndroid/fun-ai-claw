@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getCurrentConsumerAccount } from "@/lib/consumer-api";
 import { getCachedUserCenterMe, getUserCenterMe, hasUserCenterAuthCredentials, logoutUserCenter } from "@/lib/user-center-api";
 import type { UserCenterMe } from "@/types/user-center";
 import type { AccountTabKey } from "./account-data";
@@ -38,6 +39,13 @@ export function AccountPage() {
 
     try {
       const currentProfile = await getUserCenterMe();
+      try {
+        await getCurrentConsumerAccount();
+      } catch (bootstrapError) {
+        if (isUnauthorizedError(bootstrapError)) {
+          throw bootstrapError;
+        }
+      }
       setProfile(currentProfile);
     } catch (requestError) {
       if (isUnauthorizedError(requestError)) {

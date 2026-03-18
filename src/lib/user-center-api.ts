@@ -344,6 +344,10 @@ async function refreshUserCenterToken(request?: UserCenterRefreshTokenRequest): 
   return refreshPromise;
 }
 
+export async function refreshUserCenterAuth(request?: UserCenterRefreshTokenRequest) {
+  return refreshUserCenterToken(request);
+}
+
 async function requestAuthedEnvelope<T>(
   path: string,
   init?: RequestInit,

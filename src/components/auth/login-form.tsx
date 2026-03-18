@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { message } from "antd";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { getCurrentConsumerAccount } from "@/lib/consumer-api";
 import {
   sendUserCenterSmsCode,
   verifyUserCenterSmsCode,
@@ -114,6 +115,7 @@ export function LoginForm() {
           code: code.trim(),
           inviteCode: inviteCode.trim() || null,
         });
+        await getCurrentConsumerAccount();
         router.replace("/me");
       } catch (requestError) {
         void messageApi.error(extractErrorMessage(requestError));

@@ -110,7 +110,7 @@ function normalizeHistoryMessage(message: ConsumerChatSessionMessage, index: num
     return null;
   }
   return {
-    id: message.providerMessageId?.trim() || `${message.eventType}-${message.createdAt}-${index}`,
+    id: message.providerMessageId?.trim() || message.id || `${message.eventType}-${message.createdAt}-${index}`,
     role,
     content: message.content ?? "",
     thinkingContent: message.thinkingContent ?? undefined,
@@ -121,11 +121,40 @@ function normalizeHistoryMessage(message: ConsumerChatSessionMessage, index: num
   };
 }
 
+function buildMessageSemanticKey(message: AgentChatMessage) {
+  return [
+    message.role,
+    message.content.trim(),
+    (message.thinkingContent ?? "").trim(),
+  ].join("::");
+}
+
+function isLocalEphemeralMessage(message: AgentChatMessage) {
+  return message.id.startsWith("user-")
+    || message.id.startsWith("assistant-raw")
+    || message.id.startsWith("system-");
+}
+
 function mergeHistoryWithSnapshot(historyMessages: AgentChatMessage[], snapshot?: SessionSnapshot) {
   if (!snapshot) {
     return historyMessages;
   }
-  return snapshot.messages.reduce((current, message) => upsertAgentMessage(current, message), historyMessages);
+  const duplicateBudget = new Map<string, number>();
+  for (const message of historyMessages) {
+    const key = buildMessageSemanticKey(message);
+    duplicateBudget.set(key, (duplicateBudget.get(key) ?? 0) + 1);
+  }
+  return snapshot.messages.reduce((current, message) => {
+    if (isLocalEphemeralMessage(message)) {
+      const key = buildMessageSemanticKey(message);
+      const remaining = duplicateBudget.get(key) ?? 0;
+      if (remaining > 0) {
+        duplicateBudget.set(key, remaining - 1);
+        return current;
+      }
+    }
+    return upsertAgentMessage(current, message);
+  }, historyMessages);
 }
 
 export function useMessageSession({
@@ -151,11 +180,12 @@ export function useMessageSession({
   const [sessionLoading, setSessionLoading] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
+  const activeSocketSessionIdRef = useRef<string | undefined>(undefined);
   const suppressedSocketClosuresRef = useRef<WeakSet<WebSocket>>(new WeakSet());
   const queuedMessageRef = useRef<QueuedMessage | null>(null);
   const inputComposingRef = useRef(false);
-  const rawLineBufferRef = useRef("");
-  const rawAssistantMessageIdRef = useRef<string | undefined>(undefined);
+  const rawLineBuffersRef = useRef<Map<string, string>>(new Map());
+  const rawAssistantMessageIdsRef = useRef<Map<string, string | undefined>>(new Map());
   const localMessageSeqRef = useRef(0);
   const selectedRobotIdRef = useRef<string | undefined>(undefined);
   const currentSessionIdRef = useRef<string | undefined>(undefined);
@@ -195,8 +225,8 @@ export function useMessageSession({
     setError(undefined);
     setNotice(undefined);
     setInteractionDraft(undefined);
-    rawLineBufferRef.current = "";
-    rawAssistantMessageIdRef.current = undefined;
+    rawLineBuffersRef.current.clear();
+    rawAssistantMessageIdsRef.current.clear();
     coreFieldsRef.current = undefined;
     historyLoadedRef.current = false;
     localMessageSeqRef.current = 0;
@@ -210,17 +240,19 @@ export function useMessageSession({
     pendingResponseRef.current = pendingResponse;
   }, [pendingResponse]);
 
+  const buildVisibleSnapshot = useCallback((): SessionSnapshot => ({
+    messages: messagesRef.current,
+    pendingResponse: pendingResponseRef.current || messagesRef.current.some((message) => message.pending),
+    coreFields: coreFieldsRef.current,
+    historyLoaded: historyLoadedRef.current,
+  }), []);
+
   const rememberSessionSnapshot = useCallback((sessionId?: string) => {
     if (!sessionId) {
       return;
     }
-    sessionSnapshotsRef.current.set(sessionId, {
-      messages: messagesRef.current,
-      pendingResponse: pendingResponseRef.current || messagesRef.current.some((message) => message.pending),
-      coreFields: coreFieldsRef.current,
-      historyLoaded: historyLoadedRef.current,
-    });
-  }, []);
+    sessionSnapshotsRef.current.set(sessionId, buildVisibleSnapshot());
+  }, [buildVisibleSnapshot]);
 
   const restoreSessionSnapshot = useCallback((snapshot?: SessionSnapshot) => {
     setMessages(snapshot?.messages ?? []);
@@ -229,9 +261,29 @@ export function useMessageSession({
     historyLoadedRef.current = Boolean(snapshot?.historyLoaded);
   }, []);
 
+  const applySnapshotUpdate = useCallback((sessionId: string, updater: (snapshot: SessionSnapshot) => SessionSnapshot) => {
+    const baseSnapshot = currentSessionIdRef.current === sessionId
+      ? buildVisibleSnapshot()
+      : (sessionSnapshotsRef.current.get(sessionId) ?? {
+        messages: [],
+        pendingResponse: false,
+        coreFields: undefined,
+        historyLoaded: false,
+      });
+    const nextSnapshot = updater(baseSnapshot);
+    sessionSnapshotsRef.current.set(sessionId, nextSnapshot);
+    if (currentSessionIdRef.current === sessionId) {
+      restoreSessionSnapshot(nextSnapshot);
+    }
+    return nextSnapshot;
+  }, [buildVisibleSnapshot, restoreSessionSnapshot]);
+
   const shouldAutoAttachSession = useCallback((targetSession?: MessageSessionListItem, snapshot?: SessionSnapshot) => {
     const targetSessionId = targetSession?.sessionId;
     if (!targetSessionId || targetSession?.status !== "ACTIVE") {
+      return false;
+    }
+    if (activeSocketSessionIdRef.current === targetSessionId && socketRef.current?.readyState === WebSocket.OPEN) {
       return false;
     }
     if (manuallyPausedSessionIdsRef.current.has(targetSessionId)) {
@@ -243,6 +295,9 @@ export function useMessageSession({
   const shouldRefreshHistoryOnSelect = useCallback((targetSession?: MessageSessionListItem, snapshot?: SessionSnapshot) => {
     const targetSessionId = targetSession?.sessionId;
     if (!targetSessionId) {
+      return false;
+    }
+    if (activeSocketSessionIdRef.current === targetSessionId && socketRef.current?.readyState === WebSocket.OPEN) {
       return false;
     }
     if (!snapshot?.historyLoaded) {
@@ -264,68 +319,78 @@ export function useMessageSession({
     );
   }, []);
 
-  const markInteractionResolved = useCallback((messageId?: string, note?: string) => {
+  const finalizeRawAssistantMessage = useCallback((sessionId?: string) => {
+    if (!sessionId) {
+      return;
+    }
+    const messageId = rawAssistantMessageIdsRef.current.get(sessionId);
     if (!messageId) {
       return;
     }
-    setMessages((current) => current.map((message) => (
-      message.id === messageId ? { ...message, interactionResolved: true, interactionResolvedNote: note } : message
-    )));
-  }, []);
+    applySnapshotUpdate(sessionId, (snapshot) => {
+      const nextMessages = snapshot.messages.map((message) => (
+        message.id === messageId ? { ...message, pending: false } : message
+      ));
+      return {
+        ...snapshot,
+        messages: nextMessages,
+        pendingResponse: nextMessages.some((message) => message.pending),
+      };
+    });
+    rawAssistantMessageIdsRef.current.delete(sessionId);
+  }, [applySnapshotUpdate]);
 
-  const finalizeRawAssistantMessage = useCallback(() => {
-    const messageId = rawAssistantMessageIdRef.current;
-    if (!messageId) {
-      return;
-    }
-    setMessages((current) => current.map((message) => (
-      message.id === messageId ? { ...message, pending: false } : message
-    )));
-    rawAssistantMessageIdRef.current = undefined;
-  }, []);
-
-  const appendRawAssistantChunk = useCallback((chunk: string) => {
+  const appendRawAssistantChunk = useCallback((sessionId: string, chunk: string) => {
     if (!chunk) {
       return;
     }
-    historyLoadedRef.current = true;
-    setPendingResponse(true);
-    setMessages((current) => {
-      const messageId = rawAssistantMessageIdRef.current ?? nextLocalMessageId(localMessageSeqRef, "assistant-raw");
-      rawAssistantMessageIdRef.current = messageId;
-      const existingIndex = current.findIndex((message) => message.id === messageId);
+    applySnapshotUpdate(sessionId, (snapshot) => {
+      const messageId = rawAssistantMessageIdsRef.current.get(sessionId) ?? nextLocalMessageId(localMessageSeqRef, "assistant-raw");
+      rawAssistantMessageIdsRef.current.set(sessionId, messageId);
+      const existingIndex = snapshot.messages.findIndex((message) => message.id === messageId);
       const nextMessage: AgentChatMessage = existingIndex >= 0
-        ? { ...current[existingIndex], content: `${current[existingIndex].content}${chunk}`, pending: true }
+        ? { ...snapshot.messages[existingIndex], content: `${snapshot.messages[existingIndex].content}${chunk}`, pending: true }
         : { id: messageId, role: "assistant", content: chunk, pending: true, createdAt: new Date().toISOString() };
-      return upsertAgentMessage(current, nextMessage);
+      return {
+        ...snapshot,
+        messages: upsertAgentMessage(snapshot.messages, nextMessage),
+        pendingResponse: true,
+        historyLoaded: true,
+      };
     });
-  }, []);
+  }, [applySnapshotUpdate]);
 
-  const processRawLine = useCallback((rawLine: string) => {
+  const processRawLine = useCallback((sessionId: string, rawLine: string) => {
     const normalizedLine = rawLine.replace(/\r$/, "");
     const trimmedLine = normalizedLine.trim();
     if (!trimmedLine) {
-      appendRawAssistantChunk("\n");
+      appendRawAssistantChunk(sessionId, "\n");
       return;
     }
     if (normalizedLine.startsWith("[system]")) {
-      finalizeRawAssistantMessage();
+      finalizeRawAssistantMessage(sessionId);
       const systemContent = normalizedLine.replace(/^\[system\]\s*/, "");
-      setMessages((current) => [...current, {
-        id: nextLocalMessageId(localMessageSeqRef, "system"),
-        role: "system",
-        content: systemContent,
-        createdAt: new Date().toISOString(),
-      }]);
-      historyLoadedRef.current = true;
+      applySnapshotUpdate(sessionId, (snapshot) => ({
+        ...snapshot,
+        messages: [...snapshot.messages, {
+          id: nextLocalMessageId(localMessageSeqRef, "system"),
+          role: "system",
+          content: systemContent,
+          createdAt: new Date().toISOString(),
+        }],
+        historyLoaded: true,
+      }));
       return;
     }
     if (trimmedLine === "🦀 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
       return;
     }
     if (trimmedLine === ">") {
-      finalizeRawAssistantMessage();
-      setPendingResponse(false);
+      finalizeRawAssistantMessage(sessionId);
+      applySnapshotUpdate(sessionId, (snapshot) => ({
+        ...snapshot,
+        pendingResponse: false,
+      }));
       return;
     }
     if (trimmedLine.startsWith(">")) {
@@ -333,48 +398,57 @@ export function useMessageSession({
       if (!lineAfterPrompt || lineAfterPrompt.startsWith("[you]") || isRawLogLine(lineAfterPrompt)) {
         return;
       }
-      appendRawAssistantChunk(`${lineAfterPrompt}\n`);
+      appendRawAssistantChunk(sessionId, `${lineAfterPrompt}\n`);
       return;
     }
     if (isRawLogLine(trimmedLine)) {
       if (trimmedLine.includes("turn.complete")) {
-        finalizeRawAssistantMessage();
-        setPendingResponse(false);
+        finalizeRawAssistantMessage(sessionId);
+        applySnapshotUpdate(sessionId, (snapshot) => ({
+          ...snapshot,
+          pendingResponse: false,
+        }));
         void refreshSessions?.();
       }
       return;
     }
-    appendRawAssistantChunk(`${normalizedLine}\n`);
-  }, [appendRawAssistantChunk, finalizeRawAssistantMessage, refreshSessions]);
+    appendRawAssistantChunk(sessionId, `${normalizedLine}\n`);
+  }, [appendRawAssistantChunk, applySnapshotUpdate, finalizeRawAssistantMessage, refreshSessions]);
 
-  const processRawChunk = useCallback((chunk: string) => {
+  const processRawChunk = useCallback((sessionId: string, chunk: string) => {
     if (!chunk) {
       return;
     }
-    rawLineBufferRef.current += chunk;
-    let newlineIndex = rawLineBufferRef.current.indexOf("\n");
+    const currentBuffer = `${rawLineBuffersRef.current.get(sessionId) ?? ""}${chunk}`;
+    rawLineBuffersRef.current.set(sessionId, currentBuffer);
+    let newlineIndex = currentBuffer.indexOf("\n");
+    let pendingBuffer = currentBuffer;
     while (newlineIndex >= 0) {
-      const nextLine = rawLineBufferRef.current.slice(0, newlineIndex);
-      rawLineBufferRef.current = rawLineBufferRef.current.slice(newlineIndex + 1);
-      processRawLine(nextLine);
-      newlineIndex = rawLineBufferRef.current.indexOf("\n");
+      const nextLine = pendingBuffer.slice(0, newlineIndex);
+      pendingBuffer = pendingBuffer.slice(newlineIndex + 1);
+      processRawLine(sessionId, nextLine);
+      newlineIndex = pendingBuffer.indexOf("\n");
     }
+    rawLineBuffersRef.current.set(sessionId, pendingBuffer);
   }, [processRawLine]);
 
-  const handleSocketMessage = useCallback((data: string) => {
+  const handleSocketMessage = useCallback((sessionId: string, data: string) => {
     const frame = parseAgentSessionFrame(data);
     if (!frame) {
-      processRawChunk(data);
+      processRawChunk(sessionId, data);
       return;
     }
-    finalizeRawAssistantMessage();
+    finalizeRawAssistantMessage(sessionId);
     if (frame.eventType === "debug") {
       return;
     }
     if (frame.eventType === "delta" && frame.delta) {
-      historyLoadedRef.current = true;
-      setPendingResponse(true);
-      setMessages((current) => applyAgentDelta(current, frame.delta!));
+      applySnapshotUpdate(sessionId, (snapshot) => ({
+        ...snapshot,
+        messages: applyAgentDelta(snapshot.messages, frame.delta!),
+        pendingResponse: true,
+        historyLoaded: true,
+      }));
       return;
     }
     if (frame.eventType === "message" && frame.message) {
@@ -382,14 +456,23 @@ export function useMessageSession({
       if (!normalizedMessage) {
         return;
       }
-      historyLoadedRef.current = true;
-      setMessages((current) => upsertAgentMessage(current, normalizedMessage));
+      applySnapshotUpdate(sessionId, (snapshot) => ({
+        ...snapshot,
+        messages: upsertAgentMessage(snapshot.messages, normalizedMessage),
+        pendingResponse: normalizedMessage.role === "assistant"
+          ? Boolean(normalizedMessage.pending)
+          : snapshot.pendingResponse,
+        historyLoaded: true,
+      }));
       if (normalizedMessage.role === "assistant" && !normalizedMessage.pending) {
-        setPendingResponse(false);
+        applySnapshotUpdate(sessionId, (snapshot) => ({
+          ...snapshot,
+          pendingResponse: false,
+        }));
         void refreshSessions?.();
       }
     }
-  }, [finalizeRawAssistantMessage, processRawChunk, refreshSessions]);
+  }, [applySnapshotUpdate, finalizeRawAssistantMessage, processRawChunk, refreshSessions]);
 
   const disconnect = useCallback((silent = false) => {
     cancelPendingAttach();
@@ -412,6 +495,9 @@ export function useMessageSession({
     }
     if (silent) {
       suppressedSocketClosuresRef.current.add(socket);
+    }
+    if (activeSocketSessionIdRef.current === activeSessionId) {
+      activeSocketSessionIdRef.current = undefined;
     }
     socketRef.current = null;
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
@@ -438,16 +524,28 @@ export function useMessageSession({
       content: options?.displayText ?? formatOutgoingMessage(normalizedMessage),
       createdAt: sentAt,
     };
-    historyLoadedRef.current = true;
-    setMessages((current) => [...current, userMessage]);
-    setPendingResponse(true);
+    const activeSessionId = currentSessionIdRef.current;
+    if (activeSessionId) {
+      applySnapshotUpdate(activeSessionId, (snapshot) => ({
+        ...snapshot,
+        messages: options?.resolveInteractionMessageId
+          ? [...snapshot.messages, userMessage].map((message) => (
+            message.id === options.resolveInteractionMessageId
+              ? { ...message, interactionResolved: true, interactionResolvedNote: options.resolvedInteractionNote }
+              : message
+          ))
+          : [...snapshot.messages, userMessage],
+        pendingResponse: true,
+        historyLoaded: true,
+        coreFields: parsedCoreFields ?? snapshot.coreFields,
+      }));
+    }
     setNotice(undefined);
     setError(undefined);
-    markInteractionResolved(options?.resolveInteractionMessageId, options?.resolvedInteractionNote);
     socket.send(`${normalizedMessage}\n`);
     void refreshSessions?.();
     return true;
-  }, [markInteractionResolved, refreshSessions]);
+  }, [applySnapshotUpdate, refreshSessions]);
 
   const openSocketForSession = useCallback(async (targetSession: MessageSessionListItem) => {
     if (!selectedRobot) {
@@ -464,9 +562,21 @@ export function useMessageSession({
     if (connecting && currentSessionIdRef.current === targetSession.sessionId) {
       return true;
     }
-    if (socketRef.current?.readyState === WebSocket.OPEN && currentSessionIdRef.current === targetSession.sessionId) {
+    if (activeSocketSessionIdRef.current === targetSession.sessionId && socketRef.current?.readyState === WebSocket.OPEN) {
       setConnected(true);
+      setConnecting(false);
       return true;
+    }
+    if (socketRef.current && activeSocketSessionIdRef.current && activeSocketSessionIdRef.current !== targetSession.sessionId) {
+      const previousSocket = socketRef.current;
+      const previousSessionId = activeSocketSessionIdRef.current;
+      resumableSessionIdsRef.current.add(previousSessionId);
+      suppressedSocketClosuresRef.current.add(previousSocket);
+      socketRef.current = null;
+      activeSocketSessionIdRef.current = undefined;
+      if (previousSocket.readyState === WebSocket.OPEN || previousSocket.readyState === WebSocket.CONNECTING) {
+        previousSocket.close();
+      }
     }
 
     cancelConnectAttempt();
@@ -511,20 +621,23 @@ export function useMessageSession({
 
     const socket = new WebSocket(websocketUrl);
     socketRef.current = socket;
+    activeSocketSessionIdRef.current = targetSession.sessionId;
     selectedRobotIdRef.current = selectedRobot.id;
     let connectionEstablished = false;
 
     socket.onopen = () => {
-      if (socketRef.current !== socket || currentSessionIdRef.current !== targetSession.sessionId) {
+      if (socketRef.current !== socket || activeSocketSessionIdRef.current !== targetSession.sessionId) {
         suppressedSocketClosuresRef.current.add(socket);
         socket.close();
         return;
       }
       connectionEstablished = true;
-      setConnecting(false);
-      setConnected(true);
-      setError(undefined);
-      setNotice(undefined);
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        setConnecting(false);
+        setConnected(true);
+        setError(undefined);
+        setNotice(undefined);
+      }
       resumableSessionIdsRef.current.add(targetSession.sessionId);
       manuallyPausedSessionIdsRef.current.delete(targetSession.sessionId);
       const queuedMessage = queuedMessageRef.current;
@@ -537,34 +650,38 @@ export function useMessageSession({
     };
 
     socket.onmessage = (event) => {
-      if (socketRef.current !== socket || currentSessionIdRef.current !== targetSession.sessionId) {
+      if (socketRef.current !== socket || activeSocketSessionIdRef.current !== targetSession.sessionId) {
         return;
       }
       if (typeof event.data === "string") {
-        handleSocketMessage(event.data);
+        handleSocketMessage(targetSession.sessionId, event.data);
       }
     };
 
     socket.onerror = () => {
-      if (socketRef.current !== socket || currentSessionIdRef.current !== targetSession.sessionId) {
+      if (socketRef.current !== socket || activeSocketSessionIdRef.current !== targetSession.sessionId) {
         return;
       }
-      setError(messagePageText.sessionConnectFailed);
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        setError(messagePageText.sessionConnectFailed);
+      }
     };
 
     socket.onclose = () => {
       const isCurrentSession = currentSessionIdRef.current === targetSession.sessionId;
       const shouldSuppressNotice = suppressedSocketClosuresRef.current.has(socket);
       suppressedSocketClosuresRef.current.delete(socket);
-      if (isCurrentSession && rawLineBufferRef.current.trim()) {
-        processRawLine(rawLineBufferRef.current);
-        rawLineBufferRef.current = "";
+      const buffered = rawLineBuffersRef.current.get(targetSession.sessionId) ?? "";
+      if (buffered.trim()) {
+        processRawLine(targetSession.sessionId, buffered);
       }
-      if (isCurrentSession) {
-        finalizeRawAssistantMessage();
-      }
+      rawLineBuffersRef.current.delete(targetSession.sessionId);
+      finalizeRawAssistantMessage(targetSession.sessionId);
       if (socketRef.current === socket) {
         socketRef.current = null;
+      }
+      if (activeSocketSessionIdRef.current === targetSession.sessionId) {
+        activeSocketSessionIdRef.current = undefined;
       }
       if (isCurrentSession) {
         setConnecting(false);
@@ -818,14 +935,19 @@ export function useMessageSession({
     cancelPendingAttach();
     cancelHistoryLoad();
     rememberSessionSnapshot(currentSessionIdRef.current);
-    disconnect(true);
-    resetConversationState();
+    const robotChanged = Boolean(selectedRobotIdRef.current && selectedRobotIdRef.current !== selectedRobot?.id);
+    if (robotChanged) {
+      disconnect(true);
+      resetConversationState();
+    }
     selectedRobotIdRef.current = selectedRobot?.id;
     setSessionLoading(false);
 
     if (!nextSessionId) {
       setCurrentSessionId(undefined);
       currentSessionIdRef.current = undefined;
+      setConnecting(false);
+      setConnected(false);
       return;
     }
 
@@ -836,6 +958,8 @@ export function useMessageSession({
 
     const cachedSnapshot = sessionSnapshotsRef.current.get(nextSessionId);
     restoreSessionSnapshot(cachedSnapshot);
+    setConnecting(Boolean(activeSocketSessionIdRef.current === nextSessionId && socketRef.current?.readyState === WebSocket.CONNECTING));
+    setConnected(Boolean(activeSocketSessionIdRef.current === nextSessionId && socketRef.current?.readyState === WebSocket.OPEN));
     const needsFreshHistory = shouldRefreshHistoryOnSelect(selectedSession, cachedSnapshot);
     setSessionLoading(needsFreshHistory);
 

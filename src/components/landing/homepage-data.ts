@@ -141,6 +141,8 @@ export type SidebarNavItem = {
 export type SidebarMessageItem = {
   id: string;
   title: string;
+  href: string;
+  robotName?: string;
 };
 
 export function buildSidebarNavItems({

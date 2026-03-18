@@ -34,7 +34,13 @@ function buildRobotTargets(instances: ClawInstance[], bindingsByInstance: Map<st
     });
 }
 
-export function useMessageRobots() {
+export function useMessageRobots({
+  preferredInstanceId,
+  preferredAgentId,
+}: {
+  preferredInstanceId?: string;
+  preferredAgentId?: string;
+} = {}) {
   const [robots, setRobots] = useState<MessageRobotTarget[]>([]);
   const [selectedRobotId, setSelectedRobotId] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -46,10 +52,16 @@ export function useMessageRobots() {
     try {
       const snapshot = await loadMessageRobotBindings();
       const nextRobots = buildRobotTargets(snapshot.instances, snapshot.bindingsByInstance);
+      const preferredRobotId = nextRobots.find((robot) => (
+        robot.instanceId === preferredInstanceId && robot.agentId === preferredAgentId
+      ))?.id;
       setRobots(nextRobots);
       setSelectedRobotId((current) => {
         if (current && nextRobots.some((robot) => robot.id === current)) {
           return current;
+        }
+        if (preferredRobotId) {
+          return preferredRobotId;
         }
         return nextRobots[0]?.id;
       });
@@ -59,7 +71,7 @@ export function useMessageRobots() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [preferredAgentId, preferredInstanceId]);
 
   useEffect(() => {
     void loadRobots();

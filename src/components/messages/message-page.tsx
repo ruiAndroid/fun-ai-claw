@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { MessageComposer } from "./message-composer";
 import { MessageSessionPanel } from "./message-session-panel";
 import { MessageSidebar } from "./message-sidebar";
@@ -11,6 +12,11 @@ import { useMessageSession } from "./use-message-session";
 import { useMessageSessionList } from "./use-message-session-list";
 
 export function MessagePage() {
+  const searchParams = useSearchParams();
+  const preferredInstanceId = searchParams.get("instanceId")?.trim() || undefined;
+  const preferredAgentId = searchParams.get("agentId")?.trim() || undefined;
+  const preferredSessionId = searchParams.get("sessionId")?.trim() || undefined;
+
   const {
     robots,
     selectedRobot,
@@ -19,10 +25,14 @@ export function MessagePage() {
     loading,
     error: robotsError,
     refresh,
-  } = useMessageRobots();
+  } = useMessageRobots({
+    preferredInstanceId,
+    preferredAgentId,
+  });
 
   const sessionList = useMessageSessionList({
     selectedRobot,
+    preferredSessionId,
   });
 
   const session = useMessageSession({
@@ -75,6 +85,17 @@ export function MessagePage() {
       await sessionList.closeSession(sessionId);
     } catch (closeError) {
       session.setError(closeError instanceof Error ? closeError.message : "关闭会话失败");
+    }
+  }, [session, sessionList]);
+
+  const handleDeleteSession = useCallback(async (sessionId: string) => {
+    try {
+      if (session.currentSessionId === sessionId) {
+        session.disconnect(true);
+      }
+      await sessionList.deleteSession(sessionId);
+    } catch (deleteError) {
+      session.setError(deleteError instanceof Error ? deleteError.message : "删除会话失败");
     }
   }, [session, sessionList]);
 
@@ -169,6 +190,9 @@ export function MessagePage() {
             onRefresh={() => void sessionList.refresh()}
             onClose={(sessionId) => {
               void handleCloseSession(sessionId);
+            }}
+            onDelete={(sessionId) => {
+              void handleDeleteSession(sessionId);
             }}
           />
         </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   closeConsumerChatSession,
   createConsumerChatSession,
+  deleteConsumerChatSession,
   listConsumerChatSessions,
 } from "@/lib/consumer-api";
 import type { ConsumerChatSession } from "@/types/consumer";
@@ -23,6 +24,7 @@ export type MessageSessionListItem = {
   hasTranscript: boolean;
   isCurrent: boolean;
   canClose: boolean;
+  canDelete: boolean;
   externalSessionKey?: string | null;
 };
 
@@ -56,6 +58,7 @@ function toSessionListItem(item: ConsumerChatSession, index: number): MessageSes
     hasTranscript: item.messageCount > 0,
     isCurrent: false,
     canClose: item.status === "ACTIVE",
+    canDelete: item.status === "CLOSED",
     externalSessionKey: item.externalSessionKey,
   };
 }
@@ -75,8 +78,10 @@ function pickNextSessionId(sessions: ConsumerChatSession[]) {
 
 export function useMessageSessionList({
   selectedRobot,
+  preferredSessionId,
 }: {
   selectedRobot?: MessageRobotTarget;
+  preferredSessionId?: string;
 }) {
   const [remoteSessions, setRemoteSessions] = useState<ConsumerChatSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>();
@@ -130,16 +135,17 @@ export function useMessageSessionList({
   );
 
   useEffect(() => {
-    const preferredSessionId = sessionItems.find((item) => item.status === "ACTIVE")?.sessionId
+    const nextPreferredSessionId = sessionItems.find((item) => item.sessionId === preferredSessionId)?.sessionId
+      ?? sessionItems.find((item) => item.status === "ACTIVE")?.sessionId
       ?? sessionItems[0]?.sessionId;
 
     setSelectedSessionId((current) => {
       if (current && sessionItems.some((item) => item.sessionId === current)) {
         return current;
       }
-      return preferredSessionId;
+      return nextPreferredSessionId;
     });
-  }, [sessionItems]);
+  }, [preferredSessionId, sessionItems]);
 
   const selectedSession = useMemo(
     () => sessionItems.find((item) => item.sessionId === selectedSessionId),
@@ -181,12 +187,30 @@ export function useMessageSessionList({
         if (current !== sessionId) {
           return current;
         }
-        return pickNextSessionId(nextSessions.filter((item) => item.sessionId !== sessionId));
+        return pickNextSessionId(nextSessions);
       });
     } catch (closeError) {
       const nextError = closeError instanceof Error ? closeError.message : "关闭会话失败";
       setError(nextError);
       throw closeError;
+    }
+  }, [loadSessions]);
+
+  const deleteSession = useCallback(async (sessionId: string) => {
+    setError(undefined);
+    try {
+      await deleteConsumerChatSession(sessionId);
+      const nextSessions = await loadSessions();
+      setSelectedSessionId((current) => {
+        if (current !== sessionId) {
+          return current;
+        }
+        return pickNextSessionId(nextSessions.filter((item) => item.sessionId !== sessionId));
+      });
+    } catch (deleteError) {
+      const nextError = deleteError instanceof Error ? deleteError.message : "删除会话失败";
+      setError(nextError);
+      throw deleteError;
     }
   }, [loadSessions]);
 
@@ -207,6 +231,7 @@ export function useMessageSessionList({
     refresh: loadSessions,
     createSession,
     closeSession,
+    deleteSession,
     ensureSession,
   };
 }

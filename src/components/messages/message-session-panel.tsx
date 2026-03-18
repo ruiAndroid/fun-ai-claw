@@ -13,6 +13,8 @@ export function MessageSessionPanel({
   onSelect,
   onRefresh,
   onClose,
+  onDelete,
+  deletingSessionId,
 }: {
   sessions: MessageSessionListItem[];
   selectedSessionId?: string;
@@ -21,6 +23,8 @@ export function MessageSessionPanel({
   onSelect: (sessionId: string) => void;
   onRefresh: () => void;
   onClose?: (sessionId: string) => void;
+  onDelete?: (sessionId: string) => void;
+  deletingSessionId?: string;
 }) {
   return (
     <aside className="flex min-h-0 h-full flex-col rounded-[32px] border border-white/70 bg-white/78 p-4 shadow-[0_24px_60px_rgba(15,23,42,0.06)] backdrop-blur-xl">
@@ -109,14 +113,19 @@ export function MessageSessionPanel({
                     </div>
                   </button>
 
-                  {onClose && session.canClose ? (
+                  {(session.canClose || session.canDelete) ? (
                     <button
                       type="button"
-                      className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-500"
-                      aria-label={`关闭会话 ${session.title}`}
+                      disabled={deletingSessionId === session.sessionId}
+                      className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`${session.canDelete ? "删除" : "关闭"}会话 ${session.title}`}
                       onClick={(event) => {
                         event.stopPropagation();
-                        onClose(session.sessionId);
+                        if (session.canDelete) {
+                          onDelete?.(session.sessionId);
+                          return;
+                        }
+                        onClose?.(session.sessionId);
                       }}
                     >
                       <X size={14} />

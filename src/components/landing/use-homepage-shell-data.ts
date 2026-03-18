@@ -80,6 +80,8 @@ export function useHomepageShellData() {
     snapshot?.recentSessions.map((item) => ({
       id: item.id,
       title: item.title,
+      href: item.href,
+      robotName: item.robotName,
     })) ?? []
   ), [snapshot]);
 

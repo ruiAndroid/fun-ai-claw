@@ -75,6 +75,15 @@ async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetri
     throw await buildRequestError(response);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return undefined as T;
+  }
+
   return (await response.json()) as T;
 }
 
@@ -114,6 +123,12 @@ export async function connectConsumerChatSession(sessionId: string) {
 export async function closeConsumerChatSession(sessionId: string) {
   return requestConsumerJson<ConsumerChatSession>(`/app/v1/chat/sessions/${encodeURIComponent(sessionId)}/close`, {
     method: "POST",
+  });
+}
+
+export async function deleteConsumerChatSession(sessionId: string) {
+  return requestConsumerJson<void>(`/app/v1/chat/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
   });
 }
 

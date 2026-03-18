@@ -10,7 +10,6 @@ import {
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   UserRound,
 } from "lucide-react";
 import { XiamiIcon } from "@/components/ui/xiami-icon";
@@ -215,17 +214,10 @@ export function HomepageSidebar({
           <div className="flex h-full flex-col items-center gap-3 overflow-hidden">
             <Link
               href="/messages"
-              className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-white/82 text-md-on-surface shadow-sm"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
               aria-label="消息"
             >
               <MessageCircle size={18} />
-            </Link>
-            <Link
-              href="/messages"
-              className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] text-md-on-primary shadow-[0_14px_28px_rgba(139,61,255,0.22)]"
-              aria-label="新建消息"
-            >
-              <Plus size={18} />
             </Link>
             {navItems.map((item) => (
                 <SidebarNavLink
@@ -245,28 +237,25 @@ export function HomepageSidebar({
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 pr-1">
-              <div className="flex items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-bold text-md-on-surface">
-                <span className="flex h-9 w-9 items-center justify-center rounded-[14px] bg-white/82 text-md-on-surface shadow-sm">
-                  <MessageCircle size={16} />
-                </span>
-                <div>消息</div>
-                <div className="ml-auto flex items-center gap-2">
-                  <Link
-                    href="/messages"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
-                    aria-label="新建消息"
-                  >
-                    <Plus size={18} />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setIsMessageExpanded((value) => !value)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
-                    aria-label={isMessageExpanded ? "收起消息区域" : "展开消息区域"}
-                  >
-                    {isMessageExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                  </button>
-                </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/messages"
+                  className="flex flex-1 items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-bold text-md-on-surface transition-all duration-300 hover:bg-white/78 hover:shadow-[0_12px_26px_rgba(81,38,145,0.08)]"
+                  aria-label="消息"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-[14px] bg-white/82 text-md-on-surface shadow-sm">
+                    <MessageCircle size={16} />
+                  </span>
+                  <div>消息</div>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setIsMessageExpanded((value) => !value)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
+                  aria-label={isMessageExpanded ? "收起消息区域" : "展开消息区域"}
+                >
+                  {isMessageExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </button>
               </div>
 
               <AnimatePresence initial={false}>
@@ -284,7 +273,7 @@ export function HomepageSidebar({
                         {messages.map((item) => (
                           <Link
                             key={item.id}
-                            href="/messages"
+                            href={item.href}
                             className="mb-2 flex items-center gap-3 rounded-[20px] px-2 py-2.5 transition-colors duration-300 hover:bg-white/70"
                           >
                             <div className="h-11 w-11 rounded-full bg-slate-200" />
@@ -292,6 +281,11 @@ export function HomepageSidebar({
                               <div className="truncate text-sm font-semibold text-md-on-surface">
                                 {item.title}
                               </div>
+                              {item.robotName ? (
+                                <div className="mt-0.5 truncate text-xs text-md-on-surface-variant">
+                                  {item.robotName}
+                                </div>
+                              ) : null}
                             </div>
                           </Link>
                         ))}

@@ -35,11 +35,13 @@ function HeroStartStep({
   title,
   actionLabel,
   href,
+  onAction,
 }: {
   step: string;
   title: string;
   actionLabel: string;
   href: string;
+  onAction?: () => void;
 }) {
   return (
     <article className="rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.04)_100%)] px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-sm">
@@ -48,12 +50,22 @@ function HeroStartStep({
       </div>
       <div className="mt-2 flex items-center justify-between gap-3">
         <p className="max-w-[190px] text-[13px] font-bold leading-5 text-white">{title}</p>
-        <Link
-          href={href}
-          className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] px-4 text-[11px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]"
-        >
-          {actionLabel}
-        </Link>
+        {onAction ? (
+          <button
+            type="button"
+            onClick={onAction}
+            className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] px-4 text-[11px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]"
+          >
+            {actionLabel}
+          </button>
+        ) : (
+          <Link
+            href={href}
+            className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] px-4 text-[11px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]"
+          >
+            {actionLabel}
+          </Link>
+        )}
       </div>
     </article>
   );
@@ -61,12 +73,17 @@ function HeroStartStep({
 
 export function HomepageHero({
   messagesHref,
+  authenticated,
+  onAdoptRequest,
 }: {
   messagesHref: string;
+  authenticated: boolean;
+  onAdoptRequest?: () => void;
 }) {
   const steps = heroStartSteps.map((item) => ({
     ...item,
     href: messagesHref,
+    onAction: authenticated ? onAdoptRequest : undefined,
   }));
 
   return (

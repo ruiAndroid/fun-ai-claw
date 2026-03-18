@@ -3,11 +3,14 @@
 import { useEffect } from "react";
 import { HomepageAgentSection } from "./homepage-agent-section";
 import { HomepageHero } from "./homepage-hero";
+import { HomepageRobotAdoptionModal } from "./homepage-robot-adoption-modal";
 import { HomepageSidebar } from "./homepage-sidebar";
 import { HomepageTopbar } from "./homepage-topbar";
 import { useHomepageShellData } from "./use-homepage-shell-data";
+import { useState } from "react";
 
 export function LandingPage() {
+  const [adoptionModalOpen, setAdoptionModalOpen] = useState(false);
   const {
     authenticated,
     messagesHref,
@@ -54,11 +57,20 @@ export function LandingPage() {
           <HomepageTopbar rechargeHref={rechargeHref} xiamiBalanceLabel={xiamiBalanceLabel} />
 
           <div className="mt-6 grid gap-6">
-            <HomepageHero messagesHref={messagesHref} />
+            <HomepageHero
+              messagesHref={messagesHref}
+              authenticated={authenticated}
+              onAdoptRequest={() => setAdoptionModalOpen(true)}
+            />
             <HomepageAgentSection authenticated={authenticated} messagesHref={messagesHref} />
           </div>
         </div>
       </div>
+
+      <HomepageRobotAdoptionModal
+        open={adoptionModalOpen}
+        onClose={() => setAdoptionModalOpen(false)}
+      />
     </main>
   );
 }

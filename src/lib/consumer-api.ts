@@ -7,10 +7,13 @@ import {
 } from "@/lib/user-center-api";
 import type { ListResponse } from "@/types/contracts";
 import type {
+  ConsumerRobotAdoptionResponse,
+  ConsumerRobotTemplateSummary,
   ConsumerBoundInstance,
   ConsumerChatSession,
   ConsumerChatSessionCreateRequest,
   ConsumerChatSessionMessage,
+  CreateConsumerRobotRequest,
 } from "@/types/consumer";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
@@ -90,6 +93,43 @@ async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetri
   }
 
   return (await response.json()) as T;
+}
+
+async function requestPublicJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await buildRequestError(response);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (!contentType.includes("application/json")) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function listConsumerRobotTemplates() {
+  return requestPublicJson<ListResponse<ConsumerRobotTemplateSummary>>("/app/v1/public/robot-templates");
+}
+
+export async function adoptConsumerRobot(request: CreateConsumerRobotRequest) {
+  return requestConsumerJson<ConsumerRobotAdoptionResponse>("/app/v1/consumer/robots/adoptions", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function listConsumerInstances() {

@@ -12,7 +12,7 @@ export type HomepageUserCard = {
 };
 
 function formatErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "棣栭〉鏁版嵁鍔犺浇澶辫触";
+  return error instanceof Error ? error.message : "首页数据加载失败";
 }
 
 export function useHomepageShellData() {
@@ -45,23 +45,23 @@ export function useHomepageShellData() {
   const userCard = useMemo<HomepageUserCard>(() => {
     if (error) {
       return {
-        title: "涓汉涓績",
-        subtitle: "鐢ㄦ埛璧勬枡鏆傛椂涓嶅彲鐢紝璇风◢鍚庨噸璇?",
+        title: "个人中心",
+        subtitle: "用户资料暂时不可用，请稍后重试。",
         href: "/me",
       };
     }
 
     if (!authenticated) {
       return {
-        title: "鐧诲綍 / 涓汉涓績",
-        subtitle: "鐧诲綍鍚庢煡鐪嬩綘鐨勪細璇濄€佸疄渚嬩笌璐﹀彿璧勬枡",
+        title: "登录 / 个人中心",
+        subtitle: "登录后查看你的会话、实例与账号资料",
         href: "/login",
       };
     }
 
     return {
-      title: snapshot?.consumerAccount?.displayName?.trim() || snapshot?.profile?.nickname?.trim() || "涓汉涓績",
-      subtitle: snapshot?.consumerAccount?.phoneMasked?.trim() || snapshot?.profile?.phoneMasked?.trim() || "璐﹀彿宸茬櫥褰曪紝娆㈣繋鍥炴潵",
+      title: snapshot?.consumerAccount?.displayName?.trim() || snapshot?.profile?.nickname?.trim() || "个人中心",
+      subtitle: snapshot?.consumerAccount?.phoneMasked?.trim() || snapshot?.profile?.phoneMasked?.trim() || "账号已登录，欢迎回来",
       href: "/me",
       avatarUrl: snapshot?.consumerAccount?.avatarUrl || snapshot?.profile?.avatarUrl,
     };
@@ -73,7 +73,7 @@ export function useHomepageShellData() {
 
     return buildSidebarNavItems({
       robotCount: totalInstances,
-      robotSummary: totalInstances > 0 ? `杩愯涓?${runningInstances} / 宸茬粦瀹?${totalInstances}` : undefined,
+      robotSummary: totalInstances > 0 ? `运行中 ${runningInstances} / 已绑定 ${totalInstances}` : undefined,
     });
   }, [snapshot]);
 
@@ -88,15 +88,15 @@ export function useHomepageShellData() {
 
   const messageEmptyText = useMemo(() => {
     if (error) {
-      return "鏈€杩戜細璇濇殏鏃朵笉鍙敤锛岃绋嶅悗閲嶈瘯銆?";
+      return "最近会话暂时不可用，请稍后重试。";
     }
     if (!authenticated) {
-      return "鐧诲綍鍚庤繖閲屼細灞曠ず浣犳渶杩戠殑浼氳瘽銆?";
+      return "登录后这里会展示你最近的会话。";
     }
     if (!snapshot?.supportsRecentSessions) {
-      return "鏈€杩戜細璇濆姛鑳芥殏鏈紑鏀俱€?";
+      return "最近会话功能暂未开放。";
     }
-    return "鏆傛棤鏈€杩戜細璇濄€?";
+    return "暂无最近会话。";
   }, [authenticated, error, snapshot]);
 
   const xiamiBalanceLabel = useMemo(() => {
@@ -104,7 +104,7 @@ export function useHomepageShellData() {
       return "--";
     }
     if (!snapshot?.supportsXiamiBalance) {
-      return "寰呭紑鏀?";
+      return "待开放";
     }
     return `${snapshot.xiamiBalance ?? 0}`;
   }, [authenticated, snapshot]);

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { getUserCenterMe, sendUserCenterSmsCode, verifyUserCenterSmsCode } from "@/lib/user-center-api";
 
+const DEFAULT_SMS_SEND_COUNTDOWN_SECONDS = 60;
+
 function normalizePhoneInput(value: string) {
   return value.replace(/[^\d]/g, "").slice(0, 11);
 }
@@ -100,9 +102,9 @@ export function LoginForm() {
     setSending(true);
     try {
       const response = await sendUserCenterSmsCode({ phone: normalizedPhone });
-      setCountdown(response.cooldownSeconds);
-      setNotice(`验证码已发送至 ${response.phoneMasked}`);
-      setDebugCode(response.debugCode ?? null);
+      setCountdown(DEFAULT_SMS_SEND_COUNTDOWN_SECONDS);
+      setNotice(response.msg?.trim() || "验证码已发送，请注意查收短信");
+      setDebugCode(null);
     } catch (requestError) {
       setError(extractErrorMessage(requestError));
     } finally {

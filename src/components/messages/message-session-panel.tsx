@@ -98,10 +98,6 @@ export function MessageSessionPanel({
                           ) : null}
                         </div>
 
-                        <div className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
-                          {session.subtitle}
-                        </div>
-
                         <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-slate-400">
                           <div className="inline-flex items-center gap-1">
                             <Clock3 size={12} />

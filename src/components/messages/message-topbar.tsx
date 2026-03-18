@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Link2, Plug, RotateCcw, Wifi, WifiOff } from "lucide-react";
+import { Bot, Plug, RotateCcw, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatRobotSubtitle } from "./messages-data";
 import type { MessageRobotTarget } from "./messages-types";
@@ -34,12 +34,7 @@ export function MessageTopbar({
     <header className="rounded-[28px] border border-white/70 bg-white/80 px-5 py-4 shadow-[0_20px_50px_rgba(81,38,145,0.08)] backdrop-blur-xl sm:px-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-violet-700">
-            <Link2 size={12} />
-            指定机器人直连
-          </div>
-
-          <div className="mt-3 flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-slate-100 text-slate-800">
               <Bot size={18} />
             </div>

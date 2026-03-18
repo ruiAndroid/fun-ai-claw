@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, Bot, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatRobotStatus, formatRobotSubtitle } from "./messages-data";
+import { formatRobotStatus } from "./messages-data";
 import type { MessageRobotTarget } from "./messages-types";
 
 export function MessageSidebar({
@@ -49,9 +49,6 @@ export function MessageSidebar({
         <h1 className="mt-4 text-[28px] font-black tracking-[-0.04em] text-slate-950">
           消息
         </h1>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          这里始终直连指定机器人，不提供自动路由，真实会话永远落到你选中的 Agent。
-        </p>
       </div>
 
       <div className="mt-6 flex items-center justify-between gap-3 px-1">
@@ -132,9 +129,6 @@ export function MessageSidebar({
 
                       <div className="mt-1 truncate text-xs text-slate-500">
                         {robot.agentId}
-                      </div>
-                      <div className="mt-2 text-xs leading-5 text-slate-600">
-                        {formatRobotSubtitle(robot) || "未配置模型信息"}
                       </div>
                       {robot.description ? (
                         <div className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">

@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { PenSquare, SendHorizonal, Sparkles } from "lucide-react";
+import { SendHorizonal, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatInteractionDraftLabel } from "./messages-data";
 import type { MessageInteractionDraft, MessageRobotTarget } from "./messages-types";
@@ -69,11 +69,6 @@ export function MessageComposer({
       ) : null}
 
       <div className="rounded-[30px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(248,250,252,0.94))] p-3 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-        <div className="flex items-center gap-2 px-2 pb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-          <PenSquare size={14} />
-          Message Composer
-        </div>
-
         <textarea
           value={input}
           onChange={(event) => onInputChange(event.target.value)}
@@ -85,15 +80,7 @@ export function MessageComposer({
           className="min-h-[112px] w-full resize-none rounded-[24px] border border-slate-100 bg-white px-4 py-4 text-[15px] leading-7 text-slate-900 outline-none transition focus:border-violet-200 focus:ring-4 focus:ring-violet-50 disabled:cursor-not-allowed disabled:bg-slate-50"
         />
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xs leading-6 text-slate-500">
-            {selectedRobot
-              ? viewOnly
-                ? "当前处于会话查看模式"
-                : `当前发送对象：${selectedRobot.displayName} · ${selectedRobot.agentId}`
-              : "选择机器人后即可开始消息会话"}
-          </div>
-
+        <div className="mt-3 flex items-center justify-end">
           <button
             type="button"
             onClick={onSend}

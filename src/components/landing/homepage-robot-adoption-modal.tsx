@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Modal, Input, Switch, message } from "antd";
+import { Modal, Input, message } from "antd";
 import { CheckCircle2, LoaderCircle, Rocket, Sparkles } from "lucide-react";
 import { XiamiIcon } from "@/components/ui/xiami-icon";
 import { adoptConsumerRobot, listConsumerRobotTemplates } from "@/lib/consumer-api";
@@ -13,13 +13,6 @@ const loadingHints = [
   "正在同步龙虾模板与技能配置…",
   "正在准备和龙虾见面的对话环境…",
 ] as const;
-
-function buildSuggestedRobotName(template?: ConsumerRobotTemplateSummary) {
-  const baseName = template?.displayName?.trim() || "我的龙虾";
-  const compactBase = baseName.replace(/\s+/g, "").slice(0, 12) || "我的龙虾";
-  const suffix = Math.floor(1000 + Math.random() * 9000);
-  return `${compactBase}${suffix}`;
-}
 
 function formatTemplateSubtitle(template: ConsumerRobotTemplateSummary) {
   return template.summary?.trim() || template.description?.trim() || "适合开箱即用的龙虾模板";
@@ -40,8 +33,6 @@ export function HomepageRobotAdoptionModal({
   const [error, setError] = useState<string>();
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>();
   const [robotName, setRobotName] = useState("");
-  const [nameEdited, setNameEdited] = useState(false);
-  const [autoStart, setAutoStart] = useState(true);
   const [loadingHintIndex, setLoadingHintIndex] = useState(0);
 
   const selectedTemplate = useMemo(
@@ -54,6 +45,7 @@ export function HomepageRobotAdoptionModal({
       return;
     }
     let cancelled = false;
+    setRobotName("");
 
     const loadTemplates = async () => {
       setLoading(true);
@@ -92,16 +84,6 @@ export function HomepageRobotAdoptionModal({
   }, [open]);
 
   useEffect(() => {
-    if (!open || !selectedTemplate) {
-      return;
-    }
-    if (!nameEdited || !robotName.trim()) {
-      setRobotName(buildSuggestedRobotName(selectedTemplate));
-      setNameEdited(false);
-    }
-  }, [nameEdited, open, robotName, selectedTemplate]);
-
-  useEffect(() => {
     if (!submitting) {
       setLoadingHintIndex(0);
       return;
@@ -114,14 +96,6 @@ export function HomepageRobotAdoptionModal({
 
   const handleTemplateSelect = (templateKey: string) => {
     setSelectedTemplateKey(templateKey);
-    const template = templates.find((item) => item.templateKey === templateKey);
-    if (!template) {
-      return;
-    }
-    if (!nameEdited || !robotName.trim()) {
-      setRobotName(buildSuggestedRobotName(template));
-      setNameEdited(false);
-    }
   };
 
   const handleSubmit = async () => {
@@ -141,7 +115,7 @@ export function HomepageRobotAdoptionModal({
       const response = await adoptConsumerRobot({
         templateKey: finalTemplate.templateKey,
         name: finalName,
-        autoStart,
+        autoStart: true,
       });
 
       messageApi.success("领养成功，正在带你和龙虾见面");
@@ -210,7 +184,7 @@ export function HomepageRobotAdoptionModal({
               <div className="min-w-0">
                 <h2 className="text-[26px] font-black tracking-tight text-md-on-surface">领养你的专属龙虾</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-md-on-surface-variant">
-                  选一个模板，给龙虾起个名字，系统会自动完成创建并带你进入对话。
+                  选一个模板，给龙虾起个名字。
                 </p>
               </div>
             </div>
@@ -357,29 +331,14 @@ export function HomepageRobotAdoptionModal({
                   <div className="mb-2 text-sm font-semibold text-md-on-surface">龙虾名称</div>
                   <Input
                     value={robotName}
-                    onChange={(event) => {
-                      setRobotName(event.target.value);
-                      setNameEdited(true);
-                    }}
+                    onChange={(event) => setRobotName(event.target.value)}
                     placeholder="给你的龙虾取个名字"
                     size="large"
-                    maxLength={48}
+                    maxLength={8}
                     disabled={submitting}
                   />
                   <div className="mt-2 text-xs text-md-on-surface-variant">
-                    支持 48 个字符以内，后续仍可在对话里继续调整。
-                  </div>
-                </div>
-
-                <div className="rounded-[18px] border border-md-outline-variant/25 bg-white/76 p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-semibold text-md-on-surface">创建后立即开聊</div>
-                      <div className="mt-1 text-xs leading-6 text-md-on-surface-variant">
-                        开启后，龙虾会在领养完成后自动启动，并直接带你进入对话。
-                      </div>
-                    </div>
-                    <Switch checked={autoStart} onChange={setAutoStart} disabled={submitting} />
+                    最多填写 8 个字符。
                   </div>
                 </div>
 

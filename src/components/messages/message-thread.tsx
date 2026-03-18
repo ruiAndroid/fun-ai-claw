@@ -127,6 +127,78 @@ function ChatBubble({
   );
 }
 
+function ThreadLoadingSkeleton({
+  selectedRobot,
+  selectedSessionTitle,
+}: {
+  selectedRobot?: MessageRobotTarget;
+  selectedSessionTitle?: string;
+}) {
+  return (
+    <div className="absolute inset-0 z-10 overflow-hidden bg-[linear-gradient(180deg,rgba(255,250,247,0.82),rgba(255,247,251,0.88)_42%,rgba(248,244,255,0.94)_100%)] backdrop-blur-sm">
+      <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(255,122,24,0.12),transparent_52%),radial-gradient(circle_at_top_right,rgba(139,61,255,0.14),transparent_36%)]" />
+      <div className="relative flex h-full flex-col px-5 py-5 sm:px-6">
+        <div className="rounded-[28px] border border-white/80 bg-white/86 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-700">
+              <LoaderCircle size={14} className="animate-spin" />
+              正在加载历史消息
+            </div>
+            <div className="h-2.5 w-20 animate-pulse rounded-full bg-slate-200" />
+          </div>
+          <div className="mt-4 text-lg font-bold tracking-[-0.03em] text-slate-900">
+            {selectedSessionTitle || selectedRobot?.displayName || "会话详情"}
+          </div>
+          <div className="mt-2 text-sm text-slate-500">
+            正在恢复这段会话的上下文、历史消息与实时状态，请稍候片刻。
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          <div className="flex items-start gap-3 animate-pulse">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-slate-900 text-white shadow-sm">
+              <Bot size={18} />
+            </div>
+            <div className="w-[min(700px,78%)] rounded-[28px] border border-white/80 bg-white/88 px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+              <div className="h-3 w-24 rounded-full bg-slate-200" />
+              <div className="mt-4 h-3 w-[85%] rounded-full bg-slate-100" />
+              <div className="mt-2 h-3 w-[68%] rounded-full bg-slate-100" />
+              <div className="mt-5 rounded-[20px] bg-slate-50 px-4 py-3">
+                <div className="h-2.5 w-20 rounded-full bg-slate-200" />
+                <div className="mt-3 h-2.5 w-full rounded-full bg-slate-100" />
+                <div className="mt-2 h-2.5 w-[76%] rounded-full bg-slate-100" />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 animate-pulse">
+            <div className="w-[min(560px,64%)] rounded-[28px] bg-[linear-gradient(135deg,rgba(255,122,24,0.8),rgba(139,61,255,0.86))] px-5 py-4 shadow-[0_18px_40px_rgba(139,61,255,0.14)]">
+              <div className="h-3 w-20 rounded-full bg-white/35" />
+              <div className="mt-4 h-3 w-[80%] rounded-full bg-white/30" />
+              <div className="mt-2 h-3 w-[62%] rounded-full bg-white/25" />
+            </div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-violet-50 text-violet-700 shadow-sm">
+              <UserRound size={18} />
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 animate-pulse">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-slate-900 text-white shadow-sm">
+              <Bot size={18} />
+            </div>
+            <div className="w-[min(640px,72%)] rounded-[28px] border border-white/80 bg-white/88 px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+              <div className="h-3 w-28 rounded-full bg-slate-200" />
+              <div className="mt-4 h-3 w-[92%] rounded-full bg-slate-100" />
+              <div className="mt-2 h-3 w-[74%] rounded-full bg-slate-100" />
+              <div className="mt-2 h-3 w-[58%] rounded-full bg-slate-100" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MessageThread({
   selectedRobot,
   messages,
@@ -166,14 +238,7 @@ export function MessageThread({
 
   return (
     <div ref={containerRef} className="relative min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-      {loading ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/62 backdrop-blur-[2px]">
-          <div className="inline-flex items-center gap-3 rounded-full border border-white/80 bg-white/92 px-5 py-3 text-sm font-semibold text-slate-700 shadow-[0_18px_40px_rgba(15,23,42,0.08)]">
-            <LoaderCircle size={16} className="animate-spin text-violet-600" />
-            正在切换会话...
-          </div>
-        </div>
-      ) : null}
+      {loading ? <ThreadLoadingSkeleton selectedRobot={selectedRobot} selectedSessionTitle={selectedSessionTitle} /> : null}
       {selectedRobot ? (
         messages.length > 0 ? (
           <div className="space-y-4">
@@ -207,7 +272,7 @@ export function MessageThread({
                 {selectedSessionTitle ? `查看会话：${selectedSessionTitle}` : `开始和 ${selectedRobot.displayName} 对话`}
               </div>
               <div className="mt-3 text-sm leading-7 text-slate-500">
-                {emptyNotice ?? "消息页不会走自动路由，你发送的每一条消息都会直达当前机器人。如果这个机器人绑定了 skill 多步协议，下面的对话区也会按步骤继续执行。"}
+                {emptyNotice ?? "消息页不会自动路由；你发送的每一条消息都会直接发给当前机器人。若它绑定了多步 Skill 协作，也会在本会话中继续执行。"}
               </div>
             </div>
           </div>
@@ -222,7 +287,7 @@ export function MessageThread({
               先选择一个机器人
             </div>
             <div className="mt-3 text-sm leading-7 text-slate-500">
-              左侧列表会展示当前实例里真实存在的 agent 绑定，选择后就可以直接进入会话详情。
+              左侧列表展示当前实例下真实可用的 Agent，选中后即可进入对应会话详情。
             </div>
           </div>
         </div>

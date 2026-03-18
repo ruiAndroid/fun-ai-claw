@@ -2,7 +2,6 @@
 
 import { Bot, Plug, RotateCcw, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatRobotSubtitle } from "./messages-data";
 import type { MessageRobotTarget } from "./messages-types";
 
 export function MessageTopbar({
@@ -44,8 +43,8 @@ export function MessageTopbar({
               </div>
               <div className="truncate text-sm text-slate-500">
                 {selectedRobot
-                  ? formatRobotSubtitle(selectedRobot) || selectedRobot.agentId
-                  : "消息页只会把会话发往你当前选中的 agent。"}
+                  ? "已为你准备好，直接开始对话吧"
+                  : "选择一个机器人后，就可以开始对话"}
               </div>
             </div>
           </div>
@@ -63,7 +62,7 @@ export function MessageTopbar({
             )}
           >
             {connected ? <Wifi size={16} /> : <WifiOff size={16} />}
-            {connected ? "会话已连接" : connecting ? "连接中" : "未连接"}
+            {connected ? "对话中" : connecting ? "准备中" : "待开始"}
           </div>
 
           <button
@@ -72,7 +71,7 @@ export function MessageTopbar({
             className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(81,38,145,0.1)]"
           >
             <RotateCcw size={16} className={cn(loading && "animate-spin")} />
-            刷新机器人
+            刷新列表
           </button>
 
           <button
@@ -80,7 +79,7 @@ export function MessageTopbar({
             onClick={onNewSession}
             className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(139,61,255,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(139,61,255,0.24)]"
           >
-            新会话
+            新对话
           </button>
 
           {connected ? (
@@ -90,7 +89,7 @@ export function MessageTopbar({
               className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(244,63,94,0.12)]"
             >
               <Plug size={16} />
-              断开连接
+              暂停对话
             </button>
           ) : (
             <button
@@ -100,7 +99,7 @@ export function MessageTopbar({
               className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(139,61,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
             >
               <Wifi size={16} />
-              {hasConversation ? "重连会话" : "建立连接"}
+              {hasConversation ? "继续对话" : "开始对话"}
             </button>
           )}
         </div>

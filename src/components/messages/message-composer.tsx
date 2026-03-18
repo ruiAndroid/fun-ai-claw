@@ -39,16 +39,16 @@ export function MessageComposer({
 }) {
   const disabled = !selectedRobot?.isAvailable || connecting || viewOnly;
   const placeholder = !selectedRobot
-    ? "请先从左侧选择机器人"
+    ? "先选择一个机器人，再开始对话"
     : !selectedRobot.isAvailable
-      ? "当前机器人未运行，暂时无法发送消息"
+      ? "这个机器人暂时不可用，请稍后再试"
       : viewOnly
-        ? viewOnlyHint ?? "当前选中的是其他会话，本版先支持查看；继续聊天请切回当前会话或新建会话"
+        ? viewOnlyHint ?? "当前正在查看历史对话，切回当前对话后可继续聊天"
       : interactionDraft
         ? `请输入你对「${formatInteractionDraftLabel(interactionDraft.stateId)}」的修改意见`
-        : connected
-          ? "继续给当前机器人发送消息，Enter 发送，Shift + Enter 换行"
-          : "输入消息后会自动建立会话连接，Enter 发送，Shift + Enter 换行";
+      : connected
+          ? "继续输入你的想法，Enter 发送，Shift + Enter 换行"
+          : "输入你的想法后即可开始对话，Enter 发送，Shift + Enter 换行";
 
   return (
     <div className="border-t border-slate-200/80 bg-white/88 px-5 py-4 backdrop-blur-xl sm:px-6">

@@ -41,8 +41,6 @@ export function LoginForm() {
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [debugCode, setDebugCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (countdown <= 0) {
@@ -67,14 +65,11 @@ export function LoginForm() {
   }, [countdown, sending]);
 
   const handleSendCode = useCallback(async () => {
-    setError(null);
-    setDebugCode(null);
-
     const normalizedPhone = normalizePhoneInput(phone);
     setPhone(normalizedPhone);
 
     if (!isPhoneValid(normalizedPhone)) {
-      setError("请输入正确的 11 位手机号");
+      void messageApi.warning("请输入正确的 11 位手机号");
       return;
     }
 
@@ -93,23 +88,22 @@ export function LoginForm() {
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      setError(null);
 
       const normalizedPhone = normalizePhoneInput(phone);
       setPhone(normalizedPhone);
 
       if (!isPhoneValid(normalizedPhone)) {
-        setError("请输入正确的 11 位手机号");
+        void messageApi.warning("请输入正确的 11 位手机号");
         return;
       }
 
       if (!/^\d{6}$/.test(code.trim())) {
-        setError("请输入 6 位验证码");
+        void messageApi.warning("请输入 6 位验证码");
         return;
       }
 
       if (!agreed) {
-        setError("请先阅读并同意协议");
+        void messageApi.warning("请先阅读并同意协议");
         return;
       }
 
@@ -122,12 +116,12 @@ export function LoginForm() {
         });
         router.replace("/me");
       } catch (requestError) {
-        setError(extractErrorMessage(requestError));
+        void messageApi.error(extractErrorMessage(requestError));
       } finally {
         setVerifying(false);
       }
     },
-    [agreed, code, inviteCode, phone, router]
+    [agreed, code, inviteCode, messageApi, phone, router]
   );
 
   return (
@@ -187,21 +181,6 @@ export function LoginForm() {
               className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium uppercase text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
-
-          {(error || debugCode) && (
-            <div className="space-y-3">
-              {error ? (
-                <div className="rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
-                  {error}
-                </div>
-              ) : null}
-              {debugCode ? (
-                <div className="rounded-[18px] border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700">
-                  当前环境返回了调试验证码：{debugCode}
-                </div>
-              ) : null}
-            </div>
-          )}
 
           <button
             type="submit"

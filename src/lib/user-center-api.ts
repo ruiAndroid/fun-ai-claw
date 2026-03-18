@@ -26,6 +26,10 @@ const USER_CENTER_REQUEST_TIMEOUT_MS = 8000;
 let accessTokenMemoryCache: string | null = null;
 let refreshPromise: Promise<UserCenterAuthResponse> | null = null;
 
+function isUserCenterSuccessCode(code?: number | null) {
+  return typeof code !== "number" || code === 0 || code === 200;
+}
+
 function requireUserCenterBaseUrl(): string {
   if (!USER_CENTER_BASE_URL) {
     throw new Error("未配置用户中心地址，请设置 NEXT_PUBLIC_USER_CENTER_BASE_URL");
@@ -191,7 +195,7 @@ async function buildRequestError(response: Response): Promise<Error> {
         || parsed.error?.trim()
         || parsed.msg?.trim()
         || detail;
-      if (typeof parsed.code === "number" && parsed.code !== 0) {
+      if (!isUserCenterSuccessCode(parsed.code)) {
         detail = `${detail} (code: ${parsed.code})`;
       }
     } catch {
@@ -252,7 +256,7 @@ async function requestEnvelope<T>(path: string, init?: RequestInit): Promise<Use
   }
 
   const payload = (await response.json()) as UserCenterApiEnvelope<T>;
-  if (typeof payload?.code === "number" && payload.code !== 0) {
+  if (!isUserCenterSuccessCode(payload?.code)) {
     throw new Error(payload.msg?.trim() || `用户中心请求失败 (code: ${payload.code})`);
   }
   return payload;

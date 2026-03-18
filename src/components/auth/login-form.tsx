@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { message } from "antd";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   sendUserCenterSmsCode,
@@ -18,12 +19,21 @@ function extractErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "请求失败，请稍后重试";
 }
 
+function resolveSmsSentToastMessage(rawMessage?: string | null) {
+  const normalized = rawMessage?.trim();
+  if (!normalized || /^success$/i.test(normalized) || /^ok$/i.test(normalized)) {
+    return "验证码已发送，请注意查收短信";
+  }
+  return normalized;
+}
+
 function isPhoneValid(phone: string) {
   return /^1[3-9]\d{9}$/.test(phone);
 }
 
 export function LoginForm() {
   const router = useRouter();
+  const [messageApi, contextHolder] = message.useMessage();
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -32,7 +42,6 @@ export function LoginForm() {
   const [verifying, setVerifying] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [debugCode, setDebugCode] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,7 +58,7 @@ export function LoginForm() {
 
   const sendButtonLabel = useMemo(() => {
     if (sending) {
-      return "发送中…";
+      return "发送中...";
     }
     if (countdown > 0) {
       return `${countdown}s 后重试`;
@@ -59,7 +68,6 @@ export function LoginForm() {
 
   const handleSendCode = useCallback(async () => {
     setError(null);
-    setNotice(null);
     setDebugCode(null);
 
     const normalizedPhone = normalizePhoneInput(phone);
@@ -74,20 +82,18 @@ export function LoginForm() {
     try {
       const response = await sendUserCenterSmsCode({ phone: normalizedPhone });
       setCountdown(DEFAULT_SMS_SEND_COUNTDOWN_SECONDS);
-      setNotice(response.msg?.trim() || "验证码已发送，请注意查收短信");
-      setDebugCode(null);
+      void messageApi.success(resolveSmsSentToastMessage(response.msg));
     } catch (requestError) {
-      setError(extractErrorMessage(requestError));
+      void messageApi.error(extractErrorMessage(requestError));
     } finally {
       setSending(false);
     }
-  }, [phone]);
+  }, [messageApi, phone]);
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setError(null);
-      setNotice(null);
 
       const normalizedPhone = normalizePhoneInput(phone);
       setPhone(normalizedPhone);
@@ -126,6 +132,7 @@ export function LoginForm() {
 
   return (
     <section className="rounded-[32px] border border-white/55 bg-white/48 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-10">
+      {contextHolder}
       <div className="max-w-[460px]">
         <h1 className="text-4xl font-black tracking-[-0.04em] text-slate-950 sm:text-5xl">登录</h1>
         <p className="mt-3 text-lg font-semibold text-slate-500">
@@ -142,7 +149,7 @@ export function LoginForm() {
               onChange={(event) => setPhone(normalizePhoneInput(event.target.value))}
               placeholder="请输入 11 位手机号"
               disabled={verifying}
-               className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
 
@@ -156,7 +163,7 @@ export function LoginForm() {
                 onChange={(event) => setCode(event.target.value.replace(/[^\d]/g, "").slice(0, 6))}
                 placeholder="请输入 6 位验证码"
                 disabled={verifying}
-                 className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
+                className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
               />
               <button
                 type="button"
@@ -181,13 +188,8 @@ export function LoginForm() {
             />
           </div>
 
-          {(notice || error || debugCode) && (
+          {(error || debugCode) && (
             <div className="space-y-3">
-              {notice ? (
-                <div className="rounded-[18px] border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700">
-                  {notice}
-                </div>
-              ) : null}
               {error ? (
                 <div className="rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
                   {error}
@@ -206,7 +208,7 @@ export function LoginForm() {
             disabled={verifying}
             className="h-18 w-full rounded-[22px] bg-gradient-to-r from-orange-400 via-orange-500 to-violet-500 px-6 py-4 text-xl font-black text-white shadow-[0_24px_48px_rgba(147,51,234,0.24)] transition-transform duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {verifying ? "登录中…" : "登录 / 注册"}
+            {verifying ? "登录中..." : "登录 / 注册"}
           </button>
 
           <label className="flex items-start gap-3 text-sm leading-6 text-slate-500">

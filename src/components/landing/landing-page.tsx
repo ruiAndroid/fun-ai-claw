@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import { HomepageFeatureCard } from "./homepage-feature-card";
+import { HomepageAgentSection } from "./homepage-agent-section";
 import { HomepageHero } from "./homepage-hero";
-import { primaryCards, secondaryCards } from "./homepage-data";
-import { HomepageSectionHeader } from "./homepage-section-header";
 import { HomepageSidebar } from "./homepage-sidebar";
 import { HomepageTopbar } from "./homepage-topbar";
 import { useHomepageShellData } from "./use-homepage-shell-data";
 
 export function LandingPage() {
   const {
+    authenticated,
     messagesHref,
     navItems,
     rechargeHref,
@@ -56,36 +55,7 @@ export function LandingPage() {
 
           <div className="mt-6 grid gap-6">
             <HomepageHero messagesHref={messagesHref} />
-
-            <section>
-              <HomepageSectionHeader
-                eyebrow="Primary Entry"
-                title="先把真正重要的入口做强"
-                description="聚焦机器人控制台、文档中心和 Open API 三个主入口，不展示社区与定时任务等当前不需要的模块。"
-              />
-              <div className="grid gap-6 lg:grid-cols-3">
-                {primaryCards.map((card, index) => (
-                  <HomepageFeatureCard key={card.title} card={card} index={index} />
-                ))}
-              </div>
-            </section>
-
-            <section>
-              <HomepageSectionHeader
-                eyebrow="Product Surface"
-                title="让首页承担说明、入口与转化"
-                description="首页不再堆假数据，而是展示真实的产品结构、能力入口与使用路径，让用户自然进入 FunClaw 的机器人体系。"
-              />
-              <div className="grid gap-6 lg:grid-cols-3">
-                {secondaryCards.map((card, index) => (
-                  <HomepageFeatureCard
-                    key={card.title}
-                    card={card}
-                    index={index + primaryCards.length}
-                  />
-                ))}
-              </div>
-            </section>
+            <HomepageAgentSection authenticated={authenticated} messagesHref={messagesHref} />
           </div>
         </div>
       </div>

@@ -1,9 +1,13 @@
 "use client";
 
+import { appConfig } from "@/config/app-config";
 import { getConsumerAccount, listConsumerChatSessions, listConsumerInstances } from "@/lib/consumer-api";
 import { listInstanceAgentBindings } from "@/lib/control-api";
 import { getUserCenterAuthSnapshot, isUserCenterUnauthorizedError } from "@/lib/user-center-api";
+import type { AgentBaselineSummary, ListResponse } from "@/types/contracts";
 import type { ConsumerAccount, ConsumerBoundInstance, ConsumerChatSession } from "@/types/consumer";
+
+const BASE_URL = appConfig.controlApiBaseUrl;
 
 export type HomepageRecentSessionPreview = {
   id: string;
@@ -21,6 +25,43 @@ export type HomepageShellSnapshot = {
   supportsRecentSessions: boolean;
   xiamiBalance: number | null;
 };
+
+async function buildRequestError(response: Response): Promise<Error> {
+  const body = await response.text();
+  let detail = body || response.statusText;
+
+  if (body) {
+    try {
+      const parsed = JSON.parse(body) as { message?: string; detail?: string; error?: string };
+      detail = parsed.message?.trim() || parsed.detail?.trim() || parsed.error?.trim() || detail;
+    } catch {
+      detail = body;
+    }
+  }
+
+  return new Error(`HTTP ${response.status}: ${detail}`);
+}
+
+async function requestHomepageJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await buildRequestError(response);
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function listHomepageAgents() {
+  return requestHomepageJson<ListResponse<AgentBaselineSummary>>("/app/v1/public/agents");
+}
 
 function buildRecentSessionHref(session: ConsumerChatSession) {
   const params = new URLSearchParams({

@@ -71,6 +71,14 @@ function HeroStartStep({
   );
 }
 
+type HeroStepItem = {
+  step: string;
+  title: string;
+  actionLabel: string;
+  href: string;
+  onAction?: () => void;
+};
+
 export function HomepageHero({
   messagesHref,
   authenticated,
@@ -80,11 +88,23 @@ export function HomepageHero({
   authenticated: boolean;
   onAdoptRequest?: () => void;
 }) {
-  const steps = heroStartSteps.map((item) => ({
-    ...item,
-    href: messagesHref,
-    onAction: authenticated ? onAdoptRequest : undefined,
-  }));
+  const steps: HeroStepItem[] = heroStartSteps.map((item, index) => {
+    if (index === 0) {
+      return {
+        ...item,
+        onAction: authenticated ? onAdoptRequest : undefined,
+      };
+    }
+
+    if (index === 1) {
+      return {
+        ...item,
+        href: messagesHref,
+      };
+    }
+
+    return item;
+  });
 
   return (
     <motion.section
@@ -126,8 +146,8 @@ export function HomepageHero({
             <div className="mt-3.5 flex flex-wrap items-center gap-3 sm:gap-4">
               <span className="h-[3px] w-12 rounded-full bg-white/80 sm:w-14" />
               <div className="flex flex-wrap items-center gap-2 text-[22px] font-black leading-tight tracking-[-0.05em] text-white sm:text-[34px]">
-                <span>视听行业专属机器人</span>
-                <XiamiIcon size={24} title="FunClaw" />
+                <span>视听行业专属龙虾</span>
+                <XiamiIcon size={24} title="FunClaw 龙虾" />
               </div>
             </div>
           </div>
@@ -163,7 +183,13 @@ export function HomepageHero({
               <CircleCheckBig size={16} className="text-violet-100/78" />
             </div>
 
-            <div className="mt-3 text-[17px] font-black text-white">现在让我们开始！！</div>
+            <div className="mt-3 flex items-center gap-2 text-[17px] font-black text-white">
+              <XiamiIcon size={18} title="龙虾" />
+              <span>三步领养你的龙虾</span>
+            </div>
+            <p className="mt-2 text-xs leading-6 text-white/72">
+              先领养，再命名，然后直接开始对话和创作。
+            </p>
 
             <div className="mt-4 space-y-2.5">
               {steps.map((item) => (
@@ -173,6 +199,7 @@ export function HomepageHero({
                   title={item.title}
                   actionLabel={item.actionLabel}
                   href={item.href}
+                  onAction={item.onAction}
                 />
               ))}
             </div>

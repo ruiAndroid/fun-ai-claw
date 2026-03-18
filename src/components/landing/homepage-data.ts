@@ -109,20 +109,20 @@ export const heroProofPoints = [
 export const heroStartSteps = [
   {
     step: "Step 1",
-    title: "领取属于你的专属机器人",
-    actionLabel: "一键领取",
+    title: "领养属于你的专属龙虾",
+    actionLabel: "领养龙虾",
     href: "/login",
   },
   {
     step: "Step 2",
-    title: "给你的机器人取个名字吧",
-    actionLabel: "开始",
+    title: "给你的龙虾取个名字吧",
+    actionLabel: "起个名字",
     href: "/messages",
   },
   {
     step: "Step 3",
-    title: "让我们现在开始创作之旅",
-    actionLabel: "立即前往",
+    title: "带着龙虾马上开始创作",
+    actionLabel: "开始创作",
     href: "/console",
   },
 ] as const;

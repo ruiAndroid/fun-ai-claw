@@ -23,11 +23,14 @@ const ACCESS_TOKEN_EXPIRES_AT_KEY = "fun_claw_uc_access_token_expires_at";
 const REFRESH_TOKEN_EXPIRES_AT_KEY = "fun_claw_uc_refresh_token_expires_at";
 const SESSION_KEY = "fun_claw_uc_session_key";
 const ME_KEY = "fun_claw_uc_me";
+const ME_FETCHED_AT_KEY = "fun_claw_uc_me_fetched_at";
 const USER_CENTER_REQUEST_TIMEOUT_MS = 8000;
+const USER_CENTER_ME_CACHE_TTL_MS = 30_000;
 export const USER_CENTER_AUTH_REQUIRED_EVENT = "fun-claw-user-center-auth-required";
 
 let accessTokenMemoryCache: string | null = null;
 let refreshPromise: Promise<UserCenterAuthResponse> | null = null;
+let mePromise: Promise<UserCenterMe> | null = null;
 
 function isUserCenterSuccessCode(code?: number | null) {
   return typeof code !== "number" || code === 0 || code === 200;
@@ -99,6 +102,28 @@ function getStoredMe() {
 
 export function getCachedUserCenterMe() {
   return getStoredMe();
+}
+
+function getStoredMeFetchedAt() {
+  const raw = getStoredValue(ME_FETCHED_AT_KEY);
+  if (!raw) {
+    return 0;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function setStoredMeFetchedAt(timestamp: number) {
+  setStoredValue(ME_FETCHED_AT_KEY, timestamp > 0 ? String(timestamp) : null);
+}
+
+function hasFreshCachedMe() {
+  const cachedMe = getStoredMe();
+  const fetchedAt = getStoredMeFetchedAt();
+  if (!cachedMe || fetchedAt <= 0) {
+    return false;
+  }
+  return Date.now() - fetchedAt < USER_CENTER_ME_CACHE_TTL_MS;
 }
 
 function generateSessionKey() {
@@ -183,17 +208,20 @@ function storeAuthTokens(response: UserCenterAuthResponse) {
   setStoredValue(ACCESS_TOKEN_EXPIRES_AT_KEY, response.accessTokenExpiresAt);
   setStoredValue(REFRESH_TOKEN_EXPIRES_AT_KEY, response.refreshTokenExpiresAt);
   setStoredValue(ME_KEY, JSON.stringify(response.me));
+  setStoredMeFetchedAt(Date.now());
   getOrCreateSessionKey();
 }
 
 export function clearUserCenterAuthState() {
   accessTokenMemoryCache = null;
+  mePromise = null;
   setStoredValue(ACCESS_TOKEN_KEY, null);
   setStoredValue(REFRESH_TOKEN_KEY, null);
   setStoredValue(TOKEN_TYPE_KEY, null);
   setStoredValue(ACCESS_TOKEN_EXPIRES_AT_KEY, null);
   setStoredValue(REFRESH_TOKEN_EXPIRES_AT_KEY, null);
   setStoredValue(ME_KEY, null);
+  setStoredMeFetchedAt(0);
 }
 
 export function getUserCenterAuthSnapshot(): UserCenterAuthSnapshot {
@@ -410,21 +438,34 @@ export async function getUserCenterMe() {
   const cachedMe = getStoredMe();
   const token = getAccessToken();
 
+  if (cachedMe && hasFreshCachedMe()) {
+    return cachedMe;
+  }
+
   if (!token && getRefreshToken()) {
     await refreshUserCenterToken();
   }
 
-  try {
-    const envelope = await requestAuthedEnvelope<UserCenterCurrentUserResponseData>("/auth/current-user");
-    const remoteMe = normalizeUserCenterProfile(envelope.data, cachedMe);
-    setStoredValue(ME_KEY, JSON.stringify(remoteMe));
-    return remoteMe;
-  } catch (error) {
-    if (cachedMe && !isUserCenterUnauthorizedError(error)) {
-      return cachedMe;
-    }
-    throw error;
+  if (!mePromise) {
+    mePromise = (async () => {
+      try {
+        const envelope = await requestAuthedEnvelope<UserCenterCurrentUserResponseData>("/auth/current-user");
+        const remoteMe = normalizeUserCenterProfile(envelope.data, cachedMe);
+        setStoredValue(ME_KEY, JSON.stringify(remoteMe));
+        setStoredMeFetchedAt(Date.now());
+        return remoteMe;
+      } catch (error) {
+        if (cachedMe && !isUserCenterUnauthorizedError(error)) {
+          return cachedMe;
+        }
+        throw error;
+      } finally {
+        mePromise = null;
+      }
+    })();
   }
+
+  return mePromise;
 }
 
 export async function logoutUserCenter() {

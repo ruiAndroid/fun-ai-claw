@@ -55,20 +55,23 @@ description: 外部用户中心向 funClaw 同步用户资料的接口文档
 默认使用请求头：
 
 ```http
+X-Open-App-Id: your-app-id
 X-Consumer-Sync-Secret: your-sync-secret
 Content-Type: application/json
 ```
 
-对应服务端配置：
+其中：
 
 - `CONSUMER_AUTH_SYNC_ENABLED`
-- `CONSUMER_AUTH_SYNC_SECRET`
 - `CONSUMER_AUTH_SYNC_SECRET_HEADER`
+- `APP_OPEN_AUTH_APP_ID_HEADER`（默认 `X-Open-App-Id`）
 
 说明：
 
 - 当 `CONSUMER_AUTH_SYNC_ENABLED=false` 时，接口不可用
-- 当 `CONSUMER_AUTH_SYNC_SECRET` 未配置时，接口会拒绝请求
+- `X-Open-App-Id` 对应开放平台中的应用 `app_id`
+- `X-Consumer-Sync-Secret` 对应开放平台中该应用配置的 `app_secret`
+- 服务端会根据 `app_id` 查询已启用的开放平台应用，再校验 `app_secret`
 - 如果希望使用 `Authorization` 头，也可以把 `CONSUMER_AUTH_SYNC_SECRET_HEADER` 配成 `Authorization`
 
 ## 适用场景
@@ -173,6 +176,7 @@ Content-Type: application/json
 ```bash
 curl -X POST "http://your-host/integration/v1/consumer/accounts/syncUserInfo" \
   -H "Content-Type: application/json" \
+  -H "X-Open-App-Id: your-app-id" \
   -H "X-Consumer-Sync-Secret: your-sync-secret" \
   -d '{
     "id": "12345",
@@ -196,10 +200,9 @@ curl -X POST "http://your-host/integration/v1/consumer/accounts/syncUserInfo" \
 
 ## 错误说明
 
-- `401 Unauthorized`：同步密钥错误或未传
+- `401 Unauthorized`：`X-Open-App-Id` 或同步密钥错误、未传，或对应开放平台应用未启用
 - `404 Not Found`：`syncUserInfo` 接口已被关闭
 - `400 Bad Request`：请求体缺少 `id` 等关键字段
-- `503 Service Unavailable`：服务端未配置同步密钥
 
 ## 当前限制
 

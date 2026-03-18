@@ -1,5 +1,10 @@
 import { appConfig } from "@/config/app-config";
-import { clearUserCenterAuthState, getUserCenterAuthSnapshot, getUserCenterMe } from "@/lib/user-center-api";
+import {
+  clearUserCenterAuthState,
+  getUserCenterAuthSnapshot,
+  getUserCenterMe,
+  notifyUserCenterAuthRequired,
+} from "@/lib/user-center-api";
 import type { ListResponse } from "@/types/contracts";
 import type {
   ConsumerAccount,
@@ -71,6 +76,7 @@ async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetri
   if (!response.ok) {
     if (response.status === 401) {
       clearUserCenterAuthState();
+      notifyUserCenterAuthRequired();
     }
     throw await buildRequestError(response);
   }

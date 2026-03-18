@@ -2,7 +2,7 @@
 
 import { getConsumerAccount, listConsumerChatSessions, listConsumerInstances } from "@/lib/consumer-api";
 import { listInstanceAgentBindings } from "@/lib/control-api";
-import { getUserCenterAuthSnapshot } from "@/lib/user-center-api";
+import { getUserCenterAuthSnapshot, isUserCenterUnauthorizedError } from "@/lib/user-center-api";
 import type { ConsumerAccount, ConsumerBoundInstance, ConsumerChatSession } from "@/types/consumer";
 
 export type HomepageRecentSessionPreview = {
@@ -135,6 +135,18 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
         : recentSessionsResult.status === "rejected"
           ? recentSessionsResult.reason
           : null;
+
+    if (isUserCenterUnauthorizedError(rejectedReason)) {
+      return {
+        authenticated: false,
+        account: null,
+        instances: [],
+        recentSessions: [],
+        supportsXiamiBalance: false,
+        supportsRecentSessions: false,
+        xiamiBalance: null,
+      };
+    }
 
     if (rejectedReason instanceof Error) {
       throw rejectedReason;

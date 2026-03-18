@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRequireUserCenterAuth } from "@/lib/use-require-user-center-auth";
 import { RechargeHeader } from "./recharge-header";
 import { rechargePlans, rechargeTabs, type RechargeTabKey } from "./recharge-data";
 import { RechargePlanCard } from "./recharge-plan-card";
 import { RechargeSegment } from "./recharge-segment";
 import { RechargeVoucherDialog } from "./recharge-voucher-dialog";
 
-export function RechargePage() {
+function RechargePageContent() {
   const [activeTab, setActiveTab] = useState<RechargeTabKey>("boost");
   const [selectedPlanId, setSelectedPlanId] = useState<string>(rechargePlans[1]?.id ?? rechargePlans[0]!.id);
   const [voucherOpen, setVoucherOpen] = useState(false);
@@ -80,4 +81,21 @@ export function RechargePage() {
       />
     </>
   );
+}
+
+export function RechargePage() {
+  const { checking, authenticated } = useRequireUserCenterAuth();
+
+  if (checking || !authenticated) {
+    return (
+      <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fffaf7_100%)] px-5 py-4 sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-[1200px] rounded-[28px] bg-white/70 px-8 py-12 text-center shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
+          <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">正在校验登录状态...</div>
+          <div className="mt-4 text-base font-semibold text-slate-500">未登录用户将自动跳转到登录页</div>
+        </div>
+      </main>
+    );
+  }
+
+  return <RechargePageContent />;
 }

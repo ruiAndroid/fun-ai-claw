@@ -37,9 +37,11 @@ function buildRobotTargets(instances: ClawInstance[], bindingsByInstance: Map<st
 export function useMessageRobots({
   preferredInstanceId,
   preferredAgentId,
+  enabled = true,
 }: {
   preferredInstanceId?: string;
   preferredAgentId?: string;
+  enabled?: boolean;
 } = {}) {
   const [robots, setRobots] = useState<MessageRobotTarget[]>([]);
   const [selectedRobotId, setSelectedRobotId] = useState<string>();
@@ -47,6 +49,13 @@ export function useMessageRobots({
   const [error, setError] = useState<string>();
 
   const loadRobots = useCallback(async () => {
+    if (!enabled) {
+      setRobots([]);
+      setSelectedRobotId(undefined);
+      setError(undefined);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(undefined);
     try {
@@ -71,7 +80,7 @@ export function useMessageRobots({
     } finally {
       setLoading(false);
     }
-  }, [preferredAgentId, preferredInstanceId]);
+  }, [enabled, preferredAgentId, preferredInstanceId]);
 
   useEffect(() => {
     void loadRobots();

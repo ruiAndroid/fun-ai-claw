@@ -1,10 +1,7 @@
 "use client";
 
 import { listConsumerInstances } from "@/lib/consumer-api";
-import {
-  listInstanceAgentBindings,
-  listInstances,
-} from "@/lib/control-api";
+import { listInstanceAgentBindings } from "@/lib/control-api";
 import type {
   ClawInstance,
   InstanceAgentBinding,
@@ -14,7 +11,7 @@ import type { ConsumerBoundInstance } from "@/types/consumer";
 export type MessageRobotBindingsSnapshot = {
   instances: ClawInstance[];
   bindingsByInstance: Map<string, InstanceAgentBinding[]>;
-  source: "consumer" | "control";
+  source: "consumer";
 };
 
 function mapConsumerInstanceToClawInstance(instance: ConsumerBoundInstance): ClawInstance {
@@ -61,26 +58,15 @@ async function loadConsumerRobotBindings(): Promise<MessageRobotBindingsSnapshot
   };
 }
 
-async function loadControlRobotBindings(): Promise<MessageRobotBindingsSnapshot> {
-  const instancesResponse = await listInstances();
-  const bindingsByInstance = await loadBindingsForInstances(instancesResponse.items);
-
-  return {
-    instances: instancesResponse.items,
-    bindingsByInstance,
-    source: "control",
-  };
-}
-
 export async function loadMessageRobotBindings(): Promise<MessageRobotBindingsSnapshot> {
-  try {
-    const consumerSnapshot = await loadConsumerRobotBindings();
-    if (consumerSnapshot) {
-      return consumerSnapshot;
-    }
-  } catch {
-    // Fall through to the control-api fallback for local testing.
+  const consumerSnapshot = await loadConsumerRobotBindings();
+  if (consumerSnapshot) {
+    return consumerSnapshot;
   }
 
-  return loadControlRobotBindings();
+  return {
+    instances: [],
+    bindingsByInstance: new Map(),
+    source: "consumer",
+  };
 }

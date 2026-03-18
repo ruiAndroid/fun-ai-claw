@@ -24,6 +24,7 @@ const REFRESH_TOKEN_EXPIRES_AT_KEY = "fun_claw_uc_refresh_token_expires_at";
 const SESSION_KEY = "fun_claw_uc_session_key";
 const ME_KEY = "fun_claw_uc_me";
 const USER_CENTER_REQUEST_TIMEOUT_MS = 8000;
+export const USER_CENTER_AUTH_REQUIRED_EVENT = "fun-claw-user-center-auth-required";
 
 let accessTokenMemoryCache: string | null = null;
 let refreshPromise: Promise<UserCenterAuthResponse> | null = null;
@@ -343,8 +344,23 @@ async function requestAuthedEnvelope<T>(
   return payload;
 }
 
-function isUnauthorizedError(error: unknown) {
+export function isUserCenterUnauthorizedError(error: unknown) {
+  if (typeof error === "string") {
+    return /HTTP 401|authentication failed/i.test(error);
+  }
   return error instanceof Error && /HTTP 401|authentication failed/i.test(error.message);
+}
+
+export function hasUserCenterAuthCredentials() {
+  const snapshot = getUserCenterAuthSnapshot();
+  return Boolean(snapshot.accessToken || snapshot.refreshToken);
+}
+
+export function notifyUserCenterAuthRequired() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(USER_CENTER_AUTH_REQUIRED_EVENT));
 }
 
 export async function sendUserCenterSmsCode(request: UserCenterSmsSendCodeRequest) {
@@ -385,7 +401,7 @@ export async function getUserCenterMe() {
     setStoredValue(ME_KEY, JSON.stringify(remoteMe));
     return remoteMe;
   } catch (error) {
-    if (cachedMe && !isUnauthorizedError(error)) {
+    if (cachedMe && !isUserCenterUnauthorizedError(error)) {
       return cachedMe;
     }
     throw error;

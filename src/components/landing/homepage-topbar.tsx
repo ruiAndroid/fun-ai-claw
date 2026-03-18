@@ -3,8 +3,10 @@ import { Plus } from "lucide-react";
 import { XiamiIcon } from "@/components/ui/xiami-icon";
 
 export function HomepageTopbar({
+  rechargeHref = "/login",
   xiamiBalanceLabel = "--",
 }: {
+  rechargeHref?: string;
   xiamiBalanceLabel?: string | number | null;
 }) {
   return (
@@ -29,7 +31,7 @@ export function HomepageTopbar({
             <span className="text-md-on-surface">虾米</span>
           </div>
           <Link
-            href="/recharge"
+            href={rechargeHref}
             className="inline-flex items-center gap-1.5 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-4 py-2 text-sm font-bold text-white shadow-[0_14px_32px_rgba(139,61,255,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(139,61,255,0.24)]"
           >
             <Plus size={14} />

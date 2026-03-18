@@ -11,7 +11,9 @@ import { useHomepageShellData } from "./use-homepage-shell-data";
 
 export function LandingPage() {
   const {
+    messagesHref,
     navItems,
+    rechargeHref,
     sidebarMessages,
     messageEmptyText,
     userCard,
@@ -42,6 +44,7 @@ export function LandingPage() {
 
       <div className="relative mx-auto flex min-h-screen max-w-[1920px] items-start">
         <HomepageSidebar
+          messagesHref={messagesHref}
           navItems={navItems}
           messages={sidebarMessages}
           messageEmptyText={messageEmptyText}
@@ -49,10 +52,10 @@ export function LandingPage() {
         />
 
         <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8 lg:py-6 xl:px-10">
-          <HomepageTopbar xiamiBalanceLabel={xiamiBalanceLabel} />
+          <HomepageTopbar rechargeHref={rechargeHref} xiamiBalanceLabel={xiamiBalanceLabel} />
 
           <div className="mt-6 grid gap-6">
-            <HomepageHero />
+            <HomepageHero messagesHref={messagesHref} />
 
             <section>
               <HomepageSectionHeader

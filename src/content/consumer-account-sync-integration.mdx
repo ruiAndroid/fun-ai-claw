@@ -1,4 +1,4 @@
----
+﻿---
 title: 用户中心 syncUserInfo 接口
 description: 外部用户中心向 funClaw 同步用户资料的接口文档
 ---
@@ -13,6 +13,7 @@ description: 外部用户中心向 funClaw 同步用户资料的接口文档
 - 该接口不负责聊天、实例绑定或积分扣减
 - 该接口当前由 funClaw API 提供，不属于 `/open/v1/**`
 - 对外推荐将该接口名称统一称为 `syncUserInfo`
+- `integration/v1` 命名空间下的接口，后续统一采用标准响应结构：`code` / `msg` / `requestId` / `data`
 
 ## 基础信息
 
@@ -171,34 +172,41 @@ Content-Type: application/json
 
 ```json
 {
-  "created": true,
-  "account": {
-    "accountId": "11111111-1111-1111-1111-111111111111",
-    "externalUserId": "12345",
-    "externalUid": "u_12345",
-    "sourceSystem": "user-center",
-    "phoneE164": "13800138000",
-    "phoneMasked": "13800138000",
-    "displayName": "张三",
-    "avatarUrl": "https://example.com/avatar.png",
-    "status": "ACTIVE",
-    "externalCreatedAt": "2026-03-01T08:00:00Z",
-    "linkedAt": "2026-03-18T10:31:00Z",
-    "updatedAt": "2026-03-18T10:31:00Z",
-    "lastLoginAt": "2026-03-18T10:30:00Z",
-    "lastVerifiedAt": "2026-03-18T10:31:00Z",
-    "activeSessionCount": 0,
-    "activeInstanceCount": 0
+  "code": 200,
+  "msg": "success",
+  "requestId": "f4dc9e9c-0f80-4d34-8c0f-ef29fd7a4b7f",
+  "data": {
+    "created": true,
+    "account": {
+      "accountId": "11111111-1111-1111-1111-111111111111",
+      "externalUserId": "12345",
+      "externalUid": "u_12345",
+      "sourceSystem": "user-center",
+      "phoneE164": "13800138000",
+      "phoneMasked": "13800138000",
+      "displayName": "张三",
+      "avatarUrl": "https://example.com/avatar.png",
+      "status": "ACTIVE",
+      "externalCreatedAt": "2026-03-01T08:00:00Z",
+      "linkedAt": "2026-03-18T10:31:00Z",
+      "updatedAt": "2026-03-18T10:31:00Z",
+      "lastLoginAt": "2026-03-18T10:30:00Z",
+      "lastVerifiedAt": "2026-03-18T10:31:00Z",
+      "activeSessionCount": 0,
+      "activeInstanceCount": 0
+    }
   }
 }
 ```
 
 ### 响应字段说明
 
-- `created=true`：表示本次同步新建了本地账户
-- `created=false`：表示本次同步命中了已有账户，并更新了资料快照
-- `account`：返回 funClaw 当前保存的本地账户视图
-
+- `code`：业务状态码；当前成功固定返回 `200`
+- `msg`：状态说明；成功时固定返回 `success`
+- `requestId`：请求追踪 ID，建议在联调与排障时记录
+- `data.created=true`：表示本次同步新建了本地账户
+- `data.created=false`：表示本次同步命中了已有账户，并更新了资料快照
+- `data.account`：返回 funClaw 当前保存的本地账户视图
 ## 幂等性
 
 该接口按 `external_user_id` 幂等：
@@ -249,6 +257,8 @@ curl -X POST "http://your-host/integration/v1/consumer/accounts/syncUserInfo" \
 
 ## 错误说明
 
+错误时也会返回统一结构：`code` / `msg` / `requestId` / `data`，其中 `data` 为 `null`。
+
 - `401 Unauthorized`：`X-Open-App-Id` 或同步密钥错误、未传，或对应开放平台应用未启用
 - `404 Not Found`：`syncUserInfo` 接口已被关闭
 - `400 Bad Request`：请求体缺少 `id` 等关键字段
@@ -296,3 +306,4 @@ curl -X POST "http://your-host/integration/v1/consumer/accounts/syncUserInfo" \
 - `phone` 目前直接写入本地手机号字段，未额外做脱敏
 - `createdAt` / `lastLogin` 当前推荐使用 ISO-8601；格式不合法时会被忽略
 - 本地 `consumer_account.source_system` 当前固定为 `user-center`
+

@@ -39,6 +39,10 @@ export function useHomepageShellData() {
     void loadData();
   }, [loadData]);
 
+  const authenticated = Boolean(snapshot?.authenticated);
+  const messagesHref = authenticated ? "/messages" : "/login";
+  const rechargeHref = authenticated ? "/recharge" : "/login";
+
   const userCard = useMemo<HomepageUserCard>(() => {
     if (error) {
       return {
@@ -109,6 +113,9 @@ export function useHomepageShellData() {
   }, [snapshot]);
 
   return {
+    authenticated,
+    messagesHref,
+    rechargeHref,
     navItems,
     sidebarMessages,
     messageEmptyText,

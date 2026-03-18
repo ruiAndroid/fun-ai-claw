@@ -59,7 +59,17 @@ function HeroStartStep({
   );
 }
 
-export function HomepageHero() {
+export function HomepageHero({
+  messagesHref,
+}: {
+  messagesHref: string;
+}) {
+  const steps = heroStartSteps.map((item, index) => (
+    index === 1
+      ? { ...item, href: messagesHref }
+      : item
+  ));
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 24 }}
@@ -140,7 +150,7 @@ export function HomepageHero() {
             <div className="mt-3 text-[17px] font-black text-white">现在让我们开始！！</div>
 
             <div className="mt-4 space-y-2.5">
-              {heroStartSteps.map((item) => (
+              {steps.map((item) => (
                 <HeroStartStep
                   key={item.step}
                   step={item.step}

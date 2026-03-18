@@ -12,6 +12,7 @@ description: 面向第三方开发者的 /open/v1 接口文档
 - REST Base: `/open/v1`
 - WebSocket: `/open/v1/agent-session/ws`
 - 会话模式：先创建会话，再通过 WebSocket 收发消息
+- REST 成功响应统一返回：`code` / `msg` / `requestId` / `data`
 
 ## 会话模式说明
 
@@ -86,18 +87,23 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 
 ```json
 {
-  "sessionId": "11111111-1111-1111-1111-111111111111",
-  "appId": "partner-web",
-  "instanceId": "00000000-0000-0000-0000-000000000000",
-  "agentId": "mgc-novel-to-script",
-  "externalSessionKey": "biz-session-001",
-  "status": "ACTIVE",
-  "websocketPath": "/open/v1/agent-session/ws?sessionId=11111111-1111-1111-1111-111111111111&wsToken=...",
-  "websocketToken": "...",
-  "websocketTokenExpiresAt": "2026-03-11T03:00:00Z",
-  "createdAt": "2026-03-10T03:00:00Z",
-  "updatedAt": "2026-03-10T03:00:00Z",
-  "lastMessageAt": null
+  "code": 200,
+  "msg": "success",
+  "requestId": "2d8d52fa-fb42-4eb5-91a0-7e7db26d0a8f",
+  "data": {
+    "sessionId": "11111111-1111-1111-1111-111111111111",
+    "appId": "partner-web",
+    "instanceId": "00000000-0000-0000-0000-000000000000",
+    "agentId": "mgc-novel-to-script",
+    "externalSessionKey": "biz-session-001",
+    "status": "ACTIVE",
+    "websocketPath": "/open/v1/agent-session/ws?sessionId=11111111-1111-1111-1111-111111111111&wsToken=...",
+    "websocketToken": "...",
+    "websocketTokenExpiresAt": "2026-03-11T03:00:00Z",
+    "createdAt": "2026-03-10T03:00:00Z",
+    "updatedAt": "2026-03-10T03:00:00Z",
+    "lastMessageAt": null
+  }
 }
 ```
 
@@ -112,7 +118,7 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 - 方法：`GET /open/v1/sessions/{sessionId}`
 - 用途：查询会话状态与基本信息
 
-响应字段与创建会话基本一致，但 `websocketToken` 一般为空。
+响应字段与创建会话基本一致，但位于 `data` 下，且 `websocketToken` 一般为空。
 
 ### 3. 查询历史消息
 
@@ -127,26 +133,31 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 
 ```json
 {
-  "items": [
-    {
-      "id": "22222222-2222-2222-2222-222222222222",
-      "sessionId": "11111111-1111-1111-1111-111111111111",
-      "eventType": "message",
-      "role": "assistant",
-      "content": "# 输入解析\n...",
-      "thinkingContent": null,
-      "interaction": {
-        "version": "1.0",
-        "type": "approval_request"
-      },
-      "providerMessageId": "msg-001",
-      "providerSequence": 1,
-      "pending": false,
-      "emittedAt": "2026-03-10T03:05:00Z",
-      "createdAt": "2026-03-10T03:05:00Z",
-      "rawPayload": "{...}"
-    }
-  ]
+  "code": 200,
+  "msg": "success",
+  "requestId": "dfc2a700-3d18-48ce-9f45-9960a192f332",
+  "data": {
+    "items": [
+      {
+        "id": "22222222-2222-2222-2222-222222222222",
+        "sessionId": "11111111-1111-1111-1111-111111111111",
+        "eventType": "message",
+        "role": "assistant",
+        "content": "# 输入解析\n...",
+        "thinkingContent": null,
+        "interaction": {
+          "version": "1.0",
+          "type": "approval_request"
+        },
+        "providerMessageId": "msg-001",
+        "providerSequence": 1,
+        "pending": false,
+        "emittedAt": "2026-03-10T03:05:00Z",
+        "createdAt": "2026-03-10T03:05:00Z",
+        "rawPayload": "{...}"
+      }
+    ]
+  }
 }
 ```
 
@@ -161,7 +172,7 @@ WebSocket 不使用自定义请求头，而是使用创建会话时返回的：
 - 方法：`POST /open/v1/sessions/{sessionId}/close`
 - 用途：主动结束会话
 
-响应仍返回会话对象，`status` 会变为 `CLOSED`。
+响应仍返回标准 envelope，实际会话对象位于 `data` 中，`status` 会变为 `CLOSED`。
 
 ## 调试示例
 
@@ -422,7 +433,8 @@ const sessionResp = await fetch('/open/v1/sessions', {
   }),
 });
 
-const session = await sessionResp.json();
+const sessionEnvelope = await sessionResp.json();
+const session = sessionEnvelope.data;
 const wsBase = location.origin.replace(/^http/i, 'ws');
 const socket = new WebSocket(`${wsBase}${session.websocketPath}`);
 
@@ -447,6 +459,8 @@ socket.onmessage = (event) => {
 ```
 
 ## 错误与限制
+
+错误响应也统一返回：`code` / `msg` / `requestId` / `data`，其中 `data = null`。
 
 - `400`: 参数缺失或格式错误
 - `401`: `appId/appSecret` 不合法，或 `wsToken` 无效/过期

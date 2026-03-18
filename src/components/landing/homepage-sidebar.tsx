@@ -159,11 +159,13 @@ function SidebarUserCard({
 }
 
 export function HomepageSidebar({
+  messagesHref,
   navItems,
   messages,
   messageEmptyText,
   userCard,
 }: {
+  messagesHref: string;
   navItems: SidebarNavItem[];
   messages: SidebarMessageItem[];
   messageEmptyText: string;
@@ -213,7 +215,7 @@ export function HomepageSidebar({
         {isSidebarCollapsed ? (
           <div className="flex h-full flex-col items-center gap-3 overflow-hidden">
             <Link
-              href="/messages"
+              href={messagesHref}
               className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
               aria-label="消息"
             >
@@ -239,7 +241,7 @@ export function HomepageSidebar({
             <div className="min-h-0 flex-1 pr-1">
               <div className="flex items-center gap-2">
                 <Link
-                  href="/messages"
+                  href={messagesHref}
                   className="flex flex-1 items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-bold text-md-on-surface transition-all duration-300 hover:bg-white/78 hover:shadow-[0_12px_26px_rgba(81,38,145,0.08)]"
                   aria-label="消息"
                 >

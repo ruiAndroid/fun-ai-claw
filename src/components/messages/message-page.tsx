@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -9,6 +9,7 @@ import { MessageThread } from "./message-thread";
 import { MessageTopbar } from "./message-topbar";
 import { useMessageRobots } from "./use-message-robots";
 import { useMessageSession } from "./use-message-session";
+import { useMessageSessionActivity } from "./use-message-session-activity";
 import { useMessageSessionList } from "./use-message-session-list";
 
 export function MessagePage() {
@@ -35,6 +36,8 @@ export function MessagePage() {
     preferredSessionId,
   });
 
+  const sessionActivity = useMessageSessionActivity();
+
   const session = useMessageSession({
     selectedRobot,
     selectedSession: sessionList.selectedSession,
@@ -45,17 +48,62 @@ export function MessagePage() {
   const panelSessions = useMemo(
     () => sessionList.sessionItems.map((item) => {
       const isCurrent = item.sessionId === session.currentSessionId;
-      const connected = session.connected && isCurrent;
+      const remoteConnected = Boolean(item.remoteConnected);
+      const generating = Boolean(item.generating) || (isCurrent && session.pendingResponse);
+      const connected = (session.connected && isCurrent) || remoteConnected;
+
+      let statusLabel = "待开始";
+      if (item.status === "CLOSED") {
+        statusLabel = "已关闭";
+      } else if (generating) {
+        statusLabel = "思考中";
+      } else if (session.connected && isCurrent) {
+        statusLabel = "对话中";
+      } else if (remoteConnected) {
+        statusLabel = "后台在线";
+      }
 
       return {
         ...item,
         isCurrent,
         connected,
-        statusLabel: connected ? "连接中" : item.status === "ACTIVE" ? "活跃" : "已关闭",
+        remoteConnected,
+        generating,
+        statusLabel,
       };
     }),
-    [session.connected, session.currentSessionId, sessionList.sessionItems],
+    [session.connected, session.currentSessionId, session.pendingResponse, sessionList.sessionItems],
   );
+
+  const activityByRobotId = useMemo(() => {
+    const next = { ...sessionActivity.activityByRobotId };
+    if (!selectedRobotId) {
+      return next;
+    }
+
+    const current = next[selectedRobotId] ?? {
+      activeSessionCount: 0,
+      connectedSessionCount: 0,
+      generatingSessionCount: 0,
+    };
+
+    next[selectedRobotId] = {
+      activeSessionCount: Math.max(
+        current.activeSessionCount,
+        sessionList.sessionItems.filter((item) => item.status === "ACTIVE").length,
+      ),
+      connectedSessionCount: Math.max(current.connectedSessionCount, session.connected ? 1 : 0),
+      generatingSessionCount: Math.max(current.generatingSessionCount, session.pendingResponse ? 1 : 0),
+    };
+
+    return next;
+  }, [
+    selectedRobotId,
+    session.connected,
+    session.pendingResponse,
+    sessionActivity.activityByRobotId,
+    sessionList.sessionItems,
+  ]);
 
   const selectedSession = useMemo(
     () => panelSessions.find((item) => item.sessionId === sessionList.selectedSessionId),
@@ -66,16 +114,17 @@ export function MessagePage() {
   const threadEmptyNotice = viewOnly
     ? "当前会话已关闭，可以查看历史记录；如需继续聊天，请新建一个会话。"
     : !selectedSession
-      ? "当前 Agent 还没有会话，点击“新会话”或直接发送第一条消息即可开始。"
+      ? "当前机器人还没有会话，点击“新会话”或直接发送第一条消息即可开始。"
       : undefined;
 
   const handleCreateSession = useCallback(async () => {
     try {
       await sessionList.createSession();
+      await sessionActivity.refreshActivity();
     } catch (createError) {
       session.setError(createError instanceof Error ? createError.message : "创建会话失败");
     }
-  }, [session, sessionList]);
+  }, [session, sessionActivity, sessionList]);
 
   const handleCloseSession = useCallback(async (sessionId: string) => {
     try {
@@ -83,10 +132,11 @@ export function MessagePage() {
         session.disconnect(true);
       }
       await sessionList.closeSession(sessionId);
+      await sessionActivity.refreshActivity();
     } catch (closeError) {
       session.setError(closeError instanceof Error ? closeError.message : "关闭会话失败");
     }
-  }, [session, sessionList]);
+  }, [session, sessionActivity, sessionList]);
 
   const handleDeleteSession = useCallback(async (sessionId: string) => {
     try {
@@ -94,10 +144,11 @@ export function MessagePage() {
         session.disconnect(true);
       }
       await sessionList.deleteSession(sessionId);
+      await sessionActivity.refreshActivity();
     } catch (deleteError) {
       session.setError(deleteError instanceof Error ? deleteError.message : "删除会话失败");
     }
-  }, [session, sessionList]);
+  }, [session, sessionActivity, sessionList]);
 
   useEffect(() => {
     const previousHtmlOverflow = document.documentElement.style.overflow;
@@ -120,8 +171,11 @@ export function MessagePage() {
           selectedRobotId={selectedRobotId}
           loading={loading}
           error={robotsError}
+          activityByRobotId={activityByRobotId}
           onSelect={setSelectedRobotId}
-          onRefresh={() => void refresh()}
+          onRefresh={() => {
+            void Promise.allSettled([refresh(), sessionActivity.refreshActivity()]);
+          }}
         />
 
         <section className="flex min-h-0 flex-col gap-4">
@@ -133,7 +187,9 @@ export function MessagePage() {
             notice={session.notice}
             error={session.error ?? sessionList.error}
             hasConversation={session.hasConversation}
-            onRefreshRobots={() => void refresh()}
+            onRefreshRobots={() => {
+              void Promise.allSettled([refresh(), sessionList.refresh(), sessionActivity.refreshActivity()]);
+            }}
             onReconnect={() => {
               void session.reconnect();
             }}
@@ -187,7 +243,9 @@ export function MessagePage() {
             loading={sessionList.loading}
             error={sessionList.error}
             onSelect={sessionList.setSelectedSessionId}
-            onRefresh={() => void sessionList.refresh()}
+            onRefresh={() => {
+              void Promise.allSettled([sessionList.refresh(), sessionActivity.refreshActivity()]);
+            }}
             onClose={(sessionId) => {
               void handleCloseSession(sessionId);
             }}

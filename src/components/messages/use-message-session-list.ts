@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -21,6 +21,8 @@ export type MessageSessionListItem = {
   updatedAt?: string;
   messageCount?: number;
   connected?: boolean;
+  remoteConnected?: boolean;
+  generating?: boolean;
   hasTranscript: boolean;
   isCurrent: boolean;
   canClose: boolean;
@@ -40,7 +42,7 @@ function buildSessionSubtitle(item: ConsumerChatSession) {
 }
 
 function buildStatusLabel(status: string) {
-  return status === "ACTIVE" ? "活跃" : "已关闭";
+  return status === "ACTIVE" ? "待开始" : "已关闭";
 }
 
 function toSessionListItem(item: ConsumerChatSession, index: number): MessageSessionListItem {
@@ -49,12 +51,14 @@ function toSessionListItem(item: ConsumerChatSession, index: number): MessageSes
     openSessionId: item.openSessionId,
     title: buildSessionTitle(item, index),
     subtitle: buildSessionSubtitle(item),
-    sourceLabel: "Consumer Session",
+    sourceLabel: "聊天会话",
     statusLabel: buildStatusLabel(item.status),
     status: item.status,
     updatedAt: item.lastMessageAt ?? item.updatedAt,
     messageCount: item.messageCount,
-    connected: false,
+    connected: item.connected,
+    remoteConnected: item.connected,
+    generating: item.generating,
     hasTranscript: item.messageCount > 0,
     isCurrent: false,
     canClose: item.status === "ACTIVE",

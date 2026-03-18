@@ -160,6 +160,8 @@ export function useMessageSession({
   const selectedRobotIdRef = useRef<string | undefined>(undefined);
   const currentSessionIdRef = useRef<string | undefined>(undefined);
   const coreFieldsRef = useRef<AgentSessionCoreFields | undefined>(undefined);
+  const resumableSessionIdsRef = useRef<Set<string>>(new Set());
+  const manuallyPausedSessionIdsRef = useRef<Set<string>>(new Set());
 
   const resetConversationState = useCallback(() => {
     setMessages([]);
@@ -338,6 +340,14 @@ export function useMessageSession({
     if (!socket) {
       return;
     }
+    const activeSessionId = currentSessionIdRef.current;
+    if (activeSessionId) {
+      if (silent) {
+        resumableSessionIdsRef.current.add(activeSessionId);
+      } else {
+        manuallyPausedSessionIdsRef.current.add(activeSessionId);
+      }
+    }
     shouldSuppressCloseNoticeRef.current = silent;
     socketRef.current = null;
     if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
@@ -433,6 +443,8 @@ export function useMessageSession({
       setConnecting(false);
       setConnected(true);
       setNotice(undefined);
+      resumableSessionIdsRef.current.add(targetSession.sessionId);
+      manuallyPausedSessionIdsRef.current.delete(targetSession.sessionId);
       const queuedMessage = queuedMessageRef.current;
       if (queuedMessage) {
         const sent = sendNormalizedMessage(queuedMessage.normalizedMessage, queuedMessage);
@@ -674,6 +686,13 @@ export function useMessageSession({
           .map((item, index) => normalizeHistoryMessage(item, index))
           .filter((item): item is AgentChatMessage => item !== null);
         setMessages(historyMessages);
+        if (
+          selectedSession?.status === "ACTIVE"
+          && resumableSessionIdsRef.current.has(nextSessionId)
+          && !manuallyPausedSessionIdsRef.current.has(nextSessionId)
+        ) {
+          void openSocketForSession(selectedSession);
+        }
       } catch (loadError) {
         if (cancelled || currentSessionIdRef.current !== nextSessionId) {
           return;
@@ -685,7 +704,7 @@ export function useMessageSession({
     return () => {
       cancelled = true;
     };
-  }, [disconnect, resetConversationState, selectedRobot?.id, selectedSession?.sessionId]);
+  }, [disconnect, openSocketForSession, resetConversationState, selectedRobot?.id, selectedSession]);
 
   useEffect(() => () => {
     disconnect(true);

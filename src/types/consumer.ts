@@ -53,6 +53,8 @@ export interface ConsumerChatSession {
   updatedAt: string;
   lastMessageAt?: string | null;
   closedAt?: string | null;
+  connected: boolean;
+  generating: boolean;
   websocketPath?: string | null;
   websocketToken?: string | null;
   websocketTokenExpiresAt?: string | null;

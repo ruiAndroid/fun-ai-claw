@@ -1,16 +1,18 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { ArrowLeft, Bot, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatRobotStatus } from "./messages-data";
 import type { MessageRobotTarget } from "./messages-types";
+import type { MessageRobotActivity } from "./use-message-session-activity";
 
 export function MessageSidebar({
   robots,
   selectedRobotId,
   loading,
   error,
+  activityByRobotId,
   onSelect,
   onRefresh,
 }: {
@@ -18,6 +20,7 @@ export function MessageSidebar({
   selectedRobotId?: string;
   loading: boolean;
   error?: string;
+  activityByRobotId?: Record<string, MessageRobotActivity>;
   onSelect: (robotId: string) => void;
   onRefresh: () => void;
 }) {
@@ -55,7 +58,7 @@ export function MessageSidebar({
         <div>
           <div className="text-sm font-bold text-slate-950">机器人列表</div>
           <div className="text-xs text-slate-500">
-            基于实例与 agent 绑定实时生成
+            基于实例与 Agent 绑定实时生成
           </div>
         </div>
         <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -87,6 +90,9 @@ export function MessageSidebar({
           <div className="space-y-3">
             {robots.map((robot) => {
               const isSelected = robot.id === selectedRobotId;
+              const activity = activityByRobotId?.[robot.id];
+              const generatingCount = activity?.generatingSessionCount ?? 0;
+              const connectedCount = activity?.connectedSessionCount ?? 0;
 
               return (
                 <button
@@ -115,6 +121,17 @@ export function MessageSidebar({
                         <div className="truncate text-sm font-bold text-slate-950">
                           {robot.displayName}
                         </div>
+                        {generatingCount > 0 ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                            {`生成中${generatingCount > 1 ? ` ${generatingCount}` : ""}`}
+                          </span>
+                        ) : connectedCount > 0 ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-600">
+                            <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                            后台在线
+                          </span>
+                        ) : null}
                         <span
                           className={cn(
                             "inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
@@ -145,7 +162,7 @@ export function MessageSidebar({
           <div className="rounded-[26px] border border-dashed border-slate-200 bg-white/70 px-5 py-8 text-center">
             <div className="text-sm font-semibold text-slate-900">暂无可用机器人</div>
             <div className="mt-2 text-sm leading-6 text-slate-500">
-              先到控制台给实例安装并启用 agent，消息页才会显示真实机器人入口。
+              先到控制台给实例安装并启用 Agent，消息页才会显示真实机器人入口。
             </div>
           </div>
         )}

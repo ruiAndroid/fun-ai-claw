@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Clock3, MessagesSquare, Radio, RefreshCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,7 @@ export function MessageSessionPanel({
       <div className="flex items-center justify-between gap-3 px-2 py-1">
         <div>
           <div className="text-sm font-bold text-slate-950">会话列表</div>
-          <div className="text-xs text-slate-500">展示当前机器人的所有会话概览</div>
+          <div className="text-xs text-slate-500">展示当前机器人的全部会话状态</div>
         </div>
         <button
           type="button"
@@ -74,10 +74,14 @@ export function MessageSessionPanel({
                       <div
                         className={cn(
                           "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px]",
-                          session.connected ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-600",
+                          session.generating
+                            ? "bg-rose-100 text-rose-700"
+                            : session.connected
+                              ? "bg-orange-100 text-orange-700"
+                              : "bg-slate-100 text-slate-600",
                         )}
                       >
-                        {session.connected ? <Radio size={16} /> : <MessagesSquare size={16} />}
+                        {session.connected || session.generating ? <Radio size={16} /> : <MessagesSquare size={16} />}
                       </div>
 
                       <div className="min-w-0 flex-1">
@@ -96,6 +100,18 @@ export function MessageSessionPanel({
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
                             {session.sourceLabel}
                           </span>
+                          {session.generating ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-600">
+                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                              思考中
+                            </span>
+                          ) : null}
+                          {session.remoteConnected && !session.isCurrent ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-semibold text-violet-600">
+                              <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                              后台在线
+                            </span>
+                          ) : null}
                           <span>{session.statusLabel}</span>
                           {typeof session.messageCount === "number" ? (
                             <span>{session.messageCount} 条</span>
@@ -113,7 +129,7 @@ export function MessageSessionPanel({
                     </div>
                   </button>
 
-                  {(session.canClose || session.canDelete) ? (
+                  {session.canClose || session.canDelete ? (
                     <button
                       type="button"
                       disabled={deletingSessionId === session.sessionId}
@@ -139,7 +155,7 @@ export function MessageSessionPanel({
           <div className="rounded-[24px] border border-dashed border-slate-200 bg-white/72 px-5 py-8 text-center">
             <div className="text-sm font-semibold text-slate-900">暂无会话</div>
             <div className="mt-2 text-sm leading-6 text-slate-500">
-              当前机器人还没有可展示的会话，发起第一条消息后这里会出现新会话。
+              当前机器人还没有可展示的会话，发出第一条消息后这里就会出现新会话。
             </div>
           </div>
         )}

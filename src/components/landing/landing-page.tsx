@@ -20,6 +20,7 @@ export function LandingPage() {
     messageEmptyText,
     userCard,
     xiamiBalanceLabel,
+    refresh,
   } = useHomepageShellData();
 
   useEffect(() => {
@@ -70,6 +71,9 @@ export function LandingPage() {
       <HomepageRobotAdoptionModal
         open={adoptionModalOpen}
         onClose={() => setAdoptionModalOpen(false)}
+        onAdopted={() => {
+          void refresh();
+        }}
       />
     </main>
   );

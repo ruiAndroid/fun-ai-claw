@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Modal, Input, message } from "antd";
 import { CheckCircle2, LoaderCircle, Rocket, Sparkles } from "lucide-react";
 import { XiamiIcon } from "@/components/ui/xiami-icon";
@@ -21,11 +20,12 @@ function formatTemplateSubtitle(template: ConsumerRobotTemplateSummary) {
 export function HomepageRobotAdoptionModal({
   open,
   onClose,
+  onAdopted,
 }: {
   open: boolean;
   onClose: () => void;
+  onAdopted?: () => void;
 }) {
-  const router = useRouter();
   const [messageApi, contextHolder] = message.useMessage();
   const [templates, setTemplates] = useState<ConsumerRobotTemplateSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,16 +118,9 @@ export function HomepageRobotAdoptionModal({
         autoStart: true,
       });
 
-      messageApi.success("领养成功，正在带你和龙虾见面");
+      messageApi.success(`领养成功，${response.instance.name} 已启动并绑定到你的账号`);
       onClose();
-
-      const params = new URLSearchParams({
-        instanceId: response.instance.instanceId,
-      });
-      if (response.primaryAgentKey?.trim()) {
-        params.set("agentId", response.primaryAgentKey.trim());
-      }
-      router.push(`/messages?${params.toString()}`);
+      onAdopted?.();
     } catch (submitError) {
       messageApi.error(submitError instanceof Error ? submitError.message : "领养龙虾失败");
     } finally {

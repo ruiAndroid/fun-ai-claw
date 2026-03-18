@@ -97,6 +97,10 @@ function getStoredMe() {
   }
 }
 
+export function getCachedUserCenterMe() {
+  return getStoredMe();
+}
+
 function generateSessionKey() {
   if (typeof window !== "undefined" && window.crypto?.randomUUID) {
     return window.crypto.randomUUID();
@@ -339,16 +343,31 @@ async function requestAuthedEnvelope<T>(
 
   const payload = (await response.json()) as UserCenterApiEnvelope<T>;
   if (!isUserCenterSuccessCode(payload?.code)) {
-    throw new Error(payload.msg?.trim() || `用户中心请求失败 (code: ${payload.code})`);
+    const code = typeof payload?.code === "number" ? payload.code : undefined;
+    const message = payload?.msg?.trim() || `用户中心请求失败 (code: ${payload.code})`;
+
+    if ((code === 401 || code === 403) && !hasRetried && getRefreshToken()) {
+      await refreshUserCenterToken();
+      return requestAuthedEnvelope<T>(path, init, true);
+    }
+
+    if (code === 401 || code === 403) {
+      clearUserCenterAuthState();
+      notifyUserCenterAuthRequired();
+      throw new Error(`HTTP 401: ${message}`);
+    }
+
+    throw new Error(message);
   }
   return payload;
 }
 
 export function isUserCenterUnauthorizedError(error: unknown) {
   if (typeof error === "string") {
-    return /HTTP 401|authentication failed/i.test(error);
+    return /HTTP 401|authentication failed|访问令牌无效|令牌无效|令牌已过期|token invalid|token expired/i.test(error);
   }
-  return error instanceof Error && /HTTP 401|authentication failed/i.test(error.message);
+  return error instanceof Error
+    && /HTTP 401|authentication failed|访问令牌无效|令牌无效|令牌已过期|token invalid|token expired/i.test(error.message);
 }
 
 export function hasUserCenterAuthCredentials() {

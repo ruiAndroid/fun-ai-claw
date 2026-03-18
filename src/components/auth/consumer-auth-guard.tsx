@@ -3,7 +3,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { buildConsumerLoginHref, hasUserCenterSession } from "@/lib/consumer-auth-client";
-import { getUserCenterMe } from "@/lib/user-center-api";
 
 function buildCurrentPath(pathname: string, searchParams: ReturnType<typeof useSearchParams>) {
   const query = searchParams.toString();
@@ -30,30 +29,12 @@ export function ConsumerAuthGuard({
   );
 
   useEffect(() => {
-    let active = true;
-
     if (!hasUserCenterSession()) {
       router.replace(loginHref);
-      return () => {
-        active = false;
-      };
+      return;
     }
 
-    void getUserCenterMe()
-      .then(() => {
-        if (active) {
-          setReady(true);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          router.replace(loginHref);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
+    setReady(true);
   }, [loginHref, router]);
 
   if (!ready) {

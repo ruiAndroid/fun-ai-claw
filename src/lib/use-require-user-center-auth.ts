@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   clearUserCenterAuthState,
-  getUserCenterMe,
   hasUserCenterAuthCredentials,
   USER_CENTER_AUTH_REQUIRED_EVENT,
 } from "@/lib/user-center-api";
@@ -22,34 +21,13 @@ export function useRequireUserCenterAuth() {
   }, [router]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function verifyAuth() {
-      if (!hasUserCenterAuthCredentials()) {
-        if (!cancelled) {
-          redirectToLogin();
-        }
-        return;
-      }
-
-      try {
-        await getUserCenterMe();
-        if (!cancelled) {
-          setAuthenticated(true);
-          setChecking(false);
-        }
-      } catch {
-        if (!cancelled) {
-          redirectToLogin();
-        }
-      }
+    if (!hasUserCenterAuthCredentials()) {
+      redirectToLogin();
+      return;
     }
 
-    void verifyAuth();
-
-    return () => {
-      cancelled = true;
-    };
+    setAuthenticated(true);
+    setChecking(false);
   }, [redirectToLogin]);
 
   useEffect(() => {

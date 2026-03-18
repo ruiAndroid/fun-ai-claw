@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUserCenterMe, logoutUserCenter } from "@/lib/user-center-api";
+import { getCachedUserCenterMe, getUserCenterMe, hasUserCenterAuthCredentials, logoutUserCenter } from "@/lib/user-center-api";
 import type { UserCenterMe } from "@/types/user-center";
 import type { AccountTabKey } from "./account-data";
 import { AccountSidebar } from "./account-sidebar";
@@ -20,13 +20,19 @@ function isUnauthorizedError(error: unknown): boolean {
 
 export function AccountPage() {
   const router = useRouter();
+  const cachedProfile = useMemo(() => getCachedUserCenterMe(), []);
   const [activeTab, setActiveTab] = useState<AccountTabKey>("settings");
-  const [profile, setProfile] = useState<UserCenterMe | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<UserCenterMe | null>(cachedProfile);
+  const [loading, setLoading] = useState(!cachedProfile);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const loadCurrentUser = useCallback(async () => {
+    if (!hasUserCenterAuthCredentials()) {
+      router.replace("/login");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -38,13 +44,14 @@ export function AccountPage() {
         router.replace("/login");
         return;
       }
-      setProfile(null);
-      setError(extractErrorMessage(requestError));
-      setLoading(false);
+      if (!cachedProfile) {
+        setProfile(null);
+        setError(extractErrorMessage(requestError));
+      }
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [cachedProfile, router]);
 
   useEffect(() => {
     void loadCurrentUser();

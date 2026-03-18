@@ -64,11 +64,10 @@ export function HomepageHero({
 }: {
   messagesHref: string;
 }) {
-  const steps = heroStartSteps.map((item, index) => (
-    index === 1
-      ? { ...item, href: messagesHref }
-      : item
-  ));
+  const steps = heroStartSteps.map((item) => ({
+    ...item,
+    href: messagesHref,
+  }));
 
   return (
     <motion.section

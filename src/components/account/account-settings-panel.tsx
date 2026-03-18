@@ -1,4 +1,4 @@
-﻿import type { ConsumerAccount } from "@/types/consumer";
+import Image from "next/image";
 import type { UserCenterMe } from "@/types/user-center";
 
 function formatDateTime(value?: string | null) {
@@ -33,34 +33,14 @@ function formatUserStatus(status?: string | null) {
   return status;
 }
 
-function buildUserCenterRows(profile: UserCenterMe) {
+function buildUserRows(profile: UserCenterMe) {
   return [
-    { label: "用户 ID", value: profile.userId },
-    { label: "角色类型", value: profile.userType || "暂无" },
-    { label: "用户名", value: profile.nickname || "暂无" },
-    { label: "手机号", value: profile.phone || profile.phoneMasked || "暂无" },
+    { label: "昵称", value: profile.nickname || "暂无" },
+    { label: "手机号", value: profile.phoneMasked || profile.phone || "暂无" },
     { label: "邀请码", value: profile.invitationCode || "暂无" },
-    { label: "支付系统用户 ID", value: profile.payUserId || "暂无" },
+    { label: "注册时间", value: formatDateTime(profile.createdAt) },
     { label: "最后登录时间", value: formatDateTime(profile.lastLoginAt) },
     { label: "账号状态", value: formatUserStatus(profile.status) },
-  ];
-}
-
-function buildPlatformRows(localAccount?: ConsumerAccount | null) {
-  if (!localAccount) {
-    return [
-      { label: "本地档案状态", value: "暂未返回" },
-      { label: "绑定实例数", value: "--" },
-      { label: "活跃会话数", value: "--" },
-      { label: "最近同步时间", value: "--" },
-    ];
-  }
-
-  return [
-    { label: "本地档案状态", value: "已同步" },
-    { label: "绑定实例数", value: String(localAccount.activeInstanceCount) },
-    { label: "活跃会话数", value: String(localAccount.activeSessionCount) },
-    { label: "最近同步时间", value: formatDateTime(localAccount.lastVerifiedAt) },
   ];
 }
 
@@ -84,41 +64,43 @@ function InfoGrid({ rows }: { rows: Array<{ label: string; value: string }> }) {
 
 export function AccountSettingsPanel({
   profile,
-  localAccount,
 }: {
   profile: UserCenterMe;
-  localAccount?: ConsumerAccount | null;
 }) {
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <section>
-        <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">用户中心资料</h1>
+        <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">个人资料</h1>
         <div className="mt-3 text-lg font-semibold text-slate-500">
-          当前页主资料来自用户中心 `current-user` 接口。
+          在这里查看你的账号基础信息。
         </div>
-        <div className="mt-8 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
-          <InfoGrid rows={buildUserCenterRows(profile)} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-4xl font-black tracking-[-0.05em] text-slate-950">平台关联状态</h2>
-        <div className="mt-3 text-lg font-semibold text-slate-500">
-          以下数据来自本平台业务侧，仅用于展示实例绑定、会话等补充信息。
-        </div>
-        <div className="mt-8 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
-          <InfoGrid rows={buildPlatformRows(localAccount)} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-4xl font-black tracking-[-0.05em] text-slate-950">接入说明</h2>
-        <div className="mt-8 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
-          <div className="grid gap-5 text-lg font-semibold leading-8 text-slate-500">
-            <div>登录与注册由外部用户中心统一处理，本平台不再维护独立的前台账号认证逻辑。</div>
-            <div>用户中心登录成功后，会先调用本平台 `syncUserInfo` 完成本地档案同步，再返回最终登录成功。</div>
-            <div>如需切换真实用户中心，请同时配置 `NEXT_PUBLIC_USER_CENTER_BASE_URL` 和后端 `CONSUMER_AUTH_BASE_URL`。</div>
+        <div className="mt-8 flex flex-col gap-8 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
+          <div className="flex items-center gap-5">
+            {profile.avatarUrl ? (
+              <Image
+                src={profile.avatarUrl}
+                alt={profile.nickname || "用户头像"}
+                width={80}
+                height={80}
+                unoptimized
+                className="h-20 w-20 rounded-full object-cover shadow-[0_16px_36px_rgba(15,23,42,0.12)]"
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] text-3xl font-black text-white shadow-[0_16px_36px_rgba(139,61,255,0.22)]">
+                {(profile.nickname || "我").slice(0, 1)}
+              </div>
+            )}
+            <div>
+              <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">
+                {profile.nickname || "未设置昵称"}
+              </div>
+              <div className="mt-2 text-base font-semibold text-slate-500">
+                {profile.phoneMasked || profile.phone || "暂无手机号"}
+              </div>
+            </div>
           </div>
+
+          <InfoGrid rows={buildUserRows(profile)} />
         </div>
       </section>
     </div>

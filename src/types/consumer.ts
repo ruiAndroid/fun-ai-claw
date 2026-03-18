@@ -40,6 +40,32 @@ export interface ConsumerBoundInstance {
   instanceUpdatedAt: string;
 }
 
+export interface ConsumerRobotTemplateSummary {
+  templateKey: string;
+  displayName: string;
+  description?: string | null;
+  summary?: string | null;
+  imagePresetId: string;
+  agentCount: number;
+  skillCount: number;
+  primaryAgentKey?: string | null;
+  tags: string[];
+  updatedAt: string;
+}
+
+export interface CreateConsumerRobotRequest {
+  templateKey: string;
+  name: string;
+  autoStart?: boolean;
+}
+
+export interface ConsumerRobotAdoptionResponse {
+  templateKey: string;
+  templateDisplayName: string;
+  primaryAgentKey?: string | null;
+  instance: ConsumerBoundInstance;
+}
+
 export interface ConsumerChatSession {
   sessionId: string;
   instanceId: string;

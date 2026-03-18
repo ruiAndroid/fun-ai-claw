@@ -47,26 +47,26 @@ export function useHomepageShellData() {
     if (error) {
       return {
         title: "个人中心",
-        subtitle: "用户接口暂不可用，稍后重试",
+        subtitle: "用户资料暂时不可用，请稍后重试",
         href: "/me",
       };
     }
 
-    if (!snapshot?.authenticated) {
+    if (!authenticated) {
       return {
         title: "登录 / 个人中心",
-        subtitle: "登录后查看你的会话、实例与虾米",
+        subtitle: "登录后查看你的会话、实例与账号资料",
         href: "/login",
       };
     }
 
     return {
-      title: snapshot.account?.displayName?.trim() || "个人中心",
-      subtitle: snapshot.account?.phoneMasked?.trim() || "账号已登录，更多资料待接入",
+      title: snapshot?.profile?.nickname?.trim() || "个人中心",
+      subtitle: snapshot?.profile?.phoneMasked?.trim() || "账号已登录，欢迎回来",
       href: "/me",
-      avatarUrl: snapshot.account?.avatarUrl,
+      avatarUrl: snapshot?.profile?.avatarUrl,
     };
-  }, [error, snapshot]);
+  }, [authenticated, error, snapshot]);
 
   const navItems = useMemo(() => {
     const totalInstances = snapshot?.instances.length ?? 0;
@@ -74,9 +74,7 @@ export function useHomepageShellData() {
 
     return buildSidebarNavItems({
       robotCount: totalInstances,
-      robotSummary: totalInstances > 0
-        ? `运行中 ${runningInstances} / 已绑定 ${totalInstances}`
-        : undefined,
+      robotSummary: totalInstances > 0 ? `运行中 ${runningInstances} / 已绑定 ${totalInstances}` : undefined,
     });
   }, [snapshot]);
 
@@ -91,26 +89,26 @@ export function useHomepageShellData() {
 
   const messageEmptyText = useMemo(() => {
     if (error) {
-      return "最近会话接口暂不可用，稍后重试。";
+      return "最近会话暂时不可用，请稍后重试。";
     }
-    if (!snapshot?.authenticated) {
+    if (!authenticated) {
       return "登录后这里会展示你最近的会话。";
     }
-    if (!snapshot.supportsRecentSessions) {
-      return "最近会话接口暂未接入，后端就绪后这里会自动展示。";
+    if (!snapshot?.supportsRecentSessions) {
+      return "最近会话功能暂未开放。";
     }
     return "暂无最近会话。";
-  }, [error, snapshot]);
+  }, [authenticated, error, snapshot]);
 
   const xiamiBalanceLabel = useMemo(() => {
-    if (!snapshot?.authenticated) {
+    if (!authenticated) {
       return "--";
     }
-    if (!snapshot.supportsXiamiBalance) {
-      return "待接入";
+    if (!snapshot?.supportsXiamiBalance) {
+      return "待开放";
     }
     return `${snapshot.xiamiBalance ?? 0}`;
-  }, [snapshot]);
+  }, [authenticated, snapshot]);
 
   return {
     authenticated,

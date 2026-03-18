@@ -7,7 +7,6 @@ import {
 } from "@/lib/user-center-api";
 import type { ListResponse } from "@/types/contracts";
 import type {
-  ConsumerAccount,
   ConsumerBoundInstance,
   ConsumerChatSession,
   ConsumerChatSessionCreateRequest,
@@ -91,10 +90,6 @@ async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetri
   }
 
   return (await response.json()) as T;
-}
-
-export async function getConsumerAccount() {
-  return requestConsumerJson<ConsumerAccount>("/app/v1/consumer/me");
 }
 
 export async function listConsumerInstances() {

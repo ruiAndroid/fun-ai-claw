@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getConsumerAccount } from "@/lib/consumer-api";
 import { getUserCenterMe, logoutUserCenter } from "@/lib/user-center-api";
-import type { ConsumerAccount } from "@/types/consumer";
 import type { UserCenterMe } from "@/types/user-center";
 import type { AccountTabKey } from "./account-data";
 import { AccountSidebar } from "./account-sidebar";
@@ -24,16 +22,13 @@ export function AccountPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<AccountTabKey>("settings");
   const [profile, setProfile] = useState<UserCenterMe | null>(null);
-  const [localAccount, setLocalAccount] = useState<ConsumerAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const loadCurrentUser = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setNotice(null);
 
     try {
       const currentProfile = await getUserCenterMe();
@@ -44,18 +39,8 @@ export function AccountPage() {
         return;
       }
       setProfile(null);
-      setLocalAccount(null);
       setError(extractErrorMessage(requestError));
       setLoading(false);
-      return;
-    }
-
-    try {
-      const currentLocalAccount = await getConsumerAccount();
-      setLocalAccount(currentLocalAccount);
-    } catch {
-      setLocalAccount(null);
-      setNotice("用户中心资料已加载，本平台补充数据暂不可用。");
     } finally {
       setLoading(false);
     }
@@ -87,9 +72,9 @@ export function AccountPage() {
         return <AccountWorksPanel />;
       case "settings":
       default:
-        return <AccountSettingsPanel profile={profile} localAccount={localAccount} />;
+        return <AccountSettingsPanel profile={profile} />;
     }
-  }, [activeTab, localAccount, profile]);
+  }, [activeTab, profile]);
 
   if (loading) {
     return (
@@ -138,11 +123,6 @@ export function AccountPage() {
           loggingOut={loggingOut}
         />
         <section className="space-y-4 rounded-[28px] bg-white/48 px-6 py-8 sm:px-10 sm:py-10">
-          {notice ? (
-            <div className="rounded-[20px] border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-700">
-              {notice}
-            </div>
-          ) : null}
           {content}
         </section>
       </div>

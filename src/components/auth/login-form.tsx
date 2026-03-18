@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { getUserCenterMe, sendUserCenterSmsCode, verifyUserCenterSmsCode } from "@/lib/user-center-api";
+import {
+  sendUserCenterSmsCode,
+  verifyUserCenterSmsCode,
+} from "@/lib/user-center-api";
 
 const DEFAULT_SMS_SEND_COUNTDOWN_SECONDS = 60;
 
@@ -13,10 +16,6 @@ function normalizePhoneInput(value: string) {
 
 function extractErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "请求失败，请稍后重试";
-}
-
-function isUnauthorizedError(error: unknown): boolean {
-  return extractErrorMessage(error).includes("HTTP 401");
 }
 
 function isPhoneValid(phone: string) {
@@ -31,38 +30,10 @@ export function LoginForm() {
   const [agreed, setAgreed] = useState(true);
   const [sending, setSending] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [debugCode, setDebugCode] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    async function detectLogin() {
-      try {
-        await getUserCenterMe();
-        if (active) {
-          router.replace("/me");
-        }
-      } catch (requestError) {
-        if (!isUnauthorizedError(requestError)) {
-          setError(extractErrorMessage(requestError));
-        }
-      } finally {
-        if (active) {
-          setCheckingSession(false);
-        }
-      }
-    }
-
-    void detectLogin();
-
-    return () => {
-      active = false;
-    };
-  }, [router]);
 
   useEffect(() => {
     if (countdown <= 0) {
@@ -170,7 +141,7 @@ export function LoginForm() {
               value={phone}
               onChange={(event) => setPhone(normalizePhoneInput(event.target.value))}
               placeholder="请输入 11 位手机号"
-              disabled={checkingSession || verifying}
+              disabled={verifying}
                className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
@@ -184,13 +155,13 @@ export function LoginForm() {
                 value={code}
                 onChange={(event) => setCode(event.target.value.replace(/[^\d]/g, "").slice(0, 6))}
                 placeholder="请输入 6 位验证码"
-                disabled={checkingSession || verifying}
+                disabled={verifying}
                  className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
               />
               <button
                 type="button"
                 onClick={() => void handleSendCode()}
-                disabled={checkingSession || verifying || sending || countdown > 0}
+                disabled={verifying || sending || countdown > 0}
                 className="h-18 rounded-[22px] bg-violet-100 px-5 py-4 text-base font-black text-violet-800 transition-transform duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {sendButtonLabel}
@@ -205,7 +176,7 @@ export function LoginForm() {
               value={inviteCode}
               onChange={(event) => setInviteCode(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 32))}
               placeholder="内测阶段，需填写邀请码注册"
-              disabled={checkingSession || verifying}
+              disabled={verifying}
               className="h-18 w-full rounded-[22px] border border-slate-900/18 bg-white/42 px-5 py-4 text-base font-medium uppercase text-slate-900 outline-none transition-colors duration-300 placeholder:text-slate-400 focus:border-violet-400 disabled:cursor-not-allowed disabled:opacity-70"
             />
           </div>
@@ -232,10 +203,10 @@ export function LoginForm() {
 
           <button
             type="submit"
-            disabled={checkingSession || verifying}
+            disabled={verifying}
             className="h-18 w-full rounded-[22px] bg-gradient-to-r from-orange-400 via-orange-500 to-violet-500 px-6 py-4 text-xl font-black text-white shadow-[0_24px_48px_rgba(147,51,234,0.24)] transition-transform duration-300 hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {checkingSession ? "检测登录状态…" : verifying ? "登录中…" : "登录 / 注册"}
+            {verifying ? "登录中…" : "登录 / 注册"}
           </button>
 
           <label className="flex items-start gap-3 text-sm leading-6 text-slate-500">

@@ -47,6 +47,14 @@ type SessionSnapshot = {
   coreFields?: AgentSessionCoreFields;
 };
 
+const SESSION_HISTORY_TIMEOUT_MS = 12000;
+
+function isAbortLikeError(error: unknown) {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && /abort/i.test(error.name);
+}
+
 function nextLocalMessageId(sequence: React.MutableRefObject<number>, prefix: string) {
   sequence.current += 1;
   return `${prefix}-${sequence.current}`;
@@ -182,6 +190,11 @@ export function useMessageSession({
   const sessionSnapshotsRef = useRef<Map<string, SessionSnapshot>>(new Map());
   const messagesRef = useRef<AgentChatMessage[]>([]);
   const pendingResponseRef = useRef(false);
+  const historyRequestSeqRef = useRef(0);
+  const historyAbortControllerRef = useRef<AbortController | null>(null);
+  const connectAttemptSeqRef = useRef(0);
+  const connectAbortControllerRef = useRef<AbortController | null>(null);
+  const sessionSwitchTimerRef = useRef<number | null>(null);
 
   const resetConversationState = useCallback(() => {
     setMessages([]);
@@ -382,7 +395,11 @@ export function useMessageSession({
 
   const disconnect = useCallback((silent = false) => {
     const socket = socketRef.current;
+    connectAttemptSeqRef.current += 1;
+    connectAbortControllerRef.current?.abort();
+    connectAbortControllerRef.current = null;
     if (!socket) {
+      setConnecting(false);
       return;
     }
     const activeSessionId = currentSessionIdRef.current;
@@ -447,7 +464,7 @@ export function useMessageSession({
       setError("当前会话已关闭，请新建会话后再继续");
       return false;
     }
-    if (connecting) {
+    if (connecting && currentSessionIdRef.current === targetSession.sessionId) {
       return true;
     }
     if (socketRef.current?.readyState === WebSocket.OPEN && currentSessionIdRef.current === targetSession.sessionId) {
@@ -462,16 +479,38 @@ export function useMessageSession({
     setNotice(undefined);
     setCurrentSessionId(targetSession.sessionId);
     currentSessionIdRef.current = targetSession.sessionId;
+    connectAttemptSeqRef.current += 1;
+    const connectAttemptId = connectAttemptSeqRef.current;
+    const connectController = new AbortController();
+    connectAbortControllerRef.current = connectController;
 
     let connectionInfo;
     try {
-      connectionInfo = await connectConsumerChatSession(targetSession.sessionId);
+      connectionInfo = await connectConsumerChatSession(targetSession.sessionId, {
+        signal: connectController.signal,
+      });
     } catch (connectError) {
+      if (connectAbortControllerRef.current === connectController) {
+        connectAbortControllerRef.current = null;
+      }
+      if (connectController.signal.aborted || isAbortLikeError(connectError)) {
+        return false;
+      }
       setConnecting(false);
       setConnected(false);
       setError(connectError instanceof Error ? connectError.message : messagePageText.sessionConnectFailed);
       return false;
     }
+
+    if (
+      connectAbortControllerRef.current !== connectController
+      || connectController.signal.aborted
+      || connectAttemptId !== connectAttemptSeqRef.current
+      || currentSessionIdRef.current !== targetSession.sessionId
+    ) {
+      return false;
+    }
+    connectAbortControllerRef.current = null;
 
     const websocketUrl = buildMessageSessionWebSocketUrl(connectionInfo.websocketPath);
     if (!websocketUrl) {
@@ -727,6 +766,15 @@ export function useMessageSession({
       return;
     }
 
+    if (sessionSwitchTimerRef.current !== null) {
+      window.clearTimeout(sessionSwitchTimerRef.current);
+      sessionSwitchTimerRef.current = null;
+    }
+    historyAbortControllerRef.current?.abort();
+    historyAbortControllerRef.current = null;
+    historyRequestSeqRef.current += 1;
+    const historyRequestId = historyRequestSeqRef.current;
+
     setSessionLoading(Boolean(nextSessionId));
     rememberSessionSnapshot(currentSessionIdRef.current);
     disconnect(true);
@@ -748,7 +796,25 @@ export function useMessageSession({
     }
 
     let cancelled = false;
-    void (async () => {
+    sessionSwitchTimerRef.current = window.setTimeout(() => {
+      if (cancelled || historyRequestSeqRef.current !== historyRequestId) {
+        return;
+      }
+
+      const historyController = new AbortController();
+      historyAbortControllerRef.current = historyController;
+      const loadingTimeout = window.setTimeout(() => {
+        if (
+          !cancelled
+          && historyRequestSeqRef.current === historyRequestId
+          && currentSessionIdRef.current === nextSessionId
+        ) {
+          setSessionLoading(false);
+          setError("加载会话超时，请重试");
+        }
+      }, SESSION_HISTORY_TIMEOUT_MS);
+
+      void (async () => {
       try {
         const response = await listConsumerChatSessionMessages(nextSessionId, 100);
         if (cancelled || currentSessionIdRef.current !== nextSessionId) {

@@ -21,6 +21,7 @@ const ACCESS_TOKEN_EXPIRES_AT_KEY = "fun_claw_uc_access_token_expires_at";
 const REFRESH_TOKEN_EXPIRES_AT_KEY = "fun_claw_uc_refresh_token_expires_at";
 const SESSION_KEY = "fun_claw_uc_session_key";
 const ME_KEY = "fun_claw_uc_me";
+const USER_CENTER_REQUEST_TIMEOUT_MS = 8000;
 
 let accessTokenMemoryCache: string | null = null;
 let refreshPromise: Promise<UserCenterAuthResponse> | null = null;
@@ -201,15 +202,36 @@ async function buildRequestError(response: Response): Promise<Error> {
   return new Error(`HTTP ${response.status}: ${detail}`);
 }
 
+async function fetchUserCenter(path: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort();
+  }, USER_CENTER_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(`${requireUserCenterBaseUrl()}${path}`, {
+      ...init,
+      signal: controller.signal,
+      cache: "no-store",
+      credentials: "include",
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("用户中心请求超时，请稍后重试");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${requireUserCenterBaseUrl()}${path}`, {
+  const response = await fetchUserCenter(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
-    cache: "no-store",
-    credentials: "include",
   });
   if (!response.ok) {
     throw await buildRequestError(response);
@@ -218,14 +240,12 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function requestEnvelope<T>(path: string, init?: RequestInit): Promise<UserCenterApiEnvelope<T>> {
-  const response = await fetch(`${requireUserCenterBaseUrl()}${path}`, {
+  const response = await fetchUserCenter(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
-    cache: "no-store",
-    credentials: "include",
   });
   if (!response.ok) {
     throw await buildRequestError(response);
@@ -239,14 +259,12 @@ async function requestEnvelope<T>(path: string, init?: RequestInit): Promise<Use
 }
 
 async function requestVoid(path: string, init?: RequestInit): Promise<void> {
-  const response = await fetch(`${requireUserCenterBaseUrl()}${path}`, {
+  const response = await fetchUserCenter(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
-    cache: "no-store",
-    credentials: "include",
   });
   if (!response.ok) {
     throw await buildRequestError(response);
@@ -281,11 +299,9 @@ async function requestAuthedJson<T>(path: string, init?: RequestInit, hasRetried
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${requireUserCenterBaseUrl()}${path}`, {
+  const response = await fetchUserCenter(path, {
     ...init,
     headers,
-    cache: "no-store",
-    credentials: "include",
   });
 
   if (response.status === 401 && !hasRetried) {

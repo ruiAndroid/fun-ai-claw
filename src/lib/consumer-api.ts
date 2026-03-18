@@ -114,8 +114,9 @@ export async function createConsumerChatSession(request: ConsumerChatSessionCrea
   });
 }
 
-export async function connectConsumerChatSession(sessionId: string) {
+export async function connectConsumerChatSession(sessionId: string, init?: RequestInit) {
   return requestConsumerJson<ConsumerChatSession>(`/app/v1/chat/sessions/${encodeURIComponent(sessionId)}/connect`, {
+    ...init,
     method: "POST",
   });
 }
@@ -132,9 +133,10 @@ export async function deleteConsumerChatSession(sessionId: string) {
   });
 }
 
-export async function listConsumerChatSessionMessages(sessionId: string, limit?: number) {
+export async function listConsumerChatSessionMessages(sessionId: string, limit?: number, init?: RequestInit) {
   const query = typeof limit === "number" ? `?limit=${encodeURIComponent(String(limit))}` : "";
   return requestConsumerJson<ListResponse<ConsumerChatSessionMessage>>(
     `/app/v1/chat/sessions/${encodeURIComponent(sessionId)}/messages${query}`,
+    init,
   );
 }

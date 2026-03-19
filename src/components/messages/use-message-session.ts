@@ -22,7 +22,7 @@ import {
   messagePageText,
   normalizeMessageInput,
 } from "./messages-data";
-import type { MessageInteractionDraft, MessageRobotTarget } from "./messages-types";
+import type { MessageInteractionDraft, MessageRobotTarget, MessageSessionPhase } from "./messages-types";
 import type { MessageSessionListItem } from "./use-message-session-list";
 
 type QueuedMessage = {
@@ -41,6 +41,7 @@ type SendMessageOptions = {
 type SessionSnapshot = {
   messages: AgentChatMessage[];
   pendingResponse: boolean;
+  phase: MessageSessionPhase;
   coreFields?: AgentSessionCoreFields;
   historyLoaded: boolean;
 };
@@ -173,32 +174,64 @@ export function useMessageSession({
   const [connecting, setConnecting] = useState(false);
   const [connected, setConnected] = useState(false);
   const [pendingResponse, setPendingResponse] = useState(false);
+  const [sessionPhase, setSessionPhase] = useState<MessageSessionPhase>("idle");
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [interactionDraft, setInteractionDraft] = useState<MessageInteractionDraft>();
   const [currentSessionId, setCurrentSessionId] = useState<string>();
   const [sessionLoading, setSessionLoading] = useState(false);
 
-  const socketRef = useRef<WebSocket | null>(null);
-  const activeSocketSessionIdRef = useRef<string | undefined>(undefined);
+  const sessionSocketsRef = useRef<Map<string, WebSocket>>(new Map());
+  const connectingSessionIdsRef = useRef<Set<string>>(new Set());
   const suppressedSocketClosuresRef = useRef<WeakSet<WebSocket>>(new WeakSet());
-  const queuedMessageRef = useRef<QueuedMessage | null>(null);
+  const queuedMessagesRef = useRef<Map<string, QueuedMessage[]>>(new Map());
   const inputComposingRef = useRef(false);
   const rawLineBuffersRef = useRef<Map<string, string>>(new Map());
   const rawAssistantMessageIdsRef = useRef<Map<string, string | undefined>>(new Map());
   const localMessageSeqRef = useRef(0);
   const selectedRobotIdRef = useRef<string | undefined>(undefined);
+  const selectedSessionRef = useRef<MessageSessionListItem | undefined>(undefined);
   const currentSessionIdRef = useRef<string | undefined>(undefined);
   const coreFieldsRef = useRef<AgentSessionCoreFields | undefined>(undefined);
   const historyLoadedRef = useRef(false);
   const messagesRef = useRef<AgentChatMessage[]>([]);
   const pendingResponseRef = useRef(false);
+  const sessionPhaseRef = useRef<MessageSessionPhase>("idle");
   const resumableSessionIdsRef = useRef<Set<string>>(new Set());
   const manuallyPausedSessionIdsRef = useRef<Set<string>>(new Set());
   const sessionSnapshotsRef = useRef<Map<string, SessionSnapshot>>(new Map());
-  const connectAbortControllerRef = useRef<AbortController | null>(null);
+  const connectAbortControllersRef = useRef<Map<string, AbortController>>(new Map());
   const historyAbortControllerRef = useRef<AbortController | null>(null);
   const attachTimerRef = useRef<number | null>(null);
+
+  const getSessionSocket = useCallback((sessionId?: string) => {
+    if (!sessionId) {
+      return null;
+    }
+    return sessionSocketsRef.current.get(sessionId) ?? null;
+  }, []);
+
+  const isSessionSocketOpen = useCallback((sessionId?: string) => {
+    const socket = getSessionSocket(sessionId);
+    return Boolean(socket && socket.readyState === WebSocket.OPEN);
+  }, [getSessionSocket]);
+
+  const isSessionSocketConnecting = useCallback((sessionId?: string) => {
+    if (!sessionId) {
+      return false;
+    }
+    if (connectingSessionIdsRef.current.has(sessionId)) {
+      return true;
+    }
+    const socket = getSessionSocket(sessionId);
+    return Boolean(socket && socket.readyState === WebSocket.CONNECTING);
+  }, [getSessionSocket]);
+
+  const syncSelectedSessionConnectionState = useCallback((sessionId?: string | null) => {
+    const targetSessionId = sessionId === undefined ? currentSessionIdRef.current : sessionId ?? undefined;
+    setConnecting(isSessionSocketConnecting(targetSessionId));
+    setConnected(isSessionSocketOpen(targetSessionId));
+  }, [isSessionSocketConnecting, isSessionSocketOpen]);
 
   const cancelPendingAttach = useCallback(() => {
     if (attachTimerRef.current !== null) {
@@ -212,24 +245,54 @@ export function useMessageSession({
     historyAbortControllerRef.current = null;
   }, []);
 
-  const cancelConnectAttempt = useCallback(() => {
-    connectAbortControllerRef.current?.abort();
-    connectAbortControllerRef.current = null;
-  }, []);
+  const cancelConnectAttempt = useCallback((sessionId?: string) => {
+    if (sessionId) {
+      const controller = connectAbortControllersRef.current.get(sessionId);
+      controller?.abort();
+      connectAbortControllersRef.current.delete(sessionId);
+      connectingSessionIdsRef.current.delete(sessionId);
+      if (currentSessionIdRef.current === sessionId) {
+        syncSelectedSessionConnectionState(sessionId);
+      }
+      return;
+    }
+    const sessionIds = Array.from(connectAbortControllersRef.current.keys());
+    sessionIds.forEach((id) => {
+      connectAbortControllersRef.current.get(id)?.abort();
+      connectingSessionIdsRef.current.delete(id);
+    });
+    connectAbortControllersRef.current.clear();
+    syncSelectedSessionConnectionState();
+  }, [syncSelectedSessionConnectionState]);
 
   const resetConversationState = useCallback(() => {
+    messagesRef.current = [];
+    pendingResponseRef.current = false;
+    sessionPhaseRef.current = "idle";
+    currentSessionIdRef.current = undefined;
+    selectedSessionRef.current = undefined;
+    coreFieldsRef.current = undefined;
+    historyLoadedRef.current = false;
+    localMessageSeqRef.current = 0;
+    sessionSnapshotsRef.current.clear();
+    resumableSessionIdsRef.current.clear();
+    manuallyPausedSessionIdsRef.current.clear();
     setMessages([]);
     setPendingResponse(false);
+    setSessionPhase("idle");
     setConnecting(false);
     setConnected(false);
     setError(undefined);
     setNotice(undefined);
     setInteractionDraft(undefined);
+    setCurrentSessionId(undefined);
+    setSessionLoading(false);
+    sessionSocketsRef.current.clear();
+    connectingSessionIdsRef.current.clear();
+    queuedMessagesRef.current.clear();
     rawLineBuffersRef.current.clear();
     rawAssistantMessageIdsRef.current.clear();
-    coreFieldsRef.current = undefined;
-    historyLoadedRef.current = false;
-    localMessageSeqRef.current = 0;
+    connectAbortControllersRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -237,12 +300,21 @@ export function useMessageSession({
   }, [messages]);
 
   useEffect(() => {
+    selectedSessionRef.current = selectedSession;
+  }, [selectedSession]);
+
+  useEffect(() => {
     pendingResponseRef.current = pendingResponse;
   }, [pendingResponse]);
 
+  useEffect(() => {
+    sessionPhaseRef.current = sessionPhase;
+  }, [sessionPhase]);
+
   const buildVisibleSnapshot = useCallback((): SessionSnapshot => ({
     messages: messagesRef.current,
-    pendingResponse: pendingResponseRef.current || messagesRef.current.some((message) => message.pending),
+    pendingResponse: pendingResponseRef.current || messagesRef.current.some((message) => message.role === "assistant" && message.pending),
+    phase: sessionPhaseRef.current,
     coreFields: coreFieldsRef.current,
     historyLoaded: historyLoadedRef.current,
   }), []);
@@ -255,8 +327,17 @@ export function useMessageSession({
   }, [buildVisibleSnapshot]);
 
   const restoreSessionSnapshot = useCallback((snapshot?: SessionSnapshot) => {
-    setMessages(snapshot?.messages ?? []);
-    setPendingResponse(Boolean(snapshot?.pendingResponse || snapshot?.messages.some((message) => message.pending)));
+    const nextMessages = snapshot?.messages ?? [];
+    const nextPendingResponse = Boolean(snapshot?.pendingResponse || nextMessages.some((message) => message.role === "assistant" && message.pending));
+    const nextPhase = snapshot?.phase === "starting" || snapshot?.phase === "sending"
+      ? snapshot.phase
+      : (nextPendingResponse ? "generating" : "idle");
+    messagesRef.current = nextMessages;
+    pendingResponseRef.current = nextPendingResponse;
+    sessionPhaseRef.current = nextPhase;
+    setMessages(nextMessages);
+    setPendingResponse(nextPendingResponse);
+    setSessionPhase(nextPhase);
     coreFieldsRef.current = snapshot?.coreFields;
     historyLoadedRef.current = Boolean(snapshot?.historyLoaded);
   }, []);
@@ -267,6 +348,7 @@ export function useMessageSession({
       : (sessionSnapshotsRef.current.get(sessionId) ?? {
         messages: [],
         pendingResponse: false,
+        phase: "idle",
         coreFields: undefined,
         historyLoaded: false,
       });
@@ -283,21 +365,27 @@ export function useMessageSession({
     if (!targetSessionId || targetSession?.status !== "ACTIVE") {
       return false;
     }
-    if (activeSocketSessionIdRef.current === targetSessionId && socketRef.current?.readyState === WebSocket.OPEN) {
+    if (isSessionSocketOpen(targetSessionId) || isSessionSocketConnecting(targetSessionId)) {
       return false;
     }
     if (manuallyPausedSessionIdsRef.current.has(targetSessionId)) {
       return false;
     }
-    return Boolean(targetSession.remoteConnected || targetSession.generating || resumableSessionIdsRef.current.has(targetSessionId) || snapshot?.pendingResponse);
-  }, []);
+    return Boolean(
+      targetSession.remoteConnected
+      || targetSession.generating
+      || resumableSessionIdsRef.current.has(targetSessionId)
+      || snapshot?.pendingResponse
+      || (snapshot?.phase && snapshot.phase !== "idle"),
+    );
+  }, [isSessionSocketConnecting, isSessionSocketOpen]);
 
   const shouldRefreshHistoryOnSelect = useCallback((targetSession?: MessageSessionListItem, snapshot?: SessionSnapshot) => {
     const targetSessionId = targetSession?.sessionId;
     if (!targetSessionId) {
       return false;
     }
-    if (activeSocketSessionIdRef.current === targetSessionId && socketRef.current?.readyState === WebSocket.OPEN) {
+    if (isSessionSocketOpen(targetSessionId) || isSessionSocketConnecting(targetSessionId)) {
       return false;
     }
     if (!snapshot?.historyLoaded) {
@@ -305,7 +393,9 @@ export function useMessageSession({
         targetSession.hasTranscript
         || targetSession.remoteConnected
         || targetSession.generating
-        || resumableSessionIdsRef.current.has(targetSessionId),
+        || resumableSessionIdsRef.current.has(targetSessionId)
+        || snapshot?.phase === "starting"
+        || snapshot?.phase === "sending",
       );
     }
     if (targetSession.status !== "ACTIVE") {
@@ -315,9 +405,10 @@ export function useMessageSession({
       targetSession.remoteConnected
       || targetSession.generating
       || resumableSessionIdsRef.current.has(targetSessionId)
-      || snapshot.pendingResponse,
+      || snapshot.pendingResponse
+      || snapshot.phase !== "idle"
     );
-  }, []);
+  }, [isSessionSocketConnecting, isSessionSocketOpen]);
 
   const finalizeRawAssistantMessage = useCallback((sessionId?: string) => {
     if (!sessionId) {
@@ -331,10 +422,12 @@ export function useMessageSession({
       const nextMessages = snapshot.messages.map((message) => (
         message.id === messageId ? { ...message, pending: false } : message
       ));
+      const nextPendingResponse = nextMessages.some((message) => message.role === "assistant" && message.pending);
       return {
         ...snapshot,
         messages: nextMessages,
-        pendingResponse: nextMessages.some((message) => message.pending),
+        pendingResponse: nextPendingResponse,
+        phase: nextPendingResponse ? "generating" : "idle",
       };
     });
     rawAssistantMessageIdsRef.current.delete(sessionId);
@@ -355,6 +448,7 @@ export function useMessageSession({
         ...snapshot,
         messages: upsertAgentMessage(snapshot.messages, nextMessage),
         pendingResponse: true,
+        phase: "generating",
         historyLoaded: true,
       };
     });
@@ -390,6 +484,7 @@ export function useMessageSession({
       applySnapshotUpdate(sessionId, (snapshot) => ({
         ...snapshot,
         pendingResponse: false,
+        phase: "idle",
       }));
       return;
     }
@@ -407,6 +502,7 @@ export function useMessageSession({
         applySnapshotUpdate(sessionId, (snapshot) => ({
           ...snapshot,
           pendingResponse: false,
+          phase: "idle",
         }));
         void refreshSessions?.();
       }
@@ -447,6 +543,7 @@ export function useMessageSession({
         ...snapshot,
         messages: applyAgentDelta(snapshot.messages, frame.delta!),
         pendingResponse: true,
+        phase: "generating",
         historyLoaded: true,
       }));
       return;
@@ -462,61 +559,87 @@ export function useMessageSession({
         pendingResponse: normalizedMessage.role === "assistant"
           ? Boolean(normalizedMessage.pending)
           : snapshot.pendingResponse,
+        phase: normalizedMessage.role === "assistant"
+          ? (normalizedMessage.pending ? "generating" : "idle")
+          : snapshot.phase,
         historyLoaded: true,
       }));
       if (normalizedMessage.role === "assistant" && !normalizedMessage.pending) {
         applySnapshotUpdate(sessionId, (snapshot) => ({
           ...snapshot,
           pendingResponse: false,
+          phase: "idle",
         }));
         void refreshSessions?.();
       }
     }
   }, [applySnapshotUpdate, finalizeRawAssistantMessage, processRawChunk, refreshSessions]);
 
-  const disconnect = useCallback((silent = false) => {
-    cancelPendingAttach();
-    cancelConnectAttempt();
-    const socket = socketRef.current;
-    const activeSessionId = currentSessionIdRef.current;
-    rememberSessionSnapshot(activeSessionId);
-    if (activeSessionId) {
-      if (silent) {
-        resumableSessionIdsRef.current.add(activeSessionId);
-      } else {
-        manuallyPausedSessionIdsRef.current.add(activeSessionId);
-      }
-    }
-    if (!socket) {
-      setConnecting(false);
-      setConnected(false);
-      setPendingResponse(false);
+  const disconnectSession = useCallback((sessionId?: string, silent = false) => {
+    if (!sessionId) {
       return;
     }
+    const isCurrentSession = currentSessionIdRef.current === sessionId;
+    if (isCurrentSession) {
+      rememberSessionSnapshot(sessionId);
+    }
+    cancelConnectAttempt(sessionId);
     if (silent) {
-      suppressedSocketClosuresRef.current.add(socket);
+      resumableSessionIdsRef.current.add(sessionId);
+    } else {
+      resumableSessionIdsRef.current.delete(sessionId);
+      manuallyPausedSessionIdsRef.current.add(sessionId);
     }
-    if (activeSocketSessionIdRef.current === activeSessionId) {
-      activeSocketSessionIdRef.current = undefined;
+    const socket = getSessionSocket(sessionId);
+    if (socket) {
+      if (silent) {
+        suppressedSocketClosuresRef.current.add(socket);
+      }
+      sessionSocketsRef.current.delete(sessionId);
+      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close();
+      }
     }
-    socketRef.current = null;
-    if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-      socket.close();
+    if (isCurrentSession) {
+      pendingResponseRef.current = false;
+      sessionPhaseRef.current = "idle";
+      setPendingResponse(false);
+      setSessionPhase("idle");
+      syncSelectedSessionConnectionState(sessionId);
     }
-    setConnecting(false);
-    setConnected(false);
-    setPendingResponse(false);
-  }, [cancelConnectAttempt, cancelPendingAttach, rememberSessionSnapshot]);
+  }, [cancelConnectAttempt, getSessionSocket, rememberSessionSnapshot, syncSelectedSessionConnectionState]);
 
-  const sendNormalizedMessage = useCallback((normalizedMessage: string, options?: SendMessageOptions) => {
-    const socket = socketRef.current;
+  const disconnectAllSessions = useCallback((silent = false) => {
+    rememberSessionSnapshot(currentSessionIdRef.current);
+    const sessionIds = new Set<string>([
+      ...sessionSocketsRef.current.keys(),
+      ...connectAbortControllersRef.current.keys(),
+    ]);
+    if (currentSessionIdRef.current) {
+      sessionIds.add(currentSessionIdRef.current);
+    }
+    sessionIds.forEach((sessionId) => {
+      disconnectSession(sessionId, silent);
+    });
+    pendingResponseRef.current = false;
+    sessionPhaseRef.current = "idle";
+    setPendingResponse(false);
+    setSessionPhase("idle");
+    syncSelectedSessionConnectionState(null);
+  }, [disconnectSession, rememberSessionSnapshot, syncSelectedSessionConnectionState]);
+
+  const disconnect = useCallback((silent = false) => {
+    cancelPendingAttach();
+    cancelHistoryLoad();
+    disconnectSession(currentSessionIdRef.current, silent);
+  }, [cancelHistoryLoad, cancelPendingAttach, disconnectSession]);
+
+  const sendNormalizedMessageToSession = useCallback((sessionId: string, normalizedMessage: string, options?: SendMessageOptions) => {
+    const socket = getSessionSocket(sessionId);
     if (!socket || socket.readyState !== WebSocket.OPEN) {
       return false;
     }
     const parsedCoreFields = parseAgentSessionCoreFields(normalizedMessage);
-    if (parsedCoreFields) {
-      coreFieldsRef.current = parsedCoreFields;
-    }
     const sentAt = new Date().toISOString();
     const userMessage: AgentChatMessage = {
       id: nextLocalMessageId(localMessageSeqRef, "user"),
@@ -524,133 +647,193 @@ export function useMessageSession({
       content: options?.displayText ?? formatOutgoingMessage(normalizedMessage),
       createdAt: sentAt,
     };
-    const activeSessionId = currentSessionIdRef.current;
-    if (activeSessionId) {
-      applySnapshotUpdate(activeSessionId, (snapshot) => ({
-        ...snapshot,
-        messages: options?.resolveInteractionMessageId
-          ? [...snapshot.messages, userMessage].map((message) => (
-            message.id === options.resolveInteractionMessageId
-              ? { ...message, interactionResolved: true, interactionResolvedNote: options.resolvedInteractionNote }
-              : message
-          ))
-          : [...snapshot.messages, userMessage],
-        pendingResponse: true,
-        historyLoaded: true,
-        coreFields: parsedCoreFields ?? snapshot.coreFields,
-      }));
+    try {
+      socket.send(`${normalizedMessage}\n`);
+    } catch (sendError) {
+      if (currentSessionIdRef.current === sessionId) {
+        setError(sendError instanceof Error ? sendError.message : messagePageText.sessionConnectFailed);
+      }
+      return false;
     }
-    setNotice(undefined);
-    setError(undefined);
-    socket.send(`${normalizedMessage}\n`);
+    applySnapshotUpdate(sessionId, (snapshot) => ({
+      ...snapshot,
+      messages: options?.resolveInteractionMessageId
+        ? [...snapshot.messages, userMessage].map((message) => (
+          message.id === options.resolveInteractionMessageId
+            ? { ...message, interactionResolved: true, interactionResolvedNote: options.resolvedInteractionNote }
+            : message
+        ))
+        : [...snapshot.messages, userMessage],
+      pendingResponse: false,
+      phase: "sending",
+      historyLoaded: true,
+      coreFields: parsedCoreFields ?? snapshot.coreFields,
+    }));
+    if (currentSessionIdRef.current === sessionId) {
+      if (parsedCoreFields) {
+        coreFieldsRef.current = parsedCoreFields;
+      }
+      setNotice(undefined);
+      setError(undefined);
+    }
     void refreshSessions?.();
     return true;
-  }, [applySnapshotUpdate, refreshSessions]);
+  }, [applySnapshotUpdate, getSessionSocket, refreshSessions]);
+
+  const sendNormalizedMessage = useCallback((normalizedMessage: string, options?: SendMessageOptions) => {
+    const activeSessionId = currentSessionIdRef.current;
+    if (!activeSessionId) {
+      return false;
+    }
+    return sendNormalizedMessageToSession(activeSessionId, normalizedMessage, options);
+  }, [sendNormalizedMessageToSession]);
+
+  const flushQueuedMessagesForSession = useCallback((sessionId: string) => {
+    const queuedMessages = queuedMessagesRef.current.get(sessionId);
+    if (!queuedMessages?.length) {
+      return true;
+    }
+    let flushedCount = 0;
+    while (flushedCount < queuedMessages.length) {
+      const queuedMessage = queuedMessages[flushedCount];
+      if (!sendNormalizedMessageToSession(sessionId, queuedMessage.normalizedMessage, queuedMessage)) {
+        break;
+      }
+      flushedCount += 1;
+    }
+    if (flushedCount <= 0) {
+      return false;
+    }
+    if (flushedCount >= queuedMessages.length) {
+      queuedMessagesRef.current.delete(sessionId);
+      return true;
+    }
+    queuedMessagesRef.current.set(sessionId, queuedMessages.slice(flushedCount));
+    return false;
+  }, [sendNormalizedMessageToSession]);
 
   const openSocketForSession = useCallback(async (targetSession: MessageSessionListItem) => {
     if (!selectedRobot) {
       return false;
     }
     if (!selectedRobot.isAvailable) {
-      setError(messagePageText.robotUnavailable);
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        setError(messagePageText.robotUnavailable);
+      }
       return false;
     }
     if (targetSession.status !== "ACTIVE") {
-      setError("当前会话已关闭，请新建会话后再继续");
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        setError("当前会话已关闭，请新建会话后再继续");
+      }
       return false;
     }
-    if (connecting && currentSessionIdRef.current === targetSession.sessionId) {
-      return true;
-    }
-    if (activeSocketSessionIdRef.current === targetSession.sessionId && socketRef.current?.readyState === WebSocket.OPEN) {
-      setConnected(true);
-      setConnecting(false);
-      return true;
-    }
-    if (socketRef.current && activeSocketSessionIdRef.current && activeSocketSessionIdRef.current !== targetSession.sessionId) {
-      const previousSocket = socketRef.current;
-      const previousSessionId = activeSocketSessionIdRef.current;
-      resumableSessionIdsRef.current.add(previousSessionId);
-      suppressedSocketClosuresRef.current.add(previousSocket);
-      socketRef.current = null;
-      activeSocketSessionIdRef.current = undefined;
-      if (previousSocket.readyState === WebSocket.OPEN || previousSocket.readyState === WebSocket.CONNECTING) {
-        previousSocket.close();
+    if (isSessionSocketOpen(targetSession.sessionId)) {
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        setError(undefined);
+        setNotice(undefined);
+        syncSelectedSessionConnectionState(targetSession.sessionId);
       }
+      return true;
+    }
+    if (isSessionSocketConnecting(targetSession.sessionId)) {
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        setError(undefined);
+        setNotice(undefined);
+        syncSelectedSessionConnectionState(targetSession.sessionId);
+      }
+      return true;
     }
 
-    cancelConnectAttempt();
-    setConnecting(true);
-    setConnected(false);
-    setError(undefined);
-    setNotice(undefined);
-    currentSessionIdRef.current = targetSession.sessionId;
-    setCurrentSessionId(targetSession.sessionId);
+    cancelConnectAttempt(targetSession.sessionId);
+    connectingSessionIdsRef.current.add(targetSession.sessionId);
+    if (currentSessionIdRef.current === targetSession.sessionId) {
+      setError(undefined);
+      setNotice(undefined);
+      syncSelectedSessionConnectionState(targetSession.sessionId);
+    }
 
     const connectController = new AbortController();
-    connectAbortControllerRef.current = connectController;
+    connectAbortControllersRef.current.set(targetSession.sessionId, connectController);
+    selectedRobotIdRef.current = selectedRobot.id;
 
     let connectionInfo;
     try {
       connectionInfo = await connectConsumerChatSession(targetSession.sessionId, { signal: connectController.signal });
     } catch (connectError) {
-      if (connectAbortControllerRef.current === connectController) {
-        connectAbortControllerRef.current = null;
+      if (connectAbortControllersRef.current.get(targetSession.sessionId) === connectController) {
+        connectAbortControllersRef.current.delete(targetSession.sessionId);
+      }
+      connectingSessionIdsRef.current.delete(targetSession.sessionId);
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        syncSelectedSessionConnectionState(targetSession.sessionId);
       }
       if (connectController.signal.aborted || isAbortLikeError(connectError)) {
         return false;
       }
-      setConnecting(false);
-      setConnected(false);
-      setError(connectError instanceof Error ? connectError.message : messagePageText.sessionConnectFailed);
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        setError(connectError instanceof Error ? connectError.message : messagePageText.sessionConnectFailed);
+      }
       return false;
     }
 
-    if (connectAbortControllerRef.current !== connectController || connectController.signal.aborted) {
+    if (connectAbortControllersRef.current.get(targetSession.sessionId) !== connectController || connectController.signal.aborted) {
+      connectingSessionIdsRef.current.delete(targetSession.sessionId);
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        syncSelectedSessionConnectionState(targetSession.sessionId);
+      }
       return false;
     }
-    connectAbortControllerRef.current = null;
+    connectAbortControllersRef.current.delete(targetSession.sessionId);
+    connectingSessionIdsRef.current.delete(targetSession.sessionId);
 
     const websocketUrl = buildMessageSessionWebSocketUrl(connectionInfo.websocketPath);
     if (!websocketUrl) {
-      setConnecting(false);
-      setConnected(false);
-      setError(messagePageText.sessionConnectFailed);
+      if (currentSessionIdRef.current === targetSession.sessionId) {
+        syncSelectedSessionConnectionState(targetSession.sessionId);
+        setError(messagePageText.sessionConnectFailed);
+      }
       return false;
     }
 
+    const existingSocket = getSessionSocket(targetSession.sessionId);
+    if (existingSocket && (existingSocket.readyState === WebSocket.OPEN || existingSocket.readyState === WebSocket.CONNECTING)) {
+      if (existingSocket.readyState === WebSocket.CONNECTING || flushQueuedMessagesForSession(targetSession.sessionId) || isSessionSocketOpen(targetSession.sessionId)) {
+        if (currentSessionIdRef.current === targetSession.sessionId) {
+          syncSelectedSessionConnectionState(targetSession.sessionId);
+        }
+        return true;
+      }
+    }
+
     const socket = new WebSocket(websocketUrl);
-    socketRef.current = socket;
-    activeSocketSessionIdRef.current = targetSession.sessionId;
-    selectedRobotIdRef.current = selectedRobot.id;
+    sessionSocketsRef.current.set(targetSession.sessionId, socket);
+    if (currentSessionIdRef.current === targetSession.sessionId) {
+      syncSelectedSessionConnectionState(targetSession.sessionId);
+    }
+
+    const targetRobotId = selectedRobot.id;
     let connectionEstablished = false;
 
     socket.onopen = () => {
-      if (socketRef.current !== socket || activeSocketSessionIdRef.current !== targetSession.sessionId) {
+      if (sessionSocketsRef.current.get(targetSession.sessionId) !== socket) {
         suppressedSocketClosuresRef.current.add(socket);
         socket.close();
         return;
       }
       connectionEstablished = true;
+      resumableSessionIdsRef.current.add(targetSession.sessionId);
+      manuallyPausedSessionIdsRef.current.delete(targetSession.sessionId);
       if (currentSessionIdRef.current === targetSession.sessionId) {
-        setConnecting(false);
-        setConnected(true);
+        syncSelectedSessionConnectionState(targetSession.sessionId);
         setError(undefined);
         setNotice(undefined);
       }
-      resumableSessionIdsRef.current.add(targetSession.sessionId);
-      manuallyPausedSessionIdsRef.current.delete(targetSession.sessionId);
-      const queuedMessage = queuedMessageRef.current;
-      if (queuedMessage) {
-        const sent = sendNormalizedMessage(queuedMessage.normalizedMessage, queuedMessage);
-        if (sent) {
-          queuedMessageRef.current = null;
-        }
-      }
+      flushQueuedMessagesForSession(targetSession.sessionId);
     };
 
     socket.onmessage = (event) => {
-      if (socketRef.current !== socket || activeSocketSessionIdRef.current !== targetSession.sessionId) {
+      if (sessionSocketsRef.current.get(targetSession.sessionId) !== socket) {
         return;
       }
       if (typeof event.data === "string") {
@@ -659,7 +842,7 @@ export function useMessageSession({
     };
 
     socket.onerror = () => {
-      if (socketRef.current !== socket || activeSocketSessionIdRef.current !== targetSession.sessionId) {
+      if (sessionSocketsRef.current.get(targetSession.sessionId) !== socket) {
         return;
       }
       if (currentSessionIdRef.current === targetSession.sessionId) {
@@ -677,18 +860,17 @@ export function useMessageSession({
       }
       rawLineBuffersRef.current.delete(targetSession.sessionId);
       finalizeRawAssistantMessage(targetSession.sessionId);
-      if (socketRef.current === socket) {
-        socketRef.current = null;
-      }
-      if (activeSocketSessionIdRef.current === targetSession.sessionId) {
-        activeSocketSessionIdRef.current = undefined;
+      if (sessionSocketsRef.current.get(targetSession.sessionId) === socket) {
+        sessionSocketsRef.current.delete(targetSession.sessionId);
       }
       if (isCurrentSession) {
-        setConnecting(false);
-        setConnected(false);
+        pendingResponseRef.current = false;
+        sessionPhaseRef.current = "idle";
         setPendingResponse(false);
+        setSessionPhase("idle");
+        syncSelectedSessionConnectionState(targetSession.sessionId);
       }
-      if (!shouldSuppressNotice && isCurrentSession && selectedRobotIdRef.current === selectedRobot.id) {
+      if (!shouldSuppressNotice && isCurrentSession && selectedRobotIdRef.current === targetRobotId) {
         setNotice(connectionEstablished ? messagePageText.sessionDisconnected : messagePageText.sessionInterrupted);
       }
       void refreshSessions?.();
@@ -697,13 +879,16 @@ export function useMessageSession({
     return true;
   }, [
     cancelConnectAttempt,
-    connecting,
     finalizeRawAssistantMessage,
+    flushQueuedMessagesForSession,
+    getSessionSocket,
     handleSocketMessage,
+    isSessionSocketConnecting,
+    isSessionSocketOpen,
     processRawLine,
     refreshSessions,
     selectedRobot,
-    sendNormalizedMessage,
+    syncSelectedSessionConnectionState,
   ]);
 
   const loadHistoryForSession = useCallback(async (targetSession: MessageSessionListItem) => {
@@ -724,6 +909,9 @@ export function useMessageSession({
     try {
       const response = await listConsumerChatSessionMessages(sessionId, 100, { signal: historyController.signal });
       if (historyController.signal.aborted) {
+        if (currentSessionIdRef.current === sessionId) {
+          setSessionLoading(false);
+        }
         return false;
       }
       const historyMessages = response.items
@@ -731,10 +919,16 @@ export function useMessageSession({
         .filter((item): item is AgentChatMessage => item !== null);
       const cachedSnapshot = sessionSnapshotsRef.current.get(sessionId);
       const nextMessages = mergeHistoryWithSnapshot(historyMessages, cachedSnapshot);
-      const nextPendingResponse = Boolean(cachedSnapshot?.pendingResponse || nextMessages.some((message) => message.pending));
+      const nextPendingResponse = Boolean(
+        cachedSnapshot?.pendingResponse
+        || nextMessages.some((message) => message.role === "assistant" && message.pending),
+      );
       const nextSnapshot: SessionSnapshot = {
         messages: nextMessages,
         pendingResponse: nextPendingResponse,
+        phase: cachedSnapshot?.phase === "starting" || cachedSnapshot?.phase === "sending"
+          ? cachedSnapshot.phase
+          : (nextPendingResponse ? "generating" : "idle"),
         coreFields: cachedSnapshot?.coreFields,
         historyLoaded: true,
       };
@@ -751,6 +945,9 @@ export function useMessageSession({
       return true;
     } catch (loadError) {
       if (historyController.signal.aborted || isAbortLikeError(loadError)) {
+        if (currentSessionIdRef.current === sessionId) {
+          setSessionLoading(false);
+        }
         return false;
       }
       if (currentSessionIdRef.current === sessionId) {
@@ -779,17 +976,15 @@ export function useMessageSession({
     selectedRobotIdRef.current = selectedRobot.id;
     if (currentSessionIdRef.current !== targetSession.sessionId) {
       rememberSessionSnapshot(currentSessionIdRef.current);
-      disconnect(true);
-      resetConversationState();
       currentSessionIdRef.current = targetSession.sessionId;
       setCurrentSessionId(targetSession.sessionId);
-      const cachedSnapshot = sessionSnapshotsRef.current.get(targetSession.sessionId);
-      if (cachedSnapshot) {
-        restoreSessionSnapshot(cachedSnapshot);
-      }
+      restoreSessionSnapshot(sessionSnapshotsRef.current.get(targetSession.sessionId));
+      syncSelectedSessionConnectionState(targetSession.sessionId);
+      setError(undefined);
+      setNotice(undefined);
     }
     return openSocketForSession(targetSession);
-  }, [disconnect, ensureSession, openSocketForSession, rememberSessionSnapshot, resetConversationState, restoreSessionSnapshot, selectedRobot, selectedSession]);
+  }, [ensureSession, openSocketForSession, rememberSessionSnapshot, restoreSessionSnapshot, selectedRobot, selectedSession, syncSelectedSessionConnectionState]);
 
   const queueMessageAndConnect = useCallback(async (normalizedMessage: string, options?: SendMessageOptions) => {
     if (!selectedRobot) {
@@ -799,9 +994,60 @@ export function useMessageSession({
       setError(messagePageText.robotUnavailable);
       return false;
     }
-    queuedMessageRef.current = { normalizedMessage, ...options };
-    return connect();
-  }, [connect, selectedRobot]);
+    const targetSession = selectedSession ?? await ensureSession();
+    if (!targetSession) {
+      setError("请先创建会话");
+      return false;
+    }
+
+    selectedRobotIdRef.current = selectedRobot.id;
+    if (currentSessionIdRef.current !== targetSession.sessionId) {
+      rememberSessionSnapshot(currentSessionIdRef.current);
+      currentSessionIdRef.current = targetSession.sessionId;
+      setCurrentSessionId(targetSession.sessionId);
+      restoreSessionSnapshot(sessionSnapshotsRef.current.get(targetSession.sessionId));
+      syncSelectedSessionConnectionState(targetSession.sessionId);
+      setError(undefined);
+      setNotice(undefined);
+    }
+
+    if (sendNormalizedMessageToSession(targetSession.sessionId, normalizedMessage, options)) {
+      return true;
+    }
+
+    applySnapshotUpdate(targetSession.sessionId, (snapshot) => ({
+      ...snapshot,
+      phase: "starting",
+    }));
+    const queuedMessages = queuedMessagesRef.current.get(targetSession.sessionId) ?? [];
+    queuedMessagesRef.current.set(targetSession.sessionId, [...queuedMessages, { normalizedMessage, ...options }]);
+    if (isSessionSocketOpen(targetSession.sessionId)) {
+      if (flushQueuedMessagesForSession(targetSession.sessionId)) {
+        return true;
+      }
+    }
+    const opened = await openSocketForSession(targetSession);
+    if (!opened) {
+      queuedMessagesRef.current.delete(targetSession.sessionId);
+      applySnapshotUpdate(targetSession.sessionId, (snapshot) => ({
+        ...snapshot,
+        phase: "idle",
+      }));
+    }
+    return opened;
+  }, [
+    applySnapshotUpdate,
+    ensureSession,
+    flushQueuedMessagesForSession,
+    isSessionSocketOpen,
+    openSocketForSession,
+    rememberSessionSnapshot,
+    restoreSessionSnapshot,
+    selectedRobot,
+    selectedSession,
+    sendNormalizedMessageToSession,
+    syncSelectedSessionConnectionState,
+  ]);
 
   const enrichInteractionMessage = useCallback((rawInput: string) => {
     const normalizedInput = normalizeMessageInput(rawInput);
@@ -854,13 +1100,16 @@ export function useMessageSession({
       resolveInteractionMessageId,
       resolvedInteractionNote: getInteractionResolvedNote(normalizedMessage),
     };
-    const sent = connected ? sendNormalizedMessage(normalizedMessage, sendOptions) : await queueMessageAndConnect(normalizedMessage, sendOptions);
+    const activeSessionId = currentSessionIdRef.current;
+    const sent = activeSessionId && isSessionSocketOpen(activeSessionId)
+      ? sendNormalizedMessage(normalizedMessage, sendOptions)
+      : await queueMessageAndConnect(normalizedMessage, sendOptions);
     if (sent) {
       setInput("");
       setInteractionDraft(undefined);
     }
     return sent;
-  }, [connected, enrichInteractionMessage, input, interactionDraft, queueMessageAndConnect, sendNormalizedMessage]);
+  }, [enrichInteractionMessage, input, interactionDraft, isSessionSocketOpen, queueMessageAndConnect, sendNormalizedMessage]);
 
   const runInteractionAction = useCallback(async (messageId: string, action: AgentInteractionAction) => {
     if (action.kind === "send") {
@@ -872,7 +1121,10 @@ export function useMessageSession({
         resolveInteractionMessageId: messageId,
         resolvedInteractionNote: getInteractionResolvedNote(normalizedPayload),
       };
-      const sent = connected ? sendNormalizedMessage(normalizedPayload, sendOptions) : await queueMessageAndConnect(normalizedPayload, sendOptions);
+      const activeSessionId = currentSessionIdRef.current;
+      const sent = activeSessionId && isSessionSocketOpen(activeSessionId)
+        ? sendNormalizedMessage(normalizedPayload, sendOptions)
+        : await queueMessageAndConnect(normalizedPayload, sendOptions);
       if (sent) {
         setInteractionDraft(undefined);
       }
@@ -893,7 +1145,7 @@ export function useMessageSession({
     setInteractionDraft(undefined);
     setInput(action.payload);
     return true;
-  }, [connected, enrichInteractionMessage, queueMessageAndConnect, sendNormalizedMessage]);
+  }, [enrichInteractionMessage, isSessionSocketOpen, queueMessageAndConnect, sendNormalizedMessage]);
 
   const reconnect = useCallback(async () => {
     disconnect(true);
@@ -912,11 +1164,11 @@ export function useMessageSession({
       return;
     }
     event.preventDefault();
-    if (!selectedRobot?.isAvailable || connecting || sessionLoading) {
+    if (!selectedRobot?.isAvailable || connecting || sessionLoading || sessionPhase === "starting") {
       return;
     }
     void sendMessage();
-  }, [connecting, selectedRobot?.isAvailable, sendMessage, sessionLoading]);
+  }, [connecting, selectedRobot?.isAvailable, sendMessage, sessionLoading, sessionPhase]);
 
   const handleCompositionStart = useCallback(() => {
     inputComposingRef.current = true;
@@ -937,8 +1189,10 @@ export function useMessageSession({
     rememberSessionSnapshot(currentSessionIdRef.current);
     const robotChanged = Boolean(selectedRobotIdRef.current && selectedRobotIdRef.current !== selectedRobot?.id);
     if (robotChanged) {
-      disconnect(true);
+      disconnectAllSessions(true);
       resetConversationState();
+      selectedRobotIdRef.current = selectedRobot?.id;
+      return;
     }
     selectedRobotIdRef.current = selectedRobot?.id;
     setSessionLoading(false);
@@ -948,6 +1202,7 @@ export function useMessageSession({
       currentSessionIdRef.current = undefined;
       setConnecting(false);
       setConnected(false);
+      restoreSessionSnapshot(undefined);
       return;
     }
 
@@ -956,47 +1211,49 @@ export function useMessageSession({
     setError(undefined);
     setNotice(undefined);
 
+    const activeSelectedSession = selectedSessionRef.current;
     const cachedSnapshot = sessionSnapshotsRef.current.get(nextSessionId);
     restoreSessionSnapshot(cachedSnapshot);
-    setConnecting(Boolean(activeSocketSessionIdRef.current === nextSessionId && socketRef.current?.readyState === WebSocket.CONNECTING));
-    setConnected(Boolean(activeSocketSessionIdRef.current === nextSessionId && socketRef.current?.readyState === WebSocket.OPEN));
-    const needsFreshHistory = shouldRefreshHistoryOnSelect(selectedSession, cachedSnapshot);
+    syncSelectedSessionConnectionState(nextSessionId);
+    const needsFreshHistory = shouldRefreshHistoryOnSelect(activeSelectedSession, cachedSnapshot);
     setSessionLoading(needsFreshHistory);
 
     attachTimerRef.current = window.setTimeout(() => {
       if (currentSessionIdRef.current !== nextSessionId) {
         return;
       }
-      if (!selectedSession) {
+      const latestSelectedSession = selectedSessionRef.current;
+      if (!latestSelectedSession || latestSelectedSession.sessionId !== nextSessionId) {
         setSessionLoading(false);
         return;
       }
       if (!needsFreshHistory) {
         setSessionLoading(false);
-        if (shouldAutoAttachSession(selectedSession, cachedSnapshot)) {
-          void openSocketForSession(selectedSession);
+        if (shouldAutoAttachSession(latestSelectedSession, cachedSnapshot)) {
+          void openSocketForSession(latestSelectedSession);
         }
         return;
       }
-      void loadHistoryForSession(selectedSession);
+      void loadHistoryForSession(latestSelectedSession);
     }, SESSION_ATTACH_DEBOUNCE_MS);
 
     return () => {
       cancelPendingAttach();
       cancelHistoryLoad();
     };
-  }, [cancelHistoryLoad, cancelPendingAttach, disconnect, loadHistoryForSession, openSocketForSession, rememberSessionSnapshot, resetConversationState, restoreSessionSnapshot, selectedRobot?.id, selectedSession, shouldAutoAttachSession, shouldRefreshHistoryOnSelect]);
+  }, [cancelHistoryLoad, cancelPendingAttach, disconnectAllSessions, loadHistoryForSession, openSocketForSession, rememberSessionSnapshot, resetConversationState, restoreSessionSnapshot, selectedRobot?.id, selectedSession?.sessionId, shouldAutoAttachSession, shouldRefreshHistoryOnSelect, syncSelectedSessionConnectionState]);
 
   useEffect(() => () => {
     cancelPendingAttach();
     cancelHistoryLoad();
-    disconnect(true);
-  }, [cancelHistoryLoad, cancelPendingAttach, disconnect]);
+    disconnectAllSessions(true);
+  }, [cancelHistoryLoad, cancelPendingAttach, disconnectAllSessions]);
 
   const hasConversation = messages.length > 0;
   const canSend = Boolean(selectedRobot?.isAvailable)
     && !connecting
     && !sessionLoading
+    && sessionPhase !== "starting"
     && input.trim().length > 0
     && (!selectedSession || selectedSession.status === "ACTIVE");
   const assistantIsStreaming = useMemo(
@@ -1010,6 +1267,7 @@ export function useMessageSession({
     setInput,
     connecting,
     connected,
+    sessionPhase,
     pendingResponse: assistantIsStreaming,
     hasConversation,
     error,

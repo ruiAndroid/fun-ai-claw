@@ -53,8 +53,6 @@ export interface ConsumerChatSession {
   agentId: string;
   title?: string | null;
   status: string;
-  openSessionId: string;
-  externalSessionKey: string;
   messageCount: number;
   createdAt: string;
   updatedAt: string;
@@ -72,6 +70,10 @@ export interface ConsumerChatSessionCreateRequest {
   agentId: string;
   title?: string | null;
   remark?: string | null;
+}
+
+export interface ConsumerChatSessionRenameRequest {
+  title: string;
 }
 
 export interface ConsumerChatSessionMessage {

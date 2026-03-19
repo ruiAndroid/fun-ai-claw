@@ -1,23 +1,25 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   closeConsumerChatSession,
   createConsumerChatSession,
   deleteConsumerChatSession,
   listConsumerChatSessions,
+  renameConsumerChatSession,
 } from "@/lib/consumer-api";
 import type { ConsumerChatSession } from "@/types/consumer";
 import type { MessageRobotTarget } from "./messages-types";
 
 export type MessageSessionListItem = {
   sessionId: string;
-  openSessionId: string;
   title: string;
   subtitle: string;
   sourceLabel: string;
   statusLabel: string;
   status: string;
+  starting?: boolean;
+  sending?: boolean;
   updatedAt?: string;
   messageCount?: number;
   connected?: boolean;
@@ -27,7 +29,6 @@ export type MessageSessionListItem = {
   isCurrent: boolean;
   canClose: boolean;
   canDelete: boolean;
-  externalSessionKey?: string | null;
 };
 
 function buildSessionTitle(item: ConsumerChatSession, index: number) {
@@ -38,7 +39,7 @@ function buildSessionTitle(item: ConsumerChatSession, index: number) {
 }
 
 function buildSessionSubtitle(item: ConsumerChatSession) {
-  return [item.agentId, item.externalSessionKey].filter(Boolean).join(" · ");
+  return item.agentId;
 }
 
 function buildStatusLabel(status: string) {
@@ -48,7 +49,6 @@ function buildStatusLabel(status: string) {
 function toSessionListItem(item: ConsumerChatSession, index: number): MessageSessionListItem {
   return {
     sessionId: item.sessionId,
-    openSessionId: item.openSessionId,
     title: buildSessionTitle(item, index),
     subtitle: buildSessionSubtitle(item),
     sourceLabel: "聊天会话",
@@ -63,8 +63,18 @@ function toSessionListItem(item: ConsumerChatSession, index: number): MessageSes
     isCurrent: false,
     canClose: item.status === "ACTIVE",
     canDelete: item.status === "CLOSED",
-    externalSessionKey: item.externalSessionKey,
   };
+}
+
+function sortSessions(sessions: ConsumerChatSession[]) {
+  return [...sessions].sort((left, right) => {
+    const rightTime = new Date(right.lastMessageAt ?? right.updatedAt).getTime();
+    const leftTime = new Date(left.lastMessageAt ?? left.updatedAt).getTime();
+    if (rightTime !== leftTime) {
+      return rightTime - leftTime;
+    }
+    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+  });
 }
 
 function pickNextSessionId(sessions: ConsumerChatSession[]) {
@@ -88,19 +98,30 @@ export function useMessageSessionList({
   preferredSessionId?: string;
 }) {
   const [remoteSessions, setRemoteSessions] = useState<ConsumerChatSession[]>([]);
+  const [remoteSessionsOwnerKey, setRemoteSessionsOwnerKey] = useState<string>();
   const [selectedSessionId, setSelectedSessionId] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
+  const loadRequestSeqRef = useRef(0);
+  const selectedRobotKey = selectedRobot ? `${selectedRobot.instanceId}:${selectedRobot.agentId}` : undefined;
+  const activeRobotKeyRef = useRef<string | undefined>(selectedRobotKey);
+
+  useEffect(() => {
+    activeRobotKeyRef.current = selectedRobotKey;
+  }, [selectedRobotKey]);
 
   const loadSessions = useCallback(async () => {
-    if (!selectedRobot) {
+    if (!selectedRobot || !selectedRobotKey) {
       setRemoteSessions([]);
+      setRemoteSessionsOwnerKey(undefined);
       setSelectedSessionId(undefined);
       setError(undefined);
       setLoading(false);
       return [] as ConsumerChatSession[];
     }
 
+    const requestSeq = ++loadRequestSeqRef.current;
+    const requestRobotKey = selectedRobotKey;
     setLoading(true);
     setError(undefined);
     try {
@@ -108,16 +129,40 @@ export function useMessageSessionList({
         instanceId: selectedRobot.instanceId,
         agentId: selectedRobot.agentId,
       });
+      if (loadRequestSeqRef.current !== requestSeq || activeRobotKeyRef.current !== requestRobotKey) {
+        return [] as ConsumerChatSession[];
+      }
       setRemoteSessions(response.items);
+      setRemoteSessionsOwnerKey(requestRobotKey);
       return response.items;
     } catch (loadError) {
+      if (loadRequestSeqRef.current !== requestSeq || activeRobotKeyRef.current !== requestRobotKey) {
+        return [] as ConsumerChatSession[];
+      }
       setRemoteSessions([]);
+      setRemoteSessionsOwnerKey(requestRobotKey);
       setError(loadError instanceof Error ? loadError.message : "加载会话列表失败");
       return [];
     } finally {
-      setLoading(false);
+      if (loadRequestSeqRef.current === requestSeq && activeRobotKeyRef.current === requestRobotKey) {
+        setLoading(false);
+      }
     }
-  }, [selectedRobot]);
+  }, [selectedRobot, selectedRobotKey]);
+
+  useEffect(() => {
+    setSelectedSessionId(undefined);
+    setError(undefined);
+    if (!selectedRobotKey) {
+      setRemoteSessions([]);
+      setRemoteSessionsOwnerKey(undefined);
+      setLoading(false);
+      return;
+    }
+    setRemoteSessions([]);
+    setRemoteSessionsOwnerKey(selectedRobotKey);
+    setLoading(true);
+  }, [selectedRobotKey]);
 
   useEffect(() => {
     void loadSessions();
@@ -133,9 +178,14 @@ export function useMessageSessionList({
     return () => window.clearInterval(timer);
   }, [loadSessions, selectedRobot]);
 
+  const visibleRemoteSessions = useMemo(
+    () => (remoteSessionsOwnerKey === selectedRobotKey ? remoteSessions : []),
+    [remoteSessions, remoteSessionsOwnerKey, selectedRobotKey],
+  );
+
   const sessionItems = useMemo(
-    () => remoteSessions.map((session, index) => toSessionListItem(session, index)),
-    [remoteSessions],
+    () => visibleRemoteSessions.map((session, index) => toSessionListItem(session, index)),
+    [visibleRemoteSessions],
   );
 
   useEffect(() => {
@@ -218,6 +268,21 @@ export function useMessageSessionList({
     }
   }, [loadSessions]);
 
+  const renameSession = useCallback(async (sessionId: string, title: string) => {
+    setError(undefined);
+    try {
+      const renamed = await renameConsumerChatSession(sessionId, { title });
+      setRemoteSessions((current) => sortSessions(
+        current.map((session) => (session.sessionId === sessionId ? { ...session, ...renamed } : session)),
+      ));
+      return renamed;
+    } catch (renameError) {
+      const nextError = renameError instanceof Error ? renameError.message : "修改会话名失败";
+      setError(nextError);
+      throw renameError;
+    }
+  }, []);
+
   const ensureSession = useCallback(async () => {
     if (selectedSession) {
       return selectedSession;
@@ -236,6 +301,7 @@ export function useMessageSessionList({
     createSession,
     closeSession,
     deleteSession,
+    renameSession,
     ensureSession,
   };
 }

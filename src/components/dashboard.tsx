@@ -2511,11 +2511,19 @@ export function Dashboard() {
                             const isSelected = selectedInstanceId === instance.id;
                             const gatewayUrl = resolveUiControllerUrl(instance) ?? uiText.gatewayUrlUnavailable;
                             return (
-                              <motion.button
+                              <motion.div
                                 key={instance.id}
-                                type="button"
                                 className={`instance-card ${isSelected ? "is-selected" : ""}`}
+                                role="button"
+                                tabIndex={0}
+                                aria-pressed={isSelected}
                                 onClick={() => openInstanceDetail(instance.id)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    openInstanceDetail(instance.id);
+                                  }
+                                }}
                                 variants={staggerItem}
                               >
                                 <div className="instance-card-head">
@@ -2544,7 +2552,7 @@ export function Dashboard() {
                                   </span>
                                   <span>{instance.updatedAt}</span>
                                 </div>
-                              </motion.button>
+                              </motion.div>
                             );
                           })}
                         </motion.div>

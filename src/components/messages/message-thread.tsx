@@ -203,6 +203,7 @@ export function MessageThread({
   selectedRobot,
   messages,
   pendingResponse,
+  statusLabel,
   loading = false,
   selectedSessionTitle,
   emptyNotice,
@@ -212,6 +213,7 @@ export function MessageThread({
   selectedRobot?: MessageRobotTarget;
   messages: AgentChatMessage[];
   pendingResponse: boolean;
+  statusLabel?: string;
   loading?: boolean;
   selectedSessionTitle?: string;
   emptyNotice?: string;
@@ -240,7 +242,7 @@ export function MessageThread({
     <div ref={containerRef} className="relative min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
       {loading ? <ThreadLoadingSkeleton selectedRobot={selectedRobot} selectedSessionTitle={selectedSessionTitle} /> : null}
       {selectedRobot ? (
-        messages.length > 0 ? (
+        messages.length > 0 || Boolean(statusLabel) ? (
           <div className="space-y-4">
             {messages.map((message) => (
               <ChatBubble
@@ -251,13 +253,13 @@ export function MessageThread({
               />
             ))}
 
-            {pendingResponse && !hasPendingAssistant ? (
+            {statusLabel && !hasPendingAssistant ? (
               <div className="flex justify-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-slate-900 text-white shadow-sm">
                   <Bot size={18} />
                 </div>
                 <div className="rounded-[28px] border border-white/80 bg-white/90 px-5 py-4 text-sm text-slate-500 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-                  正在思考...
+                  {statusLabel}
                 </div>
               </div>
             ) : null}

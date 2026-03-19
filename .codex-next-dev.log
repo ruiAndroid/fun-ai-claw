@@ -1,0 +1,56 @@
+
+> fun-ai-claw@0.1.0 dev
+> next dev
+
+   â–² Next.js 15.5.12
+   - Local:        http://localhost:3000
+   - Network:      http://172.17.5.80:3000
+   - Experiments (use with caution):
+     Â· optimizePackageImports
+
+ âœ“ Starting...
+ âœ“ Ready in 4.1s
+ â—‹ Compiling /console ...
+ âœ“ Compiled /console in 9.4s (3556 modules)
+ GET / 200 in 10788ms
+ GET /console 200 in 11129ms
+ GET / 200 in 122ms
+ â—‹ Compiling /recharge ...
+ âœ“ Compiled /recharge in 1584ms (3616 modules)
+ GET /recharge 200 in 1960ms
+ â—‹ Compiling /agent/[agentKey] ...
+ âœ“ Compiled /agent/[agentKey] in 1042ms (3630 modules)
+ GET /agent/mgc-novel-to-script 200 in 2306ms
+ GET / 200 in 50ms
+ â—‹ Compiling /messages ...
+ âœ“ Compiled /messages in 1180ms (3684 modules)
+ GET /messages?instanceId=41774763-8f0d-4a4b-aeb6-d34e1e085e07 200 in 1314ms
+ GET / 200 in 43ms
+ GET /messages?instanceId=41774763-8f0d-4a4b-aeb6-d34e1e085e07 200 in 47ms
+ GET / 200 in 37ms
+ â—‹ Compiling /me ...
+ âœ“ Compiled /me in 1814ms (3137 modules)
+ GET /me 200 in 2109ms
+ GET /me 200 in 42ms
+ GET / 200 in 61ms
+ âœ“ Compiled in 3.5s (3151 modules)
+ GET / 200 in 144ms
+ GET /messages?instanceId=41774763-8f0d-4a4b-aeb6-d34e1e085e07 200 in 47ms
+ GET / 200 in 24ms
+ âœ“ Compiled in 1590ms (3151 modules)
+ GET / 200 in 141ms
+ âœ“ Compiled in 675ms (3151 modules)
+ GET / 200 in 118ms
+ GET / 200 in 597ms
+ âœ“ Compiled in 1221ms (3151 modules)
+ GET / 200 in 83ms
+ âœ“ Compiled in 1713ms (3151 modules)
+ GET / 200 in 154ms
+ âœ“ Compiled in 2.3s (3151 modules)
+ GET / 200 in 91ms
+ â—‹ Compiling /console ...
+ âœ“ Compiled /console in 3.1s (1904 modules)
+ GET /console 200 in 4388ms
+ÖÕÖ¹Åú´¦Àí²Ù×÷Âð(Y/N)? 
+^CÃüÁîÓï·¨²»ÕýÈ·¡£
+[?25h

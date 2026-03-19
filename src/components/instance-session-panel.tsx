@@ -32,6 +32,9 @@ function renderConnectionStatus(connected: boolean) {
 }
 
 function renderSourceTag(sourceType: InstanceOpenSessionItem["sourceType"]) {
+  if (sourceType === "consumer_session") {
+    return <Tag color="gold">consumer_session</Tag>;
+  }
   return sourceType === "agent_session"
     ? <Tag color="cyan">agent_session</Tag>
     : <Tag color="purple">open_session</Tag>;

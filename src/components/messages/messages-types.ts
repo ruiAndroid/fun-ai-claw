@@ -1,6 +1,8 @@
 import type { ClawInstance } from "@/types/contracts";
 import type { AgentChatMessage } from "@/lib/agent-session-protocol";
 
+export type MessageSessionPhase = "idle" | "starting" | "sending" | "generating";
+
 export type MessageRobotTarget = {
   id: string;
   instanceId: string;

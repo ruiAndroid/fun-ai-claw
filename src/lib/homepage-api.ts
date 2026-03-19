@@ -20,6 +20,16 @@ export type HomepageRecentSessionPreview = {
   title: string;
   href: string;
   robotName?: string;
+  robotKey: string;
+  robotHref: string;
+  status: "thinking" | "connected" | "active" | "closed";
+};
+
+export type HomepageRecentSessionGroup = {
+  id: string;
+  robotName: string;
+  href: string;
+  sessions: HomepageRecentSessionPreview[];
 };
 
 export type HomepageShellSnapshot = {
@@ -27,6 +37,7 @@ export type HomepageShellSnapshot = {
   profile: UserCenterMe | null;
   instances: ConsumerBoundInstance[];
   recentSessions: HomepageRecentSessionPreview[];
+  recentSessionGroups: HomepageRecentSessionGroup[];
   supportsXiamiBalance: boolean;
   supportsRecentSessions: boolean;
   xiamiBalance: number | null;
@@ -42,6 +53,7 @@ export function getInitialHomepageShellSnapshot(): HomepageShellSnapshot {
     profile: cachedProfile,
     instances: [],
     recentSessions: [],
+    recentSessionGroups: [],
     supportsXiamiBalance: false,
     supportsRecentSessions: false,
     xiamiBalance: null,
@@ -94,6 +106,14 @@ function buildRecentSessionHref(session: ConsumerChatSession) {
   return `/messages?${params.toString()}`;
 }
 
+function buildRecentRobotHref(session: ConsumerChatSession) {
+  const params = new URLSearchParams({
+    instanceId: session.instanceId,
+    agentId: session.agentId,
+  });
+  return `/messages?${params.toString()}`;
+}
+
 function buildRecentSessionTitle(session: ConsumerChatSession, instanceNameById: Map<string, string>) {
   const sessionTitle = session.title?.trim();
   if (sessionTitle) {
@@ -138,7 +158,20 @@ async function loadAgentDisplayNameMap(instances: ConsumerBoundInstance[], sessi
   return displayNameByAgent;
 }
 
-function buildRecentSessions(
+function resolveRecentSessionStatus(session: ConsumerChatSession): HomepageRecentSessionPreview["status"] {
+  if (session.generating) {
+    return "thinking";
+  }
+  if (session.connected) {
+    return "connected";
+  }
+  if (session.status === "ACTIVE") {
+    return "active";
+  }
+  return "closed";
+}
+
+function buildRecentSessionPreviews(
   sessions: ConsumerChatSession[],
   instances: ConsumerBoundInstance[],
   agentDisplayNameByKey: Map<string, string>,
@@ -150,13 +183,43 @@ function buildRecentSessions(
       const leftTime = new Date(left.lastMessageAt ?? left.updatedAt).getTime();
       return rightTime - leftTime;
     })
-    .slice(0, 6)
     .map((session) => ({
       id: session.sessionId,
       title: buildRecentSessionTitle(session, instanceNameById),
       href: buildRecentSessionHref(session),
       robotName: agentDisplayNameByKey.get(`${session.instanceId}:${session.agentId}`) ?? session.agentId,
+      robotKey: `${session.instanceId}:${session.agentId}`,
+      robotHref: buildRecentRobotHref(session),
+      status: resolveRecentSessionStatus(session),
     }));
+}
+
+function buildRecentSessionGroups(recentSessions: HomepageRecentSessionPreview[]): HomepageRecentSessionGroup[] {
+  const groups: HomepageRecentSessionGroup[] = [];
+  const groupByRobotKey = new Map<string, HomepageRecentSessionGroup>();
+
+  for (const session of recentSessions) {
+    let group = groupByRobotKey.get(session.robotKey);
+    if (!group) {
+      if (groups.length >= 4) {
+        continue;
+      }
+      group = {
+        id: session.robotKey,
+        robotName: session.robotName || "未命名机器人",
+        href: session.robotHref,
+        sessions: [],
+      };
+      groupByRobotKey.set(session.robotKey, group);
+      groups.push(group);
+    }
+    if (group.sessions.length >= 3) {
+      continue;
+    }
+    group.sessions.push(session);
+  }
+
+  return groups;
 }
 
 export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot> {
@@ -177,9 +240,11 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
   const agentDisplayNameByKey = recentSessionsResult.status === "fulfilled"
     ? await loadAgentDisplayNameMap(instances, recentSessionsResult.value.items)
     : new Map<string, string>();
-  const recentSessions = recentSessionsResult.status === "fulfilled"
-    ? buildRecentSessions(recentSessionsResult.value.items, instances, agentDisplayNameByKey)
+  const recentSessionPreviews = recentSessionsResult.status === "fulfilled"
+    ? buildRecentSessionPreviews(recentSessionsResult.value.items, instances, agentDisplayNameByKey)
     : [];
+  const recentSessions = recentSessionPreviews.slice(0, 6);
+  const recentSessionGroups = buildRecentSessionGroups(recentSessionPreviews);
 
   if (!profile && instances.length === 0) {
     const rejectedReason = profileResult.status === "rejected"
@@ -196,6 +261,7 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
         profile: null,
         instances: [],
         recentSessions: [],
+        recentSessionGroups: [],
         supportsXiamiBalance: false,
         supportsRecentSessions: false,
         xiamiBalance: null,
@@ -213,6 +279,7 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
     profile,
     instances,
     recentSessions,
+    recentSessionGroups,
     supportsXiamiBalance: false,
     supportsRecentSessions: recentSessionsResult.status === "fulfilled",
     xiamiBalance: null,

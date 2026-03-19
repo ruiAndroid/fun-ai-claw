@@ -11,6 +11,8 @@ export function MessageTopbar({
   connecting,
   remoteConnected,
   generating,
+  statusLabel,
+  statusTone,
   notice,
   error,
   hasConversation,
@@ -25,6 +27,8 @@ export function MessageTopbar({
   connecting: boolean;
   remoteConnected?: boolean;
   generating?: boolean;
+  statusLabel: string;
+  statusTone: "idle" | "starting" | "sending" | "generating" | "connected" | "remote" | "closed";
   notice?: string;
   error?: string;
   hasConversation: boolean;
@@ -33,16 +37,16 @@ export function MessageTopbar({
   onDisconnect: () => void;
   onNewSession: () => void;
 }) {
-  const hasRemotePresence = Boolean(connected || generating || remoteConnected);
-  const statusLabel = connected
-    ? "对话中"
-    : generating
-      ? "思考中"
-      : remoteConnected
-        ? "后台在线"
-        : connecting
-          ? "准备中"
-          : "待开始";
+  const hasRemotePresence = Boolean(
+    connected
+    || generating
+    || remoteConnected
+    || statusTone === "starting"
+    || statusTone === "sending"
+    || statusTone === "connected"
+    || statusTone === "remote"
+    || statusTone === "generating",
+  );
 
   return (
     <header className="rounded-[28px] border border-white/70 bg-white/80 px-5 py-4 shadow-[0_20px_50px_rgba(81,38,145,0.08)] backdrop-blur-xl sm:px-6">
@@ -69,13 +73,17 @@ export function MessageTopbar({
           <div
             className={cn(
               "inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold shadow-sm",
-              connected
+              statusTone === "connected"
                 ? "bg-orange-50 text-orange-700"
-                : generating
+                : statusTone === "generating"
                   ? "bg-rose-50 text-rose-600"
-                  : remoteConnected || connecting
-                    ? "bg-violet-50 text-violet-700"
-                    : "bg-slate-100 text-slate-600",
+                  : statusTone === "sending"
+                    ? "bg-sky-50 text-sky-700"
+                    : statusTone === "starting" || statusTone === "remote"
+                      ? "bg-violet-50 text-violet-700"
+                      : statusTone === "closed"
+                        ? "bg-slate-200 text-slate-600"
+                        : "bg-slate-100 text-slate-600",
             )}
           >
             {hasRemotePresence || connecting ? <Wifi size={16} /> : <WifiOff size={16} />}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,8 +13,36 @@ import {
   UserRound,
 } from "lucide-react";
 import { XiamiIcon } from "@/components/ui/xiami-icon";
-import type { SidebarMessageItem, SidebarNavItem } from "./homepage-data";
+import type { SidebarMessageGroup, SidebarNavItem, SidebarMessageSessionItem } from "./homepage-data";
 import type { HomepageUserCard } from "./use-homepage-shell-data";
+
+function getSessionStatusDotClassName(status: SidebarMessageSessionItem["status"]) {
+  switch (status) {
+    case "thinking":
+      return "bg-rose-500 shadow-[0_0_0_4px_rgba(244,63,94,0.12)]";
+    case "connected":
+      return "bg-violet-500 shadow-[0_0_0_4px_rgba(139,61,255,0.12)]";
+    case "active":
+      return "bg-amber-500 shadow-[0_0_0_4px_rgba(245,158,11,0.12)]";
+    case "closed":
+    default:
+      return "bg-slate-300 shadow-[0_0_0_4px_rgba(148,163,184,0.12)]";
+  }
+}
+
+function getSessionStatusLabel(status: SidebarMessageSessionItem["status"]) {
+  switch (status) {
+    case "thinking":
+      return "思考中";
+    case "connected":
+      return "在线";
+    case "active":
+      return "待继续";
+    case "closed":
+    default:
+      return "已结束";
+  }
+}
 
 function SidebarBrand() {
   return (
@@ -49,7 +77,7 @@ function SidebarNavLink({
   active?: boolean;
   badge?: string;
   summary?: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: ComponentType<{ size?: number; className?: string }>;
   collapsed: boolean;
 }) {
   if (collapsed) {
@@ -167,13 +195,13 @@ export function HomepageSidebar({
 }: {
   messagesHref: string;
   navItems: SidebarNavItem[];
-  messages: SidebarMessageItem[];
+  messages: SidebarMessageGroup[];
   messageEmptyText: string;
   userCard: HomepageUserCard;
 }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMessageExpanded, setIsMessageExpanded] = useState(true);
-  const hasMessages = messages.length > 0;
+  const hasMessages = messages.some((group) => group.sessions.length > 0);
   const sidebarWidth = isSidebarCollapsed ? 104 : 292;
 
   return (
@@ -222,16 +250,16 @@ export function HomepageSidebar({
               <MessageCircle size={18} />
             </Link>
             {navItems.map((item) => (
-                <SidebarNavLink
-                  key={item.label}
-                  href={item.href}
-                  label={item.label}
-                  active={item.active}
-                  badge={item.badge}
-                  summary={item.summary}
-                  icon={item.icon}
-                  collapsed
-                />
+              <SidebarNavLink
+                key={item.label}
+                href={item.href}
+                label={item.label}
+                active={item.active}
+                badge={item.badge}
+                summary={item.summary}
+                icon={item.icon}
+                collapsed
+              />
             ))}
 
             <SidebarUserCard collapsed userCard={userCard} />
@@ -239,67 +267,93 @@ export function HomepageSidebar({
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 pr-1">
-              <div className="flex items-center gap-2">
-                <Link
-                  href={messagesHref}
-                  className="flex flex-1 items-center gap-3 rounded-[20px] px-4 py-3 text-sm font-bold text-md-on-surface transition-all duration-300 hover:bg-white/78 hover:shadow-[0_12px_26px_rgba(81,38,145,0.08)]"
-                  aria-label="消息"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-[14px] bg-white/82 text-md-on-surface shadow-sm">
-                    <MessageCircle size={16} />
-                  </span>
-                  <div>消息</div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setIsMessageExpanded((value) => !value)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
-                  aria-label={isMessageExpanded ? "收起消息区域" : "展开消息区域"}
-                >
-                  {isMessageExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                </button>
-              </div>
-
-              <AnimatePresence initial={false}>
-                {isMessageExpanded ? (
-                  <motion.div
-                    key="message-list"
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-                    className="mt-5 overflow-hidden"
+              <div className="rounded-[28px] border border-violet-100/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.86)_0%,rgba(249,245,255,0.95)_100%)] p-3 shadow-[0_16px_34px_rgba(81,38,145,0.07)]">
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={messagesHref}
+                    className="flex flex-1 items-center gap-3 rounded-[20px] bg-white/84 px-4 py-3 text-sm font-bold text-md-on-surface shadow-[0_10px_24px_rgba(81,38,145,0.05)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(81,38,145,0.08)]"
+                    aria-label="消息"
                   >
-                    {hasMessages ? (
-                      <div className="max-h-[460px] overflow-y-auto pr-2">
-                        {messages.map((item) => (
-                          <Link
-                            key={item.id}
-                            href={item.href}
-                            className="mb-2 flex items-center gap-3 rounded-[20px] px-2 py-2.5 transition-colors duration-300 hover:bg-white/70"
-                          >
-                            <div className="h-11 w-11 rounded-full bg-slate-200" />
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-sm font-semibold text-md-on-surface">
-                                {item.title}
-                              </div>
-                              {item.robotName ? (
-                                <div className="mt-0.5 truncate text-xs text-md-on-surface-variant">
-                                  {item.robotName}
+                    <span className="flex h-9 w-9 items-center justify-center rounded-[14px] bg-violet-50 text-violet-700 shadow-[0_8px_18px_rgba(139,61,255,0.14)]">
+                      <MessageCircle size={16} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div>消息</div>
+                      <div className="mt-0.5 text-[11px] font-medium text-md-on-surface-variant">
+                        最近会话
+                      </div>
+                    </div>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setIsMessageExpanded((value) => !value)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/82 text-md-on-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_26px_rgba(81,38,145,0.1)]"
+                    aria-label={isMessageExpanded ? "收起消息区域" : "展开消息区域"}
+                  >
+                    {isMessageExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  </button>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {isMessageExpanded ? (
+                    <motion.div
+                      key="message-list"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                      className="mt-4 overflow-hidden"
+                    >
+                      {hasMessages ? (
+                        <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
+                          {messages.map((group) => (
+                            <div
+                              key={group.id}
+                              className="rounded-[22px] bg-white/72 px-3 py-3 shadow-[0_10px_22px_rgba(81,38,145,0.05)] ring-1 ring-white/80"
+                            >
+                              <Link
+                                href={group.href}
+                                className="flex items-center gap-3 rounded-[16px] px-1 py-1 transition-colors duration-300 hover:bg-white/80"
+                              >
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[linear-gradient(135deg,rgba(255,122,24,0.14),rgba(139,61,255,0.10))]">
+                                  <XiamiIcon size={20} title={group.robotName} />
                                 </div>
-                              ) : null}
+                                <div className="min-w-0 flex-1 truncate text-sm font-bold text-md-on-surface">
+                                  {group.robotName}
+                                </div>
+                              </Link>
+
+                              <div className="mt-2 space-y-1 pl-9">
+                                {group.sessions.map((session) => (
+                                  <Link
+                                    key={session.id}
+                                    href={session.href}
+                                    className="group flex items-center gap-3 rounded-[14px] px-1.5 py-2 text-sm transition-colors duration-300 hover:bg-violet-50/70"
+                                  >
+                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-200 transition-colors duration-300 group-hover:bg-violet-400" />
+                                    <div className="min-w-0 flex-1 truncate font-medium text-md-on-surface">
+                                      {session.title}
+                                    </div>
+                                    <span
+                                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${getSessionStatusDotClassName(session.status)}`}
+                                      title={getSessionStatusLabel(session.status)}
+                                      aria-label={getSessionStatusLabel(session.status)}
+                                    />
+                                  </Link>
+                                ))}
+                              </div>
                             </div>
-                          </Link>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="rounded-[24px] border border-dashed border-md-outline-variant/40 bg-white/60 px-4 py-5 text-sm text-md-on-surface-variant">
-                        {messageEmptyText}
-                      </div>
-                    )}
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-[24px] border border-dashed border-md-outline-variant/40 bg-white/60 px-4 py-5 text-sm text-md-on-surface-variant">
+                          {messageEmptyText}
+                        </div>
+                      )}
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
 
               <div className="mt-8 space-y-2">
                 {navItems.map((item) => (

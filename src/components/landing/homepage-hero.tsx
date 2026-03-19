@@ -79,32 +79,73 @@ type HeroStepItem = {
   onAction?: () => void;
 };
 
+type HeroOwnedLobster = {
+  name: string;
+  status: string;
+};
+
+function formatOwnedLobsterStatus(status?: string) {
+  switch (status) {
+    case "RUNNING":
+      return "运行中";
+    case "STOPPED":
+      return "已停止";
+    case "CREATING":
+      return "初始化中";
+    case "ERROR":
+      return "异常";
+    default:
+      return status || "未知";
+  }
+}
+
 export function HomepageHero({
   messagesHref,
   authenticated,
+  activeInstance,
+  primaryConversationHref,
+  onViewOwnedLobster,
   onAdoptRequest,
 }: {
   messagesHref: string;
   authenticated: boolean;
+  activeInstance?: HeroOwnedLobster;
+  primaryConversationHref?: string;
+  onViewOwnedLobster?: () => void;
   onAdoptRequest?: () => void;
 }) {
-  const steps: HeroStepItem[] = heroStartSteps.map((item, index) => {
-    if (index === 0) {
-      return {
-        ...item,
-        onAction: authenticated ? onAdoptRequest : undefined,
-      };
-    }
+  const hasOwnedLobster = authenticated && Boolean(activeInstance);
+  const currentLobsterName = activeInstance?.name?.trim() || "你的龙虾";
+  const currentLobsterStatus = formatOwnedLobsterStatus(activeInstance?.status);
+  const enterLobsterHref = primaryConversationHref || messagesHref;
 
-    if (index === 1) {
-      return {
-        ...item,
-        href: messagesHref,
-      };
-    }
+  const steps: HeroStepItem[] = hasOwnedLobster
+    ? [
+        {
+          step: "Step 2",
+          title: `查看 ${currentLobsterName} 的状态、绑定信息和最近动作`,
+          actionLabel: "查看详情",
+          href: "/me",
+          onAction: onViewOwnedLobster,
+        },
+      ]
+    : heroStartSteps.map((item, index) => {
+        if (index === 0) {
+          return {
+            ...item,
+            onAction: authenticated ? onAdoptRequest : undefined,
+          };
+        }
 
-    return item;
-  });
+        if (index === 1) {
+          return {
+            ...item,
+            href: messagesHref,
+          };
+        }
+
+        return item;
+      });
 
   return (
     <motion.section
@@ -122,7 +163,7 @@ export function HomepageHero({
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.03)_0%,transparent_24%,transparent_72%,rgba(255,255,255,0.03)_100%)]" />
       </div>
 
-      <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_352px] xl:items-start">
+      <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1fr)_352px] xl:items-center">
         <div className="pt-1">
           <div className="flex flex-wrap gap-2">
             {heroHighlights.map((item) => (
@@ -172,36 +213,49 @@ export function HomepageHero({
         <motion.aside
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 5.4, repeat: Infinity, ease: "easeInOut" }}
-          className="relative rounded-[28px] border border-white/14 bg-[linear-gradient(180deg,rgba(139,61,255,0.24)_0%,rgba(255,122,24,0.14)_100%)] p-3 shadow-[0_20px_54px_rgba(139,61,255,0.16)] backdrop-blur-xl"
+          className="relative rounded-[28px] border border-white/14 bg-[linear-gradient(180deg,rgba(139,61,255,0.24)_0%,rgba(255,122,24,0.14)_100%)] p-4 shadow-[0_20px_54px_rgba(139,61,255,0.16)] backdrop-blur-xl"
         >
           <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,transparent_22%,transparent_78%,rgba(255,255,255,0.03)_100%)]" />
-          <div className="relative rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(100,54,177,0.22)_0%,rgba(255,122,24,0.08)_100%)] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div className="relative rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(100,54,177,0.22)_0%,rgba(255,122,24,0.08)_100%)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
             <div className="flex items-center justify-between">
               <span className="rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[11px] font-black text-white/84">
-                Beginning
+                {hasOwnedLobster ? "Ready" : "Beginning"}
               </span>
               <CircleCheckBig size={16} className="text-violet-100/78" />
             </div>
 
-            <div className="mt-3 flex items-center gap-2 text-[17px] font-black text-white">
+            <div className="mt-4 flex items-center gap-2 text-[17px] font-black text-white">
               <XiamiIcon size={18} title="龙虾" />
-              <span>三步领养你的龙虾</span>
+              <span>{hasOwnedLobster ? "你的龙虾已就绪" : "三步领养你的龙虾"}</span>
             </div>
-            <p className="mt-2 text-xs leading-6 text-white/72">
-              先领养，再命名，然后直接开始对话和创作。
+            <p className="mt-3 text-xs leading-6 text-white/72">
+              {hasOwnedLobster
+                ? `${currentLobsterName} 已绑定到你的账号，当前状态 ${currentLobsterStatus}。现在可以直接进入对话，或先查看详情。`
+                : "先领养，再命名，然后直接开始对话和创作。"}
             </p>
 
-            <div className="mt-4 space-y-2.5">
-              {steps.map((item) => (
-                <HeroStartStep
-                  key={item.step}
-                  step={item.step}
-                  title={item.title}
-                  actionLabel={item.actionLabel}
-                  href={item.href}
-                  onAction={item.onAction}
-                />
-              ))}
+            <div className={`mt-5 ${hasOwnedLobster ? "" : "space-y-2.5"}`}>
+              {hasOwnedLobster ? (
+                <button
+                  type="button"
+                  onClick={onViewOwnedLobster}
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] text-[13px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]"
+                >
+                  <XiamiIcon size={15} title="查看详情" />
+                  查看详情
+                </button>
+              ) : (
+                steps.map((item) => (
+                  <HeroStartStep
+                    key={item.step}
+                    step={item.step}
+                    title={item.title}
+                    actionLabel={item.actionLabel}
+                    href={item.href}
+                    onAction={item.onAction}
+                  />
+                ))
+              )}
             </div>
           </div>
         </motion.aside>

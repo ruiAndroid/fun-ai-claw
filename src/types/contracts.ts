@@ -155,7 +155,7 @@ export interface InstanceAgentBinding {
 }
 
 export type OpenSessionStatus = "ACTIVE" | "CLOSED";
-export type InstanceSessionSourceType = "agent_session" | "open_session";
+export type InstanceSessionSourceType = "agent_session" | "open_session" | "consumer_session";
 
 export interface InstanceOpenSessionItem {
   sessionId: string;

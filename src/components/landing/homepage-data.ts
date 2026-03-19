@@ -138,11 +138,18 @@ export type SidebarNavItem = {
   summary?: string;
 };
 
-export type SidebarMessageItem = {
+export type SidebarMessageSessionItem = {
   id: string;
   title: string;
   href: string;
-  robotName?: string;
+  status: "thinking" | "connected" | "active" | "closed";
+};
+
+export type SidebarMessageGroup = {
+  id: string;
+  robotName: string;
+  href: string;
+  sessions: SidebarMessageSessionItem[];
 };
 
 export function buildSidebarNavItems({
@@ -174,4 +181,4 @@ export function buildSidebarNavItems({
   ];
 }
 
-export const sidebarMessages: SidebarMessageItem[] = [];
+export const sidebarMessages: SidebarMessageGroup[] = [];

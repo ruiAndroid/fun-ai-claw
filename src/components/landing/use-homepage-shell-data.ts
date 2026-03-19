@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { buildSidebarNavItems, type SidebarMessageItem } from "./homepage-data";
+import { buildSidebarNavItems, type SidebarMessageGroup } from "./homepage-data";
 import { getInitialHomepageShellSnapshot, loadHomepageShellSnapshot } from "@/lib/homepage-api";
 
 export type HomepageUserCard = {
@@ -20,6 +20,7 @@ const UNAUTHENTICATED_SNAPSHOT: Awaited<ReturnType<typeof loadHomepageShellSnaps
   profile: null,
   instances: [],
   recentSessions: [],
+  recentSessionGroups: [],
   supportsXiamiBalance: false,
   supportsRecentSessions: false,
   xiamiBalance: null,
@@ -94,12 +95,17 @@ export function useHomepageShellData() {
     });
   }, [snapshot]);
 
-  const sidebarMessages = useMemo<SidebarMessageItem[]>(() => (
-    snapshot?.recentSessions.map((item) => ({
-      id: item.id,
-      title: item.title,
-      href: item.href,
-      robotName: item.robotName,
+  const sidebarMessages = useMemo<SidebarMessageGroup[]>(() => (
+    snapshot?.recentSessionGroups.map((group) => ({
+      id: group.id,
+      robotName: group.robotName,
+      href: group.href,
+      sessions: group.sessions.map((session) => ({
+        id: session.id,
+        title: session.title,
+        href: session.href,
+        status: session.status,
+      })),
     })) ?? []
   ), [snapshot]);
 
@@ -130,6 +136,8 @@ export function useHomepageShellData() {
     authenticated,
     messagesHref,
     rechargeHref,
+    instances: snapshot?.instances ?? [],
+    recentSessions: snapshot?.recentSessions ?? [],
     navItems,
     sidebarMessages,
     messageEmptyText,

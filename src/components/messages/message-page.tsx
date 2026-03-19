@@ -40,6 +40,7 @@ function MessagePageContent() {
   const sessionActivity = useMessageSessionActivity();
   const [closingSessionId, setClosingSessionId] = useState<string>();
   const [deletingSessionId, setDeletingSessionId] = useState<string>();
+  const [renamingSessionId, setRenamingSessionId] = useState<string>();
 
   const session = useMessageSession({
     selectedRobot,
@@ -48,16 +49,27 @@ function MessagePageContent() {
     refreshSessions: sessionList.refresh,
   });
 
+  const isCurrentSessionSelected = Boolean(
+    session.currentSessionId
+    && (!sessionList.selectedSessionId || sessionList.selectedSessionId === session.currentSessionId),
+  );
+
   const panelSessions = useMemo(
     () => sessionList.sessionItems.map((item) => {
       const isCurrent = item.sessionId === session.currentSessionId;
       const remoteConnected = Boolean(item.remoteConnected);
-      const generating = Boolean(item.generating) || (isCurrent && session.pendingResponse);
+      const starting = isCurrent && session.sessionPhase === "starting";
+      const sending = isCurrent && session.sessionPhase === "sending";
+      const generating = Boolean(item.generating) || (isCurrent && session.sessionPhase === "generating");
       const connected = (session.connected && isCurrent) || remoteConnected;
 
       let statusLabel = "待开始";
       if (item.status === "CLOSED") {
         statusLabel = "已关闭";
+      } else if (starting) {
+        statusLabel = "启动中";
+      } else if (sending) {
+        statusLabel = "发送中";
       } else if (generating) {
         statusLabel = "思考中";
       } else if (session.connected && isCurrent) {
@@ -69,13 +81,15 @@ function MessagePageContent() {
       return {
         ...item,
         isCurrent,
+        starting,
+        sending,
         connected,
         remoteConnected,
         generating,
         statusLabel,
       };
     }),
-    [session.connected, session.currentSessionId, session.pendingResponse, sessionList.sessionItems],
+    [session.connected, session.currentSessionId, session.sessionPhase, sessionList.sessionItems],
   );
 
   const activityByRobotId = useMemo(() => {
@@ -112,6 +126,47 @@ function MessagePageContent() {
     () => panelSessions.find((item) => item.sessionId === sessionList.selectedSessionId),
     [panelSessions, sessionList.selectedSessionId],
   );
+
+  const topbarStatus = useMemo(() => {
+    if (selectedSession?.status === "CLOSED") {
+      return { label: "已关闭", tone: "closed" as const };
+    }
+    if (isCurrentSessionSelected && session.sessionPhase === "starting") {
+      return { label: "启动中", tone: "starting" as const };
+    }
+    if (isCurrentSessionSelected && session.sessionPhase === "sending") {
+      return { label: "发送中", tone: "sending" as const };
+    }
+    if (selectedSession?.generating) {
+      return { label: "思考中", tone: "generating" as const };
+    }
+    if (isCurrentSessionSelected && session.connected) {
+      return { label: "对话中", tone: "connected" as const };
+    }
+    if (selectedSession?.remoteConnected) {
+      return { label: "后台在线", tone: "remote" as const };
+    }
+    if (isCurrentSessionSelected && session.connecting) {
+      return { label: "准备中", tone: "starting" as const };
+    }
+    return { label: "待开始", tone: "idle" as const };
+  }, [isCurrentSessionSelected, selectedSession?.generating, selectedSession?.remoteConnected, selectedSession?.status, session.connected, session.connecting, session.sessionPhase]);
+
+  const threadStatusLabel = useMemo(() => {
+    if (!isCurrentSessionSelected) {
+      return undefined;
+    }
+    if (session.sessionPhase === "starting") {
+      return "启动会话中...";
+    }
+    if (session.sessionPhase === "sending") {
+      return "消息发送中...";
+    }
+    if (session.sessionPhase === "generating") {
+      return "思考中...";
+    }
+    return undefined;
+  }, [isCurrentSessionSelected, session.sessionPhase]);
 
   const viewOnly = selectedSession?.status === "CLOSED";
   const threadEmptyNotice = viewOnly
@@ -159,6 +214,18 @@ function MessagePageContent() {
     }
   }, [session, sessionActivity, sessionList]);
 
+  const handleRenameSession = useCallback(async (sessionId: string, title: string) => {
+    setRenamingSessionId(sessionId);
+    try {
+      await sessionList.renameSession(sessionId, title);
+    } catch (renameError) {
+      session.setError(renameError instanceof Error ? renameError.message : "修改会话名失败");
+      throw renameError;
+    } finally {
+      setRenamingSessionId((current) => (current === sessionId ? undefined : current));
+    }
+  }, [session, sessionList]);
+
   useEffect(() => {
     const previousHtmlOverflow = document.documentElement.style.overflow;
     const previousBodyOverflow = document.body.style.overflow;
@@ -195,6 +262,8 @@ function MessagePageContent() {
             connecting={session.connecting}
             remoteConnected={selectedSession?.remoteConnected}
             generating={selectedSession?.generating}
+            statusLabel={topbarStatus.label}
+            statusTone={topbarStatus.tone}
             notice={session.notice}
             error={session.error ?? sessionList.error}
             hasConversation={session.hasConversation}
@@ -217,6 +286,7 @@ function MessagePageContent() {
               selectedRobot={selectedRobot}
               messages={session.messages}
               pendingResponse={session.pendingResponse}
+              statusLabel={threadStatusLabel}
               loading={session.sessionLoading}
               selectedSessionTitle={selectedSession?.title}
               emptyNotice={threadEmptyNotice}
@@ -228,7 +298,7 @@ function MessagePageContent() {
               selectedRobot={selectedRobot}
               input={session.input}
               canSend={session.canSend && !viewOnly}
-              connecting={session.connecting || session.sessionLoading}
+              connecting={session.connecting || session.sessionLoading || session.sessionPhase === "starting"}
               connected={session.connected}
               interactionDraft={session.interactionDraft}
               viewOnly={viewOnly}
@@ -265,8 +335,12 @@ function MessagePageContent() {
             onDelete={(sessionId) => {
               void handleDeleteSession(sessionId);
             }}
+            onRename={(sessionId, title) => {
+              return handleRenameSession(sessionId, title);
+            }}
             closingSessionId={closingSessionId}
             deletingSessionId={deletingSessionId}
+            renamingSessionId={renamingSessionId}
           />
         </div>
       </div>

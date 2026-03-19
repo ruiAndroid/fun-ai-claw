@@ -1,8 +1,14 @@
-﻿"use client";
+"use client";
 
+import { Modal } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCachedUserCenterMe, getUserCenterMe, hasUserCenterAuthCredentials, logoutUserCenter } from "@/lib/user-center-api";
+import {
+  getCachedUserCenterMe,
+  getUserCenterMe,
+  hasUserCenterAuthCredentials,
+  logoutUserCenter,
+} from "@/lib/user-center-api";
 import type { UserCenterMe } from "@/types/user-center";
 import type { AccountTabKey } from "./account-data";
 import { AccountSidebar } from "./account-sidebar";
@@ -26,6 +32,7 @@ export function AccountPage() {
   const [loading, setLoading] = useState(!cachedProfile);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const loadCurrentUser = useCallback(async () => {
     if (!hasUserCenterAuthCredentials()) {
@@ -62,6 +69,7 @@ export function AccountPage() {
     try {
       await logoutUserCenter();
     } finally {
+      setLogoutConfirmOpen(false);
       setLoggingOut(false);
       router.replace("/login");
     }
@@ -122,17 +130,44 @@ export function AccountPage() {
 
   return (
     <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fffaf7_100%)] px-5 py-4 sm:px-6 lg:px-10">
-      <div className="mx-auto grid max-w-[1800px] gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <div className="mx-auto grid max-w-[1800px] items-start gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
         <AccountSidebar
           activeTab={activeTab}
           onChange={setActiveTab}
-          onLogout={() => void handleLogout()}
+          onLogout={() => setLogoutConfirmOpen(true)}
           loggingOut={loggingOut}
         />
         <section className="space-y-4 rounded-[28px] bg-white/48 px-6 py-8 sm:px-10 sm:py-10">
           {content}
         </section>
       </div>
+
+      <Modal
+        open={logoutConfirmOpen}
+        centered
+        title="确认退出登录"
+        okText="退出登录"
+        cancelText="取消"
+        okButtonProps={{
+          danger: true,
+          loading: loggingOut,
+        }}
+        cancelButtonProps={{
+          disabled: loggingOut,
+        }}
+        onOk={() => {
+          void handleLogout();
+        }}
+        onCancel={() => {
+          if (!loggingOut) {
+            setLogoutConfirmOpen(false);
+          }
+        }}
+      >
+        <p className="text-base font-semibold text-slate-500">
+          退出后会清除当前登录状态，之后需要重新登录才能继续访问当前账号能力。
+        </p>
+      </Modal>
     </main>
   );
 }

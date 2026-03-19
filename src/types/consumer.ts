@@ -1,24 +1,5 @@
 import type { DesiredState, InstanceStatus, RuntimeType } from "@/types/contracts";
 
-export interface ConsumerAccount {
-  accountId: string;
-  externalUserId: string;
-  externalUid?: string | null;
-  sourceSystem: string;
-  phoneE164?: string | null;
-  phoneMasked?: string | null;
-  displayName?: string | null;
-  avatarUrl?: string | null;
-  status: string;
-  externalCreatedAt?: string | null;
-  linkedAt: string;
-  updatedAt: string;
-  lastLoginAt?: string | null;
-  lastVerifiedAt: string;
-  activeSessionCount: number;
-  activeInstanceCount: number;
-}
-
 export interface ConsumerBoundInstance {
   bindingId: string;
   instanceId: string;

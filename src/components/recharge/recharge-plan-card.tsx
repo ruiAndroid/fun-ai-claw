@@ -15,11 +15,13 @@ function formatCurrency(value: number) {
 export function RechargePlanCard({
   plan,
   selected,
+  loading,
   onSelect,
 }: {
   plan: RechargePlan;
   selected: boolean;
-  onSelect: (planId: string) => void;
+  loading?: boolean;
+  onSelect: (plan: RechargePlan) => void;
 }) {
   return (
     <article
@@ -77,15 +79,17 @@ export function RechargePlanCard({
       <div className="mt-auto pt-8">
         <button
           type="button"
-          onClick={() => onSelect(plan.id)}
+          onClick={() => onSelect(plan)}
+          disabled={loading}
           className={cn(
             "inline-flex h-18 w-full items-center justify-center rounded-[18px] text-[24px] font-black text-slate-950 transition-transform duration-300",
-            selected
+            loading || selected
               ? "bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] shadow-[0_18px_40px_rgba(139,61,255,0.24)] hover:scale-[1.01]"
               : "bg-violet-300/95 hover:scale-[1.01]",
+            loading ? "cursor-wait" : "",
           )}
         >
-          {selected ? "已选择" : "购买"}
+          {loading ? "生成中..." : "立即支付"}
         </button>
       </div>
     </article>

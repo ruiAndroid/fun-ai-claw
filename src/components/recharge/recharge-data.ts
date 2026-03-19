@@ -4,6 +4,7 @@ export type RechargeTabKey = "boost" | "membership";
 
 export type RechargePlan = {
   id: string;
+  commodityId: string;
   title: string;
   price: number;
   originalPrice?: number | null;
@@ -130,6 +131,7 @@ export function mapCommodityToRechargePlan(
 
   return {
     id: `${category}-${item.id}`,
+    commodityId: item.id,
     title: buildCommodityTitle(item, category),
     price: resolvedPrice,
     originalPrice: item.price > resolvedPrice ? item.price : null,

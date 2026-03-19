@@ -10,7 +10,7 @@ import {
   isUserCenterUnauthorizedError,
 } from "@/lib/user-center-api";
 import type { AgentBaselineSummary, ListResponse } from "@/types/contracts";
-import type { ConsumerAccount, ConsumerBoundInstance, ConsumerChatSession } from "@/types/consumer";
+import type { ConsumerBoundInstance, ConsumerChatSession } from "@/types/consumer";
 import type { UserCenterMe } from "@/types/user-center";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
@@ -25,7 +25,6 @@ export type HomepageRecentSessionPreview = {
 export type HomepageShellSnapshot = {
   authenticated: boolean;
   profile: UserCenterMe | null;
-  consumerAccount: ConsumerAccount | null;
   instances: ConsumerBoundInstance[];
   recentSessions: HomepageRecentSessionPreview[];
   supportsXiamiBalance: boolean;
@@ -41,7 +40,6 @@ export function getInitialHomepageShellSnapshot(): HomepageShellSnapshot {
   return {
     authenticated: hasAuth,
     profile: cachedProfile,
-    consumerAccount: null,
     instances: [],
     recentSessions: [],
     supportsXiamiBalance: false,
@@ -175,7 +173,6 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
   ]);
 
   const profile = profileResult.status === "fulfilled" ? profileResult.value : null;
-  const consumerAccount = null;
   const instances = instancesResult.status === "fulfilled" ? instancesResult.value.items : [];
   const agentDisplayNameByKey = recentSessionsResult.status === "fulfilled"
     ? await loadAgentDisplayNameMap(instances, recentSessionsResult.value.items)
@@ -197,7 +194,6 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
       return {
         authenticated: false,
         profile: null,
-        consumerAccount: null,
         instances: [],
         recentSessions: [],
         supportsXiamiBalance: false,
@@ -215,7 +211,6 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
   return {
     authenticated: true,
     profile,
-    consumerAccount,
     instances,
     recentSessions,
     supportsXiamiBalance: false,

@@ -72,6 +72,20 @@ export type RechargeCommodityCatalog = {
   materials: RechargeCommodity[];
 };
 
+type RechargeConsumeUrlApiData = {
+  pay_url?: string | null;
+  price?: string | number | null;
+  order_code?: string | null;
+  validEndTime?: string | null;
+};
+
+export type RechargeConsumeOrder = {
+  payUrl: string;
+  price: string;
+  orderCode: string;
+  validEndTime: string;
+};
+
 function toTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
 }
@@ -144,5 +158,34 @@ export async function listRechargeCommodities(): Promise<RechargeCommodityCatalo
     vips: normalizeCommodityList(envelope.data?.vips),
     packages: normalizeCommodityList(envelope.data?.packages),
     materials: normalizeCommodityList(envelope.data?.materials),
+  };
+}
+
+export async function getRechargeConsumeOrder(params: {
+  commodityId: string;
+  price: number | string;
+  couponCode?: string;
+}): Promise<RechargeConsumeOrder> {
+  const query = new URLSearchParams();
+  query.set("commodity_id", params.commodityId.trim());
+  query.set("price", typeof params.price === "number" ? String(params.price) : params.price.trim());
+
+  if (params.couponCode?.trim()) {
+    query.set("coupon_code", params.couponCode.trim());
+  }
+
+  const envelope = await requestUserCenterAuthedEnvelope<RechargeConsumeUrlApiData>(`/pay/consume/url?${query.toString()}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  return {
+    payUrl: toTrimmedString(envelope.data?.pay_url),
+    price: toTrimmedString(envelope.data?.price),
+    orderCode: toTrimmedString(envelope.data?.order_code),
+    validEndTime: toTrimmedString(envelope.data?.validEndTime),
   };
 }

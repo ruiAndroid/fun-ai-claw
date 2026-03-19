@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { RechargeCommodityCatalog } from "@/lib/recharge-api";
-import { listRechargeCommodities } from "@/lib/recharge-api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RechargeCommodityCatalog, RechargeConsumeOrder } from "@/lib/recharge-api";
+import { getRechargeConsumeOrder, listRechargeCommodities } from "@/lib/recharge-api";
 import { useRequireUserCenterAuth } from "@/lib/use-require-user-center-auth";
 import { RechargeHeader } from "./recharge-header";
 import {
@@ -12,6 +12,7 @@ import {
   type RechargePlan,
   type RechargeTabKey,
 } from "./recharge-data";
+import { RechargePaymentDialog } from "./recharge-payment-dialog";
 import { RechargePlanCard } from "./recharge-plan-card";
 import { RechargeSegment } from "./recharge-segment";
 import { RechargeVoucherDialog } from "./recharge-voucher-dialog";
@@ -24,6 +25,10 @@ const EMPTY_COMMODITY_CATALOG: RechargeCommodityCatalog = {
 
 function formatRechargeError(error: unknown) {
   return error instanceof Error ? error.message : "商品列表加载失败，请稍后重试。";
+}
+
+function formatPaymentError(error: unknown) {
+  return error instanceof Error ? error.message : "支付二维码获取失败，请稍后重试。";
 }
 
 function buildVisiblePlans(data: RechargeCommodityCatalog, activeTab: RechargeTabKey): RechargePlan[] {
@@ -106,20 +111,26 @@ function RechargePageContent() {
   const [voucherOpen, setVoucherOpen] = useState(false);
   const [voucherCode, setVoucherCode] = useState("");
   const [commodityCatalog, setCommodityCatalog] = useState<RechargeCommodityCatalog>(EMPTY_COMMODITY_CATALOG);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string>();
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentPlanTitle, setPaymentPlanTitle] = useState("");
+  const [paymentOrder, setPaymentOrder] = useState<RechargeConsumeOrder | null>(null);
+  const [paymentError, setPaymentError] = useState<string>();
+  const [creatingPaymentPlanId, setCreatingPaymentPlanId] = useState("");
+  const paymentRequestSequence = useRef(0);
 
   const loadCommodityCatalog = useCallback(async () => {
-    setLoading(true);
-    setError(undefined);
+    setCatalogLoading(true);
+    setCatalogError(undefined);
 
     try {
       const nextCatalog = await listRechargeCommodities();
       setCommodityCatalog(nextCatalog);
     } catch (loadError) {
-      setError(formatRechargeError(loadError));
+      setCatalogError(formatRechargeError(loadError));
     } finally {
-      setLoading(false);
+      setCatalogLoading(false);
     }
   }, []);
 
@@ -148,6 +159,72 @@ function RechargePageContent() {
     setSelectedPlanId(visiblePlans.find((plan) => plan.featured)?.id ?? visiblePlans[0]?.id ?? "");
   }, [selectedPlanId, visiblePlans]);
 
+  const handleClosePaymentDialog = useCallback(() => {
+    paymentRequestSequence.current += 1;
+    setPaymentDialogOpen(false);
+    setPaymentOrder(null);
+    setPaymentError(undefined);
+    setCreatingPaymentPlanId("");
+    setPaymentPlanTitle("");
+  }, []);
+
+  const handlePurchasePlan = useCallback(async (plan: RechargePlan) => {
+    if (!plan.commodityId.trim()) {
+      setSelectedPlanId(plan.id);
+      setPaymentPlanTitle(plan.title);
+      setPaymentDialogOpen(true);
+      setPaymentOrder(null);
+      setPaymentError("当前商品缺少 commodity_id，暂时无法创建支付订单。");
+      setCreatingPaymentPlanId("");
+      return;
+    }
+
+    setSelectedPlanId(plan.id);
+    setPaymentPlanTitle(plan.title);
+    setPaymentDialogOpen(true);
+    setPaymentOrder(null);
+    setPaymentError(undefined);
+    setCreatingPaymentPlanId(plan.id);
+
+    const currentSequence = paymentRequestSequence.current + 1;
+    paymentRequestSequence.current = currentSequence;
+
+    try {
+      const nextOrder = await getRechargeConsumeOrder({
+        commodityId: plan.commodityId,
+        price: plan.price,
+        couponCode: voucherCode.trim() || undefined,
+      });
+
+      if (paymentRequestSequence.current !== currentSequence) {
+        return;
+      }
+
+      if (!nextOrder.payUrl) {
+        throw new Error("支付链接为空，请稍后重试。");
+      }
+
+      setPaymentOrder(nextOrder);
+    } catch (createError) {
+      if (paymentRequestSequence.current !== currentSequence) {
+        return;
+      }
+      setPaymentError(formatPaymentError(createError));
+    } finally {
+      if (paymentRequestSequence.current === currentSequence) {
+        setCreatingPaymentPlanId("");
+      }
+    }
+  }, [voucherCode]);
+
+  const handleRetryPayment = useCallback(() => {
+    const currentPlan = visiblePlans.find((plan) => plan.id === selectedPlanId);
+    if (!currentPlan) {
+      return;
+    }
+    void handlePurchasePlan(currentPlan);
+  }, [handlePurchasePlan, selectedPlanId, visiblePlans]);
+
   return (
     <>
       <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.98),rgba(255,247,250,0.98)_38%,rgba(243,232,255,0.96)),linear-gradient(180deg,#ffffff_0%,#fff8fc_60%,#faf5ff_100%)] px-5 py-6 sm:px-8 lg:px-12">
@@ -175,29 +252,32 @@ function RechargePageContent() {
           </section>
 
           <section className="mt-20">
-            {loading ? <RechargeLoadingState /> : null}
+            {catalogLoading ? <RechargeLoadingState /> : null}
 
-            {!loading && error ? (
-              <RechargeErrorState message={error} onRetry={() => {
+            {!catalogLoading && catalogError ? (
+              <RechargeErrorState message={catalogError} onRetry={() => {
                 void loadCommodityCatalog();
               }}
               />
             ) : null}
 
-            {!loading && !error && visiblePlans.length > 0 ? (
+            {!catalogLoading && !catalogError && visiblePlans.length > 0 ? (
               <div className="grid gap-8 xl:grid-cols-4">
                 {visiblePlans.map((plan) => (
                   <RechargePlanCard
                     key={plan.id}
                     plan={plan}
                     selected={selectedPlanId === plan.id}
-                    onSelect={setSelectedPlanId}
+                    loading={creatingPaymentPlanId === plan.id}
+                    onSelect={(nextPlan) => {
+                      void handlePurchasePlan(nextPlan);
+                    }}
                   />
                 ))}
               </div>
             ) : null}
 
-            {!loading && !error && visiblePlans.length === 0 ? (
+            {!catalogLoading && !catalogError && visiblePlans.length === 0 ? (
               <RechargeEmptyState activeTab={activeTab} />
             ) : null}
           </section>
@@ -209,6 +289,16 @@ function RechargePageContent() {
         value={voucherCode}
         onChange={setVoucherCode}
         onClose={() => setVoucherOpen(false)}
+      />
+
+      <RechargePaymentDialog
+        open={paymentDialogOpen}
+        planTitle={paymentPlanTitle}
+        loading={Boolean(creatingPaymentPlanId)}
+        error={paymentError}
+        order={paymentOrder}
+        onRetry={handleRetryPayment}
+        onClose={handleClosePaymentDialog}
       />
     </>
   );

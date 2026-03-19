@@ -60,10 +60,10 @@ export function useHomepageShellData() {
     }
 
     return {
-      title: snapshot?.consumerAccount?.displayName?.trim() || snapshot?.profile?.nickname?.trim() || "个人中心",
-      subtitle: snapshot?.consumerAccount?.phoneMasked?.trim() || snapshot?.profile?.phoneMasked?.trim() || "账号已登录，欢迎回来",
+      title: snapshot?.profile?.nickname?.trim() || "个人中心",
+      subtitle: snapshot?.profile?.phoneMasked?.trim() || "账号已登录，欢迎回来",
       href: "/me",
-      avatarUrl: snapshot?.consumerAccount?.avatarUrl || snapshot?.profile?.avatarUrl,
+      avatarUrl: snapshot?.profile?.avatarUrl,
     };
   }, [authenticated, error, snapshot]);
 

@@ -7,7 +7,6 @@ import {
 } from "@/lib/user-center-api";
 import type { ListResponse } from "@/types/contracts";
 import type {
-  ConsumerAccount,
   ConsumerRobotAdoptionResponse,
   ConsumerRobotTemplateSummary,
   ConsumerBoundInstance,
@@ -18,43 +17,6 @@ import type {
 } from "@/types/consumer";
 
 const BASE_URL = appConfig.controlApiBaseUrl;
-const CONSUMER_ACCOUNT_KEY = "fun_claw_consumer_account";
-const CONSUMER_BOOTSTRAP_KEY = "fun_claw_consumer_bootstrap_key";
-let consumerSessionReadyKey: string | null = null;
-let consumerSessionAccount: ConsumerAccount | null = null;
-let consumerSessionBootstrapPromise: Promise<ConsumerAccount | null> | null = null;
-
-function getStoredValue(key: string) {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const value = window.localStorage.getItem(key);
-  return value && value.trim() ? value.trim() : null;
-}
-
-function setStoredValue(key: string, value?: string | null) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  if (value && value.trim()) {
-    window.localStorage.setItem(key, value.trim());
-  } else {
-    window.localStorage.removeItem(key);
-  }
-}
-
-function getStoredConsumerAccount() {
-  const raw = getStoredValue(CONSUMER_ACCOUNT_KEY);
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as ConsumerAccount;
-  } catch {
-    setStoredValue(CONSUMER_ACCOUNT_KEY, null);
-    return null;
-  }
-}
 
 function buildHeaders(init?: RequestInit) {
   const snapshot = getUserCenterAuthSnapshot();
@@ -81,56 +43,6 @@ function buildHeaders(init?: RequestInit) {
   return headers;
 }
 
-function getConsumerSessionKey() {
-  const snapshot = getUserCenterAuthSnapshot();
-  return [
-    snapshot.tokenType?.trim() ?? "",
-    snapshot.accessToken?.trim() ?? "",
-    snapshot.refreshToken?.trim() ?? "",
-    snapshot.sessionKey?.trim() ?? "",
-  ].join("|");
-}
-
-function hasConsumerCredentials() {
-  const snapshot = getUserCenterAuthSnapshot();
-  return Boolean(snapshot.accessToken || snapshot.refreshToken);
-}
-
-function invalidateConsumerSessionBootstrap() {
-  consumerSessionReadyKey = null;
-  consumerSessionAccount = null;
-  setStoredValue(CONSUMER_BOOTSTRAP_KEY, null);
-  setStoredValue(CONSUMER_ACCOUNT_KEY, null);
-}
-
-function restoreCachedConsumerSession(bootstrapKey: string) {
-  if (consumerSessionReadyKey === bootstrapKey && consumerSessionAccount) {
-    return consumerSessionAccount;
-  }
-
-  const storedBootstrapKey = getStoredValue(CONSUMER_BOOTSTRAP_KEY);
-  if (storedBootstrapKey !== bootstrapKey) {
-    return null;
-  }
-
-  const storedAccount = getStoredConsumerAccount();
-  if (!storedAccount) {
-    setStoredValue(CONSUMER_BOOTSTRAP_KEY, null);
-    return null;
-  }
-
-  consumerSessionReadyKey = storedBootstrapKey;
-  consumerSessionAccount = storedAccount;
-  return storedAccount;
-}
-
-function cacheConsumerSession(account: ConsumerAccount, bootstrapKey = getConsumerSessionKey()) {
-  consumerSessionReadyKey = bootstrapKey;
-  consumerSessionAccount = account;
-  setStoredValue(CONSUMER_BOOTSTRAP_KEY, bootstrapKey);
-  setStoredValue(CONSUMER_ACCOUNT_KEY, JSON.stringify(account));
-}
-
 async function buildRequestError(response: Response): Promise<Error> {
   const body = await response.text();
   let detail = body || response.statusText;
@@ -151,34 +63,6 @@ async function buildRequestError(response: Response): Promise<Error> {
   return new Error(`HTTP ${response.status}: ${detail}`);
 }
 
-async function loadCurrentConsumerAccount(force = false) {
-  if (!hasConsumerCredentials()) {
-    invalidateConsumerSessionBootstrap();
-    return null;
-  }
-
-  const bootstrapKey = getConsumerSessionKey();
-  if (!force) {
-    const cachedAccount = restoreCachedConsumerSession(bootstrapKey);
-    if (cachedAccount) {
-      return cachedAccount;
-    }
-  }
-
-  if (!consumerSessionBootstrapPromise || force) {
-    consumerSessionBootstrapPromise = requestConsumerJson<ConsumerAccount>("/app/v1/consumer/me")
-      .then((account) => {
-        cacheConsumerSession(account, getConsumerSessionKey());
-        return account;
-      })
-      .finally(() => {
-        consumerSessionBootstrapPromise = null;
-      });
-  }
-
-  return consumerSessionBootstrapPromise;
-}
-
 async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetried = false): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
@@ -187,7 +71,6 @@ async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetri
   });
 
   if (response.status === 401 && !hasRetried) {
-    invalidateConsumerSessionBootstrap();
     try {
       await refreshUserCenterAuth();
     } catch {
@@ -201,7 +84,6 @@ async function requestConsumerJson<T>(path: string, init?: RequestInit, hasRetri
   if (!response.ok) {
     if (response.status === 401) {
       clearUserCenterAuthState();
-      invalidateConsumerSessionBootstrap();
       notifyUserCenterAuthRequired();
     }
     throw await buildRequestError(response);
@@ -247,14 +129,6 @@ async function requestPublicJson<T>(path: string, init?: RequestInit): Promise<T
 
 export async function listConsumerRobotTemplates() {
   return requestPublicJson<ListResponse<ConsumerRobotTemplateSummary>>("/app/v1/public/robot-templates");
-}
-
-export async function getCurrentConsumerAccount() {
-  const account = await loadCurrentConsumerAccount();
-  if (!account) {
-    throw new Error("HTTP 401: consumer authentication required");
-  }
-  return account;
 }
 
 export async function adoptConsumerRobot(request: CreateConsumerRobotRequest) {

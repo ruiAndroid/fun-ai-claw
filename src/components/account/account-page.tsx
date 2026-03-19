@@ -126,15 +126,18 @@ export function AccountPage() {
   }
 
   return (
-    <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fffaf7_100%)] px-5 py-4 sm:px-6 lg:px-10">
-      <div className="mx-auto grid max-w-[1800px] items-start gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
+    <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#ffffff_0%,#fffaf7_100%)] px-5 py-4 sm:px-6 lg:px-10 xl:h-screen xl:overflow-hidden">
+      <div className="mx-auto grid max-w-[1800px] items-start gap-8 xl:h-full xl:grid-cols-[360px_minmax(0,1fr)] xl:items-stretch">
         <AccountSidebar
           activeTab={activeTab}
           onChange={setActiveTab}
           onLogout={() => setLogoutConfirmOpen(true)}
           loggingOut={loggingOut}
         />
-        <section className="space-y-4 rounded-[28px] bg-white/48 px-6 py-8 sm:px-10 sm:py-10">
+        <section
+          className="space-y-4 rounded-[28px] bg-white/48 px-6 py-8 sm:px-10 sm:py-10 xl:min-h-0 xl:overflow-y-auto xl:pr-4"
+          style={{ scrollbarGutter: "stable" }}
+        >
           {content}
         </section>
       </div>

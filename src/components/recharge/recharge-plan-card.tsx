@@ -24,14 +24,14 @@ export function RechargePlanCard({
   return (
     <article
       className={cn(
-        "rounded-[32px] border bg-white px-8 py-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] transition-all duration-300",
+        "relative flex h-full flex-col rounded-[32px] border bg-white px-8 py-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] transition-all duration-300",
         selected
           ? "border-violet-300 shadow-[0_28px_70px_rgba(147,51,234,0.18)]"
           : "border-white hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(15,23,42,0.12)]",
       )}
     >
       {plan.badge ? (
-        <div className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600">
+        <div className="absolute left-0 top-0 z-10 rounded-br-[20px] rounded-tl-[30px] bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_100%)] px-4 py-2 text-sm font-bold text-white shadow-[0_12px_28px_rgba(255,122,24,0.28)]">
           {plan.badge}
         </div>
       ) : null}
@@ -74,18 +74,20 @@ export function RechargePlanCard({
         {plan.description}
       </p>
 
-      <button
-        type="button"
-        onClick={() => onSelect(plan.id)}
-        className={cn(
-          "mt-8 inline-flex h-18 w-full items-center justify-center rounded-[18px] text-[24px] font-black text-slate-950 transition-transform duration-300",
-          selected
-            ? "bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] shadow-[0_18px_40px_rgba(139,61,255,0.24)] hover:scale-[1.01]"
-            : "bg-violet-300/95 hover:scale-[1.01]",
-        )}
-      >
-        {selected ? "已选择" : "购买"}
-      </button>
+      <div className="mt-auto pt-8">
+        <button
+          type="button"
+          onClick={() => onSelect(plan.id)}
+          className={cn(
+            "inline-flex h-18 w-full items-center justify-center rounded-[18px] text-[24px] font-black text-slate-950 transition-transform duration-300",
+            selected
+              ? "bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] shadow-[0_18px_40px_rgba(139,61,255,0.24)] hover:scale-[1.01]"
+              : "bg-violet-300/95 hover:scale-[1.01]",
+          )}
+        >
+          {selected ? "已选择" : "购买"}
+        </button>
+      </div>
     </article>
   );
 }

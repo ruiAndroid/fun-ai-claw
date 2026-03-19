@@ -49,6 +49,10 @@ function pickFirstText(...values: Array<string | null | undefined>) {
   return "";
 }
 
+function hasCommodityTag(item: RechargeCommodity) {
+  return Boolean(pickFirstText(item.commodityTag));
+}
+
 function buildCommodityTitle(item: RechargeCommodity, category: RechargeCommodityCategory) {
   const resolved = pickFirstText(item.displayName, item.name);
   if (resolved) {
@@ -121,6 +125,7 @@ export function mapCommodityToRechargePlan(
 ): RechargePlan {
   const resolvedPrice = item.realPrice > 0 ? item.realPrice : item.price;
   const resolvedBadge = pickFirstText(item.commodityTag) || (item.focusStatus > 0 ? "推荐" : "");
+  const prioritized = hasCommodityTag(item) || item.focusStatus > 0;
   const benefit = buildCommodityBenefit(item, category);
 
   return {
@@ -131,7 +136,7 @@ export function mapCommodityToRechargePlan(
     benefitValue: benefit.benefitValue,
     benefitLabel: benefit.benefitLabel,
     description: buildCommodityDescription(item, category),
-    featured: item.focusStatus > 0,
+    featured: prioritized,
     badge: resolvedBadge || null,
     meta: buildCommodityMeta(item),
     category,

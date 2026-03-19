@@ -1,8 +1,17 @@
 "use client";
 
+import { message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { RechargeCommodityCatalog, RechargeConsumeOrder } from "@/lib/recharge-api";
-import { getRechargeConsumeOrder, listRechargeCommodities } from "@/lib/recharge-api";
+import type {
+  RechargeCommodityCatalog,
+  RechargeConsumeOrder,
+  RechargeConsumeOrderStatus,
+} from "@/lib/recharge-api";
+import {
+  getRechargeConsumeOrder,
+  getRechargeConsumeOrderStatus,
+  listRechargeCommodities,
+} from "@/lib/recharge-api";
 import { useRequireUserCenterAuth } from "@/lib/use-require-user-center-auth";
 import { RechargeHeader } from "./recharge-header";
 import {
@@ -23,12 +32,28 @@ const EMPTY_COMMODITY_CATALOG: RechargeCommodityCatalog = {
   materials: [],
 };
 
+const PAYMENT_STATUS_POLL_INTERVAL_MS = 3000;
+const PAYMENT_STATUS_RETRY_INTERVAL_MS = 5000;
+const PAYMENT_STATUS_MAX_ERROR_RETRIES = 5;
+const PAYMENT_SUCCESS_AUTO_CLOSE_MS = 1200;
+const EXPIRED_PAYMENT_MESSAGE = "当前支付二维码已过期，请重新生成。";
+
+type PaymentDialogError = {
+  title?: string;
+  message: string;
+  retryMode: "createOrder" | "checkStatus";
+};
+
 function formatRechargeError(error: unknown) {
   return error instanceof Error ? error.message : "商品列表加载失败，请稍后重试。";
 }
 
-function formatPaymentError(error: unknown) {
+function formatPaymentCreateError(error: unknown) {
   return error instanceof Error ? error.message : "支付二维码获取失败，请稍后重试。";
+}
+
+function formatPaymentStatusError(error: unknown) {
+  return error instanceof Error ? error.message : "订单状态查询失败，请稍后重新查询。";
 }
 
 function buildVisiblePlans(data: RechargeCommodityCatalog, activeTab: RechargeTabKey): RechargePlan[] {
@@ -46,6 +71,84 @@ function buildVisiblePlans(data: RechargeCommodityCatalog, activeTab: RechargeTa
       .filter(isRechargeCommodityVisible)
       .map((item) => mapCommodityToRechargePlan(item, "material")),
   ];
+}
+
+function resolvePaymentStatusLabel(status?: RechargeConsumeOrderStatus | null) {
+  if (!status) {
+    return "";
+  }
+
+  if (status.statusDetail) {
+    return status.statusDetail;
+  }
+
+  switch (status.statusText) {
+    case "WAIT_BUYER_PAY":
+    case "USERPAYING":
+    case "NOTPAY":
+    case "NOT_PAID":
+    case "UNPAID":
+    case "PENDING":
+    case "WAITING":
+    case "CREATED":
+    case "PROCESSING":
+    case "PAYING":
+    case "INIT":
+    case "INITIALIZED":
+    case "NEW":
+      return "等待支付";
+    case "SUCCESS":
+    case "SUCCEEDED":
+    case "PAID":
+    case "PAY_SUCCESS":
+    case "PAYMENT_SUCCESS":
+    case "TRADE_SUCCESS":
+    case "COMPLETED":
+    case "COMPLETE":
+    case "FINISHED":
+    case "DONE":
+      return "支付成功";
+    case "FAILED":
+    case "FAIL":
+    case "CLOSED":
+    case "CANCELLED":
+    case "CANCELED":
+    case "EXPIRED":
+    case "TIMEOUT":
+    case "PAYERROR":
+    case "PAY_ERROR":
+    case "ERROR":
+    case "TRADE_CLOSED":
+    case "REVOKED":
+    case "ABORTED":
+      return "订单已结束";
+    default:
+      return status.statusText || "";
+  }
+}
+
+function isOrderExpired(validEndTime?: string) {
+  if (!validEndTime) {
+    return false;
+  }
+
+  const expiresAt = new Date(validEndTime).getTime();
+  if (Number.isNaN(expiresAt)) {
+    return false;
+  }
+
+  return Date.now() >= expiresAt;
+}
+
+function createExpiredPaymentStatus(): RechargeConsumeOrderStatus {
+  return {
+    raw: {},
+    statusText: "EXPIRED",
+    statusDetail: EXPIRED_PAYMENT_MESSAGE,
+    isSuccess: false,
+    isFailure: true,
+    isPending: false,
+  };
 }
 
 function RechargeLoadingState() {
@@ -106,6 +209,7 @@ function RechargeEmptyState({ activeTab }: { activeTab: RechargeTabKey }) {
 }
 
 function RechargePageContent() {
+  const [messageApi, contextHolder] = message.useMessage();
   const [activeTab, setActiveTab] = useState<RechargeTabKey>("boost");
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [voucherOpen, setVoucherOpen] = useState(false);
@@ -116,9 +220,19 @@ function RechargePageContent() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentPlanTitle, setPaymentPlanTitle] = useState("");
   const [paymentOrder, setPaymentOrder] = useState<RechargeConsumeOrder | null>(null);
-  const [paymentError, setPaymentError] = useState<string>();
+  const [paymentStatus, setPaymentStatus] = useState<RechargeConsumeOrderStatus | null>(null);
+  const [paymentDialogError, setPaymentDialogError] = useState<PaymentDialogError>();
   const [creatingPaymentPlanId, setCreatingPaymentPlanId] = useState("");
+  const [pollingPaymentStatus, setPollingPaymentStatus] = useState(false);
   const paymentRequestSequence = useRef(0);
+  const paymentSuccessCloseTimerRef = useRef<number | null>(null);
+
+  const clearPaymentSuccessCloseTimer = useCallback(() => {
+    if (paymentSuccessCloseTimerRef.current !== null) {
+      window.clearTimeout(paymentSuccessCloseTimerRef.current);
+      paymentSuccessCloseTimerRef.current = null;
+    }
+  }, []);
 
   const loadCommodityCatalog = useCallback(async () => {
     setCatalogLoading(true);
@@ -137,6 +251,10 @@ function RechargePageContent() {
   useEffect(() => {
     void loadCommodityCatalog();
   }, [loadCommodityCatalog]);
+
+  useEffect(() => () => {
+    clearPaymentSuccessCloseTimer();
+  }, [clearPaymentSuccessCloseTimer]);
 
   const visiblePlans = useMemo(
     () => buildVisiblePlans(commodityCatalog, activeTab),
@@ -160,21 +278,31 @@ function RechargePageContent() {
   }, [selectedPlanId, visiblePlans]);
 
   const handleClosePaymentDialog = useCallback(() => {
+    clearPaymentSuccessCloseTimer();
     paymentRequestSequence.current += 1;
+    setPollingPaymentStatus(false);
     setPaymentDialogOpen(false);
     setPaymentOrder(null);
-    setPaymentError(undefined);
+    setPaymentStatus(null);
+    setPaymentDialogError(undefined);
     setCreatingPaymentPlanId("");
     setPaymentPlanTitle("");
-  }, []);
+  }, [clearPaymentSuccessCloseTimer]);
 
   const handlePurchasePlan = useCallback(async (plan: RechargePlan) => {
+    clearPaymentSuccessCloseTimer();
+
     if (!plan.commodityId.trim()) {
       setSelectedPlanId(plan.id);
       setPaymentPlanTitle(plan.title);
       setPaymentDialogOpen(true);
       setPaymentOrder(null);
-      setPaymentError("当前商品缺少 commodity_id，暂时无法创建支付订单。");
+      setPaymentStatus(null);
+      setPaymentDialogError({
+        title: "无法创建支付订单",
+        message: "当前商品缺少 commodity_id，暂时无法创建支付订单。",
+        retryMode: "createOrder",
+      });
       setCreatingPaymentPlanId("");
       return;
     }
@@ -183,7 +311,8 @@ function RechargePageContent() {
     setPaymentPlanTitle(plan.title);
     setPaymentDialogOpen(true);
     setPaymentOrder(null);
-    setPaymentError(undefined);
+    setPaymentStatus(null);
+    setPaymentDialogError(undefined);
     setCreatingPaymentPlanId(plan.id);
 
     const currentSequence = paymentRequestSequence.current + 1;
@@ -209,24 +338,197 @@ function RechargePageContent() {
       if (paymentRequestSequence.current !== currentSequence) {
         return;
       }
-      setPaymentError(formatPaymentError(createError));
+      setPaymentDialogError({
+        title: "二维码获取失败",
+        message: formatPaymentCreateError(createError),
+        retryMode: "createOrder",
+      });
     } finally {
       if (paymentRequestSequence.current === currentSequence) {
         setCreatingPaymentPlanId("");
       }
     }
-  }, [voucherCode]);
+  }, [clearPaymentSuccessCloseTimer, voucherCode]);
 
   const handleRetryPayment = useCallback(() => {
+    if (paymentDialogError?.retryMode === "checkStatus") {
+      setPaymentDialogError(undefined);
+      return;
+    }
+
     const currentPlan = visiblePlans.find((plan) => plan.id === selectedPlanId);
     if (!currentPlan) {
       return;
     }
     void handlePurchasePlan(currentPlan);
-  }, [handlePurchasePlan, selectedPlanId, visiblePlans]);
+  }, [handlePurchasePlan, paymentDialogError?.retryMode, selectedPlanId, visiblePlans]);
+
+  useEffect(() => {
+    if (!paymentDialogOpen || !paymentOrder?.orderCode || creatingPaymentPlanId || paymentDialogError) {
+      setPollingPaymentStatus(false);
+      return;
+    }
+
+    if (isOrderExpired(paymentOrder.validEndTime)) {
+      setPaymentStatus(createExpiredPaymentStatus());
+      setPaymentDialogError({
+        title: "支付二维码已过期",
+        message: EXPIRED_PAYMENT_MESSAGE,
+        retryMode: "createOrder",
+      });
+      setPollingPaymentStatus(false);
+      return;
+    }
+
+    let cancelled = false;
+    let timerId: number | null = null;
+    let consecutiveFailures = 0;
+
+    const scheduleNextPoll = (delay: number) => {
+      if (cancelled) {
+        return;
+      }
+
+      timerId = window.setTimeout(() => {
+        void pollOrderStatus();
+      }, delay);
+    };
+
+    const pollOrderStatus = async () => {
+      if (cancelled) {
+        return;
+      }
+
+      if (isOrderExpired(paymentOrder.validEndTime)) {
+        setPollingPaymentStatus(false);
+        setPaymentStatus(createExpiredPaymentStatus());
+        setPaymentDialogError({
+          title: "支付二维码已过期",
+          message: EXPIRED_PAYMENT_MESSAGE,
+          retryMode: "createOrder",
+        });
+        return;
+      }
+
+      setPollingPaymentStatus(true);
+
+      try {
+        const nextStatus = await getRechargeConsumeOrderStatus(paymentOrder.orderCode);
+        if (cancelled) {
+          return;
+        }
+
+        consecutiveFailures = 0;
+        setPaymentStatus(nextStatus);
+
+        if (nextStatus.isSuccess) {
+          setPollingPaymentStatus(false);
+          setPaymentDialogError(undefined);
+          void messageApi.success(`${paymentPlanTitle || "当前订单"}支付成功`);
+          clearPaymentSuccessCloseTimer();
+          paymentSuccessCloseTimerRef.current = window.setTimeout(() => {
+            void loadCommodityCatalog();
+            handleClosePaymentDialog();
+          }, PAYMENT_SUCCESS_AUTO_CLOSE_MS);
+          return;
+        }
+
+        if (nextStatus.isFailure) {
+          setPollingPaymentStatus(false);
+          setPaymentDialogError({
+            title: "支付未完成",
+            message: resolvePaymentStatusLabel(nextStatus) || "订单已结束，请重新生成支付二维码。",
+            retryMode: "createOrder",
+          });
+          return;
+        }
+
+        scheduleNextPoll(PAYMENT_STATUS_POLL_INTERVAL_MS);
+      } catch (statusError) {
+        if (cancelled) {
+          return;
+        }
+
+        consecutiveFailures += 1;
+
+        if (consecutiveFailures >= PAYMENT_STATUS_MAX_ERROR_RETRIES) {
+          setPollingPaymentStatus(false);
+          setPaymentDialogError({
+            title: "订单状态查询失败",
+            message: formatPaymentStatusError(statusError),
+            retryMode: "checkStatus",
+          });
+          return;
+        }
+
+        scheduleNextPoll(PAYMENT_STATUS_RETRY_INTERVAL_MS);
+      }
+    };
+
+    void pollOrderStatus();
+
+    return () => {
+      cancelled = true;
+      if (timerId !== null) {
+        window.clearTimeout(timerId);
+      }
+    };
+  }, [
+    clearPaymentSuccessCloseTimer,
+    creatingPaymentPlanId,
+    handleClosePaymentDialog,
+    loadCommodityCatalog,
+    messageApi,
+    paymentDialogError,
+    paymentDialogOpen,
+    paymentOrder,
+    paymentPlanTitle,
+  ]);
+
+  const paymentDialogStatus = useMemo(() => {
+    if (creatingPaymentPlanId) {
+      return {
+        label: "正在创建支付订单",
+        tone: "default" as const,
+      };
+    }
+
+    if (paymentDialogError) {
+      return {
+        label: paymentDialogError.retryMode === "checkStatus" ? "订单状态查询受阻" : "支付未完成",
+        tone: "error" as const,
+      };
+    }
+
+    if (paymentStatus?.isSuccess) {
+      return {
+        label: resolvePaymentStatusLabel(paymentStatus) || "支付成功",
+        tone: "success" as const,
+      };
+    }
+
+    if (paymentStatus?.isFailure) {
+      return {
+        label: resolvePaymentStatusLabel(paymentStatus) || "订单已结束",
+        tone: "error" as const,
+      };
+    }
+
+    if (pollingPaymentStatus && paymentOrder?.orderCode) {
+      return {
+        label: resolvePaymentStatusLabel(paymentStatus) || "等待支付完成",
+        tone: "default" as const,
+      };
+    }
+
+    return undefined;
+  }, [creatingPaymentPlanId, paymentDialogError, paymentOrder?.orderCode, paymentStatus, pollingPaymentStatus]);
+
+  const paymentDialogRetryLabel = paymentDialogError?.retryMode === "checkStatus" ? "重新查询" : "重新获取";
 
   return (
     <>
+      {contextHolder}
       <main className="brand-sunset-theme min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.98),rgba(255,247,250,0.98)_38%,rgba(243,232,255,0.96)),linear-gradient(180deg,#ffffff_0%,#fff8fc_60%,#faf5ff_100%)] px-5 py-6 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-[1840px]">
           <RechargeHeader />
@@ -295,7 +597,12 @@ function RechargePageContent() {
         open={paymentDialogOpen}
         planTitle={paymentPlanTitle}
         loading={Boolean(creatingPaymentPlanId)}
-        error={paymentError}
+        polling={pollingPaymentStatus}
+        statusLabel={paymentDialogStatus?.label}
+        statusTone={paymentDialogStatus?.tone}
+        error={paymentDialogError?.message}
+        errorTitle={paymentDialogError?.title}
+        retryLabel={paymentDialogRetryLabel}
         order={paymentOrder}
         onRetry={handleRetryPayment}
         onClose={handleClosePaymentDialog}

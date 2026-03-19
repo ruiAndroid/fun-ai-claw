@@ -23,7 +23,12 @@ export function RechargePaymentDialog({
   open,
   planTitle,
   loading,
+  polling,
+  statusLabel,
+  statusTone = "default",
   error,
+  errorTitle,
+  retryLabel,
   order,
   onRetry,
   onClose,
@@ -31,7 +36,12 @@ export function RechargePaymentDialog({
   open: boolean;
   planTitle?: string;
   loading: boolean;
+  polling?: boolean;
+  statusLabel?: string;
+  statusTone?: "default" | "success" | "error";
   error?: string;
+  errorTitle?: string;
+  retryLabel?: string;
   order?: RechargeConsumeOrder | null;
   onRetry: () => void;
   onClose: () => void;
@@ -40,20 +50,32 @@ export function RechargePaymentDialog({
     return null;
   }
 
+  const statusClassName = statusTone === "success"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : statusTone === "error"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : "border-orange-200 bg-orange-50 text-orange-700";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
       <div className="w-full max-w-[920px] rounded-[32px] border border-white/70 bg-white/92 p-8 shadow-[0_32px_100px_rgba(15,23,42,0.22)]">
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="text-sm font-bold uppercase tracking-[0.2em] text-orange-500">
-              Payment
+              支付
             </div>
             <h2 className="mt-3 text-[34px] font-black tracking-[-0.05em] text-slate-950">
               {planTitle ? `${planTitle} 支付` : "扫码支付"}
             </h2>
             <p className="mt-3 text-base font-semibold text-slate-500">
-              扫描二维码完成支付，支付成功后页面可继续联动订单状态。
+              扫描二维码完成支付，支付成功后页面会自动更新订单状态。
             </p>
+            {statusLabel ? (
+              <div className={`mt-4 inline-flex items-center rounded-full border px-4 py-2 text-sm font-bold ${statusClassName}`}>
+                {polling && statusTone === "default" ? "轮询中 · " : ""}
+                {statusLabel}
+              </div>
+            ) : null}
           </div>
 
           <button
@@ -81,7 +103,9 @@ export function RechargePaymentDialog({
 
               {!loading && error ? (
                 <div className="flex w-full flex-col items-center justify-center text-center">
-                  <div className="text-xl font-black text-slate-950">二维码获取失败</div>
+                  <div className="text-xl font-black text-slate-950">
+                    {errorTitle || "二维码获取失败"}
+                  </div>
                   <div className="mt-3 text-sm font-semibold leading-6 text-slate-400">
                     {error}
                   </div>
@@ -91,7 +115,7 @@ export function RechargePaymentDialog({
                     className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-6 text-sm font-bold text-white shadow-[0_14px_30px_rgba(139,61,255,0.24)] transition-transform duration-300 hover:scale-[1.01]"
                   >
                     <RefreshCw size={16} />
-                    重新获取
+                    {retryLabel || "重新获取"}
                   </button>
                 </div>
               ) : null}
@@ -112,7 +136,7 @@ export function RechargePaymentDialog({
           <div className="flex flex-col gap-4 rounded-[28px] border border-slate-100 bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.04)]">
             <div className="rounded-[22px] bg-slate-50 px-5 py-4">
               <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                Order Code
+                订单号
               </div>
               <div className="mt-2 break-all text-lg font-black text-slate-950">
                 {order?.orderCode || "--"}
@@ -121,7 +145,7 @@ export function RechargePaymentDialog({
 
             <div className="rounded-[22px] bg-slate-50 px-5 py-4">
               <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                Price
+                支付金额
               </div>
               <div className="mt-2 text-lg font-black text-slate-950">
                 {order?.price ? `¥ ${order.price}` : "--"}
@@ -130,7 +154,7 @@ export function RechargePaymentDialog({
 
             <div className="rounded-[22px] bg-slate-50 px-5 py-4">
               <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                Expires At
+                有效截止
               </div>
               <div className="mt-2 text-lg font-black text-slate-950">
                 {formatDateTime(order?.validEndTime)}

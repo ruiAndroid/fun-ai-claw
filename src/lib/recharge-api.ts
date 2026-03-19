@@ -86,6 +86,15 @@ export type RechargeConsumeOrder = {
   validEndTime: string;
 };
 
+export type RechargeConsumeOrderStatus = {
+  raw: Record<string, unknown>;
+  statusText: string;
+  statusDetail: string;
+  isSuccess: boolean;
+  isFailure: boolean;
+  isPending: boolean;
+};
+
 function toTrimmedString(value: unknown) {
   return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
 }
@@ -145,6 +154,175 @@ function normalizeCommodityList(items?: RechargeCommodityApiItem[] | null) {
   return items.map((item) => normalizeCommodity(item ?? {}));
 }
 
+function toRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function findValueByKey(record: Record<string, unknown>, keys: string[]): unknown {
+  const normalizedEntries = Object.entries(record).map(([key, value]) => [key.toLowerCase(), value] as const);
+
+  for (const key of keys) {
+    const direct = normalizedEntries.find(([candidate]) => candidate === key.toLowerCase());
+    if (direct) {
+      return direct[1];
+    }
+  }
+
+  for (const value of Object.values(record)) {
+    const nested = toRecord(value);
+    if (Object.keys(nested).length === 0) {
+      continue;
+    }
+    const nestedValue = findValueByKey(nested, keys);
+    if (nestedValue !== undefined) {
+      return nestedValue;
+    }
+  }
+
+  return undefined;
+}
+
+function toNormalizedStatusToken(value: unknown) {
+  const text = toTrimmedString(value);
+  if (!text) {
+    return "";
+  }
+  return text
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .toUpperCase();
+}
+
+function parseBooleanLike(value: unknown): boolean | null {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const text = toNormalizedStatusToken(value);
+  if (!text) {
+    return null;
+  }
+
+  if (["TRUE", "YES", "Y"].includes(text)) {
+    return true;
+  }
+  if (["FALSE", "NO", "N"].includes(text)) {
+    return false;
+  }
+
+  if (/^\d+$/.test(text)) {
+    return Number(text) > 0;
+  }
+
+  return null;
+}
+
+function buildOrderStatusDetail(record: Record<string, unknown>) {
+  return toTrimmedString(findValueByKey(record, [
+    "statusDesc",
+    "status_desc",
+    "tradeStateDesc",
+    "trade_state_desc",
+    "payStatusDesc",
+    "pay_status_desc",
+    "message",
+    "msg",
+    "remark",
+  ]));
+}
+
+export function interpretRechargeConsumeOrderStatus(data: unknown): RechargeConsumeOrderStatus {
+  const raw = toRecord(data);
+  const statusValue = findValueByKey(raw, [
+    "tradeState",
+    "trade_state",
+    "tradeStatus",
+    "trade_status",
+    "payStatus",
+    "pay_status",
+    "orderStatus",
+    "order_status",
+    "status",
+    "state",
+    "consumeStatus",
+    "consume_status",
+  ]);
+
+  const statusText = toNormalizedStatusToken(statusValue);
+  const statusDetail = buildOrderStatusDetail(raw);
+  const paidValue = findValueByKey(raw, [
+    "isPaid",
+    "paid",
+    "paySuccess",
+    "pay_success",
+    "tradeSuccess",
+    "trade_success",
+    "completed",
+    "finished",
+  ]);
+  const paid = parseBooleanLike(paidValue);
+
+  const successTokens = new Set([
+    "SUCCESS",
+    "SUCCEEDED",
+    "PAID",
+    "PAY_SUCCESS",
+    "PAYMENT_SUCCESS",
+    "TRADE_SUCCESS",
+    "COMPLETED",
+    "COMPLETE",
+    "FINISHED",
+    "DONE",
+  ]);
+  const failureTokens = new Set([
+    "FAILED",
+    "FAIL",
+    "CLOSED",
+    "CANCELLED",
+    "CANCELED",
+    "EXPIRED",
+    "TIMEOUT",
+    "PAYERROR",
+    "PAY_ERROR",
+    "ERROR",
+    "TRADE_CLOSED",
+    "REVOKED",
+    "ABORTED",
+  ]);
+  const pendingTokens = new Set([
+    "PENDING",
+    "WAITING",
+    "WAIT_BUYER_PAY",
+    "USERPAYING",
+    "NOTPAY",
+    "NOT_PAID",
+    "UNPAID",
+    "CREATED",
+    "PROCESSING",
+    "PAYING",
+    "INIT",
+    "INITIALIZED",
+    "NEW",
+    "UNKNOWN",
+  ]);
+
+  const isSuccess = paid === true || successTokens.has(statusText);
+  const isFailure = !isSuccess && failureTokens.has(statusText);
+  const isPending = !isSuccess && !isFailure && (pendingTokens.has(statusText) || !statusText);
+
+  return {
+    raw,
+    statusText,
+    statusDetail,
+    isSuccess,
+    isFailure,
+    isPending,
+  };
+}
+
 export async function listRechargeCommodities(): Promise<RechargeCommodityCatalog> {
   const envelope = await requestUserCenterAuthedEnvelope<RechargeCommodityCatalogApiData>("/pay/commodity/list", {
     method: "GET",
@@ -188,4 +366,19 @@ export async function getRechargeConsumeOrder(params: {
     orderCode: toTrimmedString(envelope.data?.order_code),
     validEndTime: toTrimmedString(envelope.data?.validEndTime),
   };
+}
+
+export async function getRechargeConsumeOrderStatus(orderCode: string): Promise<RechargeConsumeOrderStatus> {
+  const query = new URLSearchParams();
+  query.set("orderCode", orderCode.trim());
+
+  const envelope = await requestUserCenterAuthedEnvelope<Record<string, unknown>>(`/pay/consume/orderStatus?${query.toString()}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  return interpretRechargeConsumeOrderStatus(envelope.data);
 }

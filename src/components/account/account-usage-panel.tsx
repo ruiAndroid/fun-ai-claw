@@ -3,9 +3,25 @@
 import Link from "next/link";
 import { Crown, PackageCheck, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useUserCenterOrders } from "@/lib/use-user-center-orders";
 import { useUserCenterVipInfo } from "@/lib/use-user-center-vip-info";
+import type { UserCenterOrderRecord } from "@/types/user-center";
 import type { UsageFilterKey } from "./account-data";
-import { usageEntries, usageFilters } from "./account-data";
+import { usageFilters } from "./account-data";
+
+type UsageRecordItem = {
+  id: string;
+  title: string;
+  detail: string;
+  time: string;
+  amountLabel: string;
+  type: Exclude<UsageFilterKey, "all">;
+};
+
+const currencyFormatter = new Intl.NumberFormat("zh-CN", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
 
 function formatDateTime(value?: string | null) {
   if (!value) {
@@ -33,16 +49,122 @@ function formatVipPeriod(start?: string | null, end?: string | null) {
   return `${formatDateTime(start)} - ${formatDateTime(end)}`;
 }
 
+function formatAmount(value: number) {
+  return currencyFormatter.format(Number.isFinite(value) ? value : 0);
+}
+
+function resolveOrderStatusLabel(order: UserCenterOrderRecord) {
+  if (order.status.trim()) {
+    return order.status.trim();
+  }
+  if (order.refundAmount > 0) {
+    return "已退款";
+  }
+  if (order.billStatus > 0) {
+    return `账单状态 ${order.billStatus}`;
+  }
+  return "订单处理中";
+}
+
+function resolveOrderTitle(order: UserCenterOrderRecord) {
+  return order.commodityName.trim()
+    || order.orderType.trim()
+    || "购买记录";
+}
+
+function buildOrderRecords(orders: UserCenterOrderRecord[]) {
+  const sortedOrders = [...orders].sort((left, right) => {
+    const rightTime = new Date(right.statusUpdateTime || right.updated || right.created).getTime();
+    const leftTime = new Date(left.statusUpdateTime || left.updated || left.created).getTime();
+    return rightTime - leftTime;
+  });
+
+  const records: UsageRecordItem[] = [];
+
+  sortedOrders.forEach((order) => {
+    const title = resolveOrderTitle(order);
+    const time = formatDateTime(order.statusUpdateTime || order.updated || order.created);
+    const cashSpent = order.consumeMoney > 0 ? order.consumeMoney : order.payMoney;
+    const detailParts = [
+      resolveOrderStatusLabel(order),
+      order.orderCode.trim() ? `订单号：${order.orderCode.trim()}` : "",
+    ].filter(Boolean);
+    const detail = detailParts.join(" · ");
+
+    if (cashSpent > 0) {
+      records.push({
+        id: `${order.id || order.orderCode}-pay`,
+        title,
+        detail,
+        time,
+        amountLabel: `-¥ ${formatAmount(cashSpent)}`,
+        type: "spent",
+      });
+    }
+
+    if (order.coinAmount > 0) {
+      records.push({
+        id: `${order.id || order.orderCode}-coin`,
+        title: `${title} 到账`,
+        detail,
+        time,
+        amountLabel: `+${formatAmount(order.coinAmount)} 虾米`,
+        type: "added",
+      });
+    }
+
+    if (order.refundAmount > 0) {
+      records.push({
+        id: `${order.id || order.orderCode}-refund`,
+        title: `${title} 退款`,
+        detail,
+        time,
+        amountLabel: `+¥ ${formatAmount(order.refundAmount)}`,
+        type: "added",
+      });
+    }
+
+    if (cashSpent <= 0 && order.coinAmount <= 0 && order.refundAmount <= 0) {
+      records.push({
+        id: `${order.id || order.orderCode || title}-plain`,
+        title,
+        detail,
+        time,
+        amountLabel: "--",
+        type: "spent",
+      });
+    }
+  });
+
+  return records;
+}
+
 export function AccountUsagePanel() {
   const [activeFilter, setActiveFilter] = useState<UsageFilterKey>("all");
-  const { vipInfo, loading, error, refresh } = useUserCenterVipInfo();
+  const {
+    vipInfo,
+    loading: vipLoading,
+    error: vipError,
+    refresh: refreshVipInfo,
+  } = useUserCenterVipInfo();
+  const {
+    orders,
+    loading: ordersLoading,
+    error: ordersError,
+    refresh: refreshOrders,
+  } = useUserCenterOrders();
+
+  const loading = vipLoading || ordersLoading;
+  const errorMessage = ordersError || vipError;
+
+  const orderRecords = useMemo(() => buildOrderRecords(orders), [orders]);
 
   const filteredEntries = useMemo(() => {
     if (activeFilter === "all") {
-      return usageEntries;
+      return orderRecords;
     }
-    return usageEntries.filter((item) => item.type === activeFilter);
-  }, [activeFilter]);
+    return orderRecords.filter((item) => item.type === activeFilter);
+  }, [activeFilter, orderRecords]);
 
   const balanceLabel = loading && !vipInfo ? "..." : `${vipInfo?.coinAmount ?? 0}`;
   const vipStatusLabel = vipInfo?.isVip ? "会员已开通" : "当前未开通会员";
@@ -61,7 +183,7 @@ export function AccountUsagePanel() {
           <button
             type="button"
             onClick={() => {
-              void refresh();
+              void Promise.allSettled([refreshVipInfo(), refreshOrders()]);
             }}
             className="inline-flex h-16 items-center justify-center gap-3 rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-violet-500 px-12 text-[22px] font-black text-white shadow-[0_18px_40px_rgba(147,51,234,0.22)] transition-transform duration-300 hover:scale-[1.01]"
           >
@@ -84,11 +206,11 @@ export function AccountUsagePanel() {
           <span className="text-[40px]">虾米</span>
         </div>
         <div className="mt-4 text-lg font-semibold text-slate-400">
-          {error || "登录后或支付成功后，会员信息会自动刷新到这里。"}
+          {errorMessage || "登录后或支付成功后，会员信息会自动刷新到这里。"}
         </div>
       </div>
 
-      <section className="mt-12 grid gap-6 lg:grid-cols-3">
+      <section className="mt-12 grid gap-6 lg:grid-cols-2">
         <article className="rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
           <div className="flex items-center gap-3 text-slate-950">
             <Crown size={22} />
@@ -114,19 +236,19 @@ export function AccountUsagePanel() {
             {vipInfo?.username?.trim() ? `当前账户：${vipInfo.username}` : "登录账户的购买状态会实时同步"}
           </div>
         </article>
-
-        <article className="rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
-          <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">同步说明</div>
-          <div className="mt-6 space-y-3 text-base font-semibold leading-7 text-slate-500">
-            <p>登录成功后会主动刷新一次会员信息缓存。</p>
-            <p>支付成功后也会主动刷新，首页和个人中心都会读取最新数据。</p>
-            <p>如果你怀疑余额没更新，可以直接点上方“刷新”。</p>
-          </div>
-        </article>
       </section>
 
       <section className="mt-12 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
-        <div className="flex flex-wrap gap-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950">购买记录</div>
+            <div className="mt-2 text-base font-semibold text-slate-500">
+              已对接 `/pay/user/orders`，这里展示用户实际购买产生的记录。
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-6">
           {usageFilters.map((filter) => (
             <button
               key={filter.key}
@@ -143,31 +265,46 @@ export function AccountUsagePanel() {
           ))}
         </div>
 
-        {filteredEntries.length > 0 ? (
+        {loading ? (
+          <div className="mt-14 rounded-[24px] border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center">
+            <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">正在加载购买记录...</div>
+            <div className="mt-3 text-lg font-semibold text-slate-400">
+              稍等一下，正在同步你的最新订单数据。
+            </div>
+          </div>
+        ) : null}
+
+        {!loading && filteredEntries.length > 0 ? (
           <div className="mt-14 space-y-10">
             {filteredEntries.map((item) => (
               <div
-                key={`${item.title}-${item.time}`}
-                className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-center"
+                key={item.id}
+                className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center"
               >
                 <div>
                   <div className="text-[20px] font-black tracking-[-0.03em] text-slate-950">{item.title}</div>
+                  <div className="mt-2 text-[16px] font-bold text-slate-500">{item.detail}</div>
                   <div className="mt-2 text-[18px] font-bold text-slate-400">{item.time}</div>
                 </div>
-                <div className="text-right text-[22px] font-black tracking-[-0.03em] text-slate-950">
-                  {item.amount >= 0 ? `+${item.amount}` : item.amount}
+                <div className={`text-right text-[24px] font-black tracking-[-0.03em] ${
+                  item.type === "added" ? "text-emerald-600" : "text-slate-950"
+                }`}
+                >
+                  {item.amountLabel}
                 </div>
               </div>
             ))}
           </div>
-        ) : (
+        ) : null}
+
+        {!loading && filteredEntries.length === 0 ? (
           <div className="mt-14 rounded-[24px] border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center">
-            <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">暂无积分明细</div>
+            <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">暂无购买记录</div>
             <div className="mt-3 text-lg font-semibold text-slate-400">
-              当前已接入会员信息与余额查询，积分流水后续再接真实账单接口。
+              当前筛选条件下还没有可展示的订单数据。
             </div>
           </div>
-        )}
+        ) : null}
       </section>
     </div>
   );

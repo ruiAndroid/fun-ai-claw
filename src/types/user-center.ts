@@ -24,6 +24,36 @@ export interface UserCenterVipInfo {
   isBuyMaterial: boolean;
 }
 
+export interface UserCenterOrderRecord {
+  id: string;
+  created: string;
+  updated: string;
+  userId: string;
+  orderCode: string;
+  orderType: string;
+  ticketId: string;
+  couponCode: string;
+  payMoney: number;
+  consumeMoney: number;
+  payGatewayId: string;
+  payPara: string;
+  payType: number;
+  billStatus: number;
+  validBeginTime: string;
+  validEndTime: string;
+  commodityId: string;
+  commodityName: string;
+  coinAmount: number;
+  status: string;
+  statusUpdateTime: string;
+  refundStatus: number;
+  refundAmount: number;
+  refundTime: string;
+  remark: string;
+  createdBy: string;
+  gorderCode: string;
+}
+
 export interface UserCenterApiEnvelope<T> {
   code: number;
   msg?: string | null;
@@ -67,6 +97,36 @@ export interface UserCenterVipInfoResponseData {
   validEndTime?: string | null;
   coinAmount?: number | string | null;
   isBuyMaterial?: number | string | boolean | null;
+}
+
+export interface UserCenterOrderRecordResponseData {
+  id?: number | string | null;
+  created?: string | null;
+  updated?: string | null;
+  userId?: number | string | null;
+  orderCode?: string | null;
+  orderType?: string | null;
+  ticketId?: number | string | null;
+  couponCode?: string | null;
+  payMoney?: number | string | null;
+  consumeMoney?: number | string | null;
+  payGatewayId?: number | string | null;
+  payPara?: string | null;
+  payType?: number | string | null;
+  billStatus?: number | string | null;
+  validBeginTime?: string | null;
+  validEndTime?: string | null;
+  commodityId?: number | string | null;
+  commodityName?: string | null;
+  coinAmount?: number | string | null;
+  status?: string | null;
+  statusUpdateTime?: string | null;
+  refundStatus?: number | string | null;
+  refundAmount?: number | string | null;
+  refundTime?: string | null;
+  remark?: string | null;
+  createdBy?: number | string | null;
+  gorderCode?: string | null;
 }
 
 export interface UserCenterLoginResponseData {

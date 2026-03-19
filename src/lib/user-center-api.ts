@@ -12,6 +12,8 @@ import type {
   UserCenterSmsSendCodeRequest,
   UserCenterSmsSendCodeResponse,
   UserCenterSmsVerifyRequest,
+  UserCenterOrderRecord,
+  UserCenterOrderRecordResponseData,
   UserCenterUserInfo,
   UserCenterVipInfo,
   UserCenterVipInfoResponseData,
@@ -286,6 +288,40 @@ function normalizeUserCenterVipInfo(
     isBuyMaterial: payload?.isBuyMaterial == null
       ? previousVipInfo?.isBuyMaterial ?? false
       : toFlagBoolean(payload.isBuyMaterial),
+  };
+}
+
+function normalizeUserCenterOrderRecord(
+  payload?: UserCenterOrderRecordResponseData | null,
+): UserCenterOrderRecord {
+  return {
+    id: toTrimmedString(payload?.id),
+    created: toTrimmedString(payload?.created),
+    updated: toTrimmedString(payload?.updated),
+    userId: toTrimmedString(payload?.userId),
+    orderCode: toTrimmedString(payload?.orderCode),
+    orderType: toTrimmedString(payload?.orderType),
+    ticketId: toTrimmedString(payload?.ticketId),
+    couponCode: toTrimmedString(payload?.couponCode),
+    payMoney: toFiniteNumber(payload?.payMoney),
+    consumeMoney: toFiniteNumber(payload?.consumeMoney),
+    payGatewayId: toTrimmedString(payload?.payGatewayId),
+    payPara: toTrimmedString(payload?.payPara),
+    payType: toFiniteNumber(payload?.payType),
+    billStatus: toFiniteNumber(payload?.billStatus),
+    validBeginTime: toTrimmedString(payload?.validBeginTime),
+    validEndTime: toTrimmedString(payload?.validEndTime),
+    commodityId: toTrimmedString(payload?.commodityId),
+    commodityName: toTrimmedString(payload?.commodityName),
+    coinAmount: toFiniteNumber(payload?.coinAmount),
+    status: toTrimmedString(payload?.status),
+    statusUpdateTime: toTrimmedString(payload?.statusUpdateTime),
+    refundStatus: toFiniteNumber(payload?.refundStatus),
+    refundAmount: toFiniteNumber(payload?.refundAmount),
+    refundTime: toTrimmedString(payload?.refundTime),
+    remark: toTrimmedString(payload?.remark),
+    createdBy: toTrimmedString(payload?.createdBy),
+    gorderCode: toTrimmedString(payload?.gorderCode),
   };
 }
 
@@ -657,6 +693,22 @@ export async function getUserCenterVipInfo() {
 
 export async function refreshUserCenterVipInfo() {
   return loadUserCenterVipInfo(true);
+}
+
+export async function getUserCenterOrders() {
+  const envelope = await requestAuthedEnvelope<UserCenterOrderRecordResponseData[]>("/pay/user/orders", {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  });
+
+  if (!Array.isArray(envelope.data)) {
+    return [] as UserCenterOrderRecord[];
+  }
+
+  return envelope.data.map((item) => normalizeUserCenterOrderRecord(item));
 }
 
 export async function logoutUserCenter() {

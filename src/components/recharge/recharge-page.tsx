@@ -12,6 +12,7 @@ import {
   getRechargeConsumeOrderStatus,
   listRechargeCommodities,
 } from "@/lib/recharge-api";
+import { refreshUserCenterVipInfo } from "@/lib/user-center-api";
 import { useRequireUserCenterAuth } from "@/lib/use-require-user-center-auth";
 import { RechargeHeader } from "./recharge-header";
 import {
@@ -425,6 +426,7 @@ function RechargePageContent() {
           setPollingPaymentStatus(false);
           setPaymentDialogError(undefined);
           void messageApi.success(`${paymentPlanTitle || "当前订单"}支付成功`);
+          void refreshUserCenterVipInfo();
           clearPaymentSuccessCloseTimer();
           paymentSuccessCloseTimerRef.current = window.setTimeout(() => {
             void loadCommodityCatalog();

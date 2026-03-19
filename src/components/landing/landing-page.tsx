@@ -19,7 +19,6 @@ export function LandingPage() {
     sidebarMessages,
     messageEmptyText,
     userCard,
-    xiamiBalanceLabel,
     refresh,
   } = useHomepageShellData();
 
@@ -55,7 +54,7 @@ export function LandingPage() {
         />
 
         <div className="flex-1 px-4 py-4 sm:px-6 lg:px-8 lg:py-6 xl:px-10">
-          <HomepageTopbar rechargeHref={rechargeHref} xiamiBalanceLabel={xiamiBalanceLabel} />
+          <HomepageTopbar rechargeHref={rechargeHref} authenticated={authenticated} />
 
           <div className="mt-6 grid gap-6">
             <HomepageHero

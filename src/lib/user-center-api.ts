@@ -13,6 +13,8 @@ import type {
   UserCenterSmsSendCodeResponse,
   UserCenterSmsVerifyRequest,
   UserCenterUserInfo,
+  UserCenterVipInfo,
+  UserCenterVipInfoResponseData,
 } from "@/types/user-center";
 
 const USER_CENTER_BASE_URL = appConfig.userCenterBaseUrl;
@@ -24,13 +26,18 @@ const REFRESH_TOKEN_EXPIRES_AT_KEY = "fun_claw_uc_refresh_token_expires_at";
 const SESSION_KEY = "fun_claw_uc_session_key";
 const ME_KEY = "fun_claw_uc_me";
 const ME_FETCHED_AT_KEY = "fun_claw_uc_me_fetched_at";
+const VIP_INFO_KEY = "fun_claw_uc_vip_info";
+const VIP_INFO_FETCHED_AT_KEY = "fun_claw_uc_vip_info_fetched_at";
 const USER_CENTER_REQUEST_TIMEOUT_MS = 8000;
 const USER_CENTER_ME_CACHE_TTL_MS = 30_000;
+const USER_CENTER_VIP_INFO_CACHE_TTL_MS = 30_000;
 export const USER_CENTER_AUTH_REQUIRED_EVENT = "fun-claw-user-center-auth-required";
+export const USER_CENTER_VIP_INFO_UPDATED_EVENT = "fun-claw-user-center-vip-info-updated";
 
 let accessTokenMemoryCache: string | null = null;
 let refreshPromise: Promise<UserCenterAuthResponse> | null = null;
 let mePromise: Promise<UserCenterMe> | null = null;
+let vipInfoPromise: Promise<UserCenterVipInfo> | null = null;
 
 function isUserCenterSuccessCode(code?: number | null) {
   return typeof code !== "number" || code === 0 || code === 200;
@@ -104,6 +111,23 @@ export function getCachedUserCenterMe() {
   return getStoredMe();
 }
 
+function getStoredVipInfo() {
+  const raw = getStoredValue(VIP_INFO_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as UserCenterVipInfo;
+  } catch {
+    setStoredValue(VIP_INFO_KEY, null);
+    return null;
+  }
+}
+
+export function getCachedUserCenterVipInfo() {
+  return getStoredVipInfo();
+}
+
 function getStoredMeFetchedAt() {
   const raw = getStoredValue(ME_FETCHED_AT_KEY);
   if (!raw) {
@@ -117,6 +141,19 @@ function setStoredMeFetchedAt(timestamp: number) {
   setStoredValue(ME_FETCHED_AT_KEY, timestamp > 0 ? String(timestamp) : null);
 }
 
+function getStoredVipInfoFetchedAt() {
+  const raw = getStoredValue(VIP_INFO_FETCHED_AT_KEY);
+  if (!raw) {
+    return 0;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function setStoredVipInfoFetchedAt(timestamp: number) {
+  setStoredValue(VIP_INFO_FETCHED_AT_KEY, timestamp > 0 ? String(timestamp) : null);
+}
+
 function hasFreshCachedMe() {
   const cachedMe = getStoredMe();
   const fetchedAt = getStoredMeFetchedAt();
@@ -124,6 +161,15 @@ function hasFreshCachedMe() {
     return false;
   }
   return Date.now() - fetchedAt < USER_CENTER_ME_CACHE_TTL_MS;
+}
+
+function hasFreshCachedVipInfo() {
+  const cachedVipInfo = getStoredVipInfo();
+  const fetchedAt = getStoredVipInfoFetchedAt();
+  if (!cachedVipInfo || fetchedAt <= 0) {
+    return false;
+  }
+  return Date.now() - fetchedAt < USER_CENTER_VIP_INFO_CACHE_TTL_MS;
 }
 
 function generateSessionKey() {
@@ -158,6 +204,44 @@ function addSecondsToNow(seconds?: number | null) {
   return new Date(Date.now() + seconds * 1000).toISOString();
 }
 
+function toTrimmedString(value: unknown) {
+  return typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
+}
+
+function toFiniteNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized) {
+      return 0;
+    }
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function toFlagBoolean(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value > 0;
+  }
+
+  const normalized = toTrimmedString(value).toUpperCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return ["1", "TRUE", "YES", "Y"].includes(normalized);
+}
+
 function normalizeUserCenterProfile(
   payload: UserCenterUserInfo,
   previousProfile?: UserCenterMe | null,
@@ -188,6 +272,43 @@ function normalizeUserCenterProfile(
   };
 }
 
+function normalizeUserCenterVipInfo(
+  payload?: UserCenterVipInfoResponseData | null,
+  previousVipInfo?: UserCenterVipInfo | null,
+): UserCenterVipInfo {
+  return {
+    userId: toTrimmedString(payload?.userId) || previousVipInfo?.userId || "",
+    username: toTrimmedString(payload?.username) || previousVipInfo?.username || "",
+    isVip: payload?.isVip == null ? previousVipInfo?.isVip ?? false : toFlagBoolean(payload.isVip),
+    validStartTime: toTrimmedString(payload?.validStartTime) || previousVipInfo?.validStartTime || "",
+    validEndTime: toTrimmedString(payload?.validEndTime) || previousVipInfo?.validEndTime || "",
+    coinAmount: payload?.coinAmount == null ? previousVipInfo?.coinAmount ?? 0 : toFiniteNumber(payload.coinAmount),
+    isBuyMaterial: payload?.isBuyMaterial == null
+      ? previousVipInfo?.isBuyMaterial ?? false
+      : toFlagBoolean(payload.isBuyMaterial),
+  };
+}
+
+function notifyUserCenterVipInfoUpdated() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(USER_CENTER_VIP_INFO_UPDATED_EVENT));
+}
+
+function storeUserCenterVipInfo(vipInfo: UserCenterVipInfo) {
+  setStoredValue(VIP_INFO_KEY, JSON.stringify(vipInfo));
+  setStoredVipInfoFetchedAt(Date.now());
+  notifyUserCenterVipInfoUpdated();
+}
+
+function clearStoredUserCenterVipInfo() {
+  vipInfoPromise = null;
+  setStoredValue(VIP_INFO_KEY, null);
+  setStoredVipInfoFetchedAt(0);
+  notifyUserCenterVipInfoUpdated();
+}
+
 function mapLoginResponseToAuthResponse(payload: UserCenterLoginResponseData): UserCenterAuthResponse {
   return {
     me: normalizeUserCenterProfile(payload.userInfo),
@@ -215,6 +336,7 @@ function storeAuthTokens(response: UserCenterAuthResponse) {
 export function clearUserCenterAuthState() {
   accessTokenMemoryCache = null;
   mePromise = null;
+  vipInfoPromise = null;
   setStoredValue(ACCESS_TOKEN_KEY, null);
   setStoredValue(REFRESH_TOKEN_KEY, null);
   setStoredValue(TOKEN_TYPE_KEY, null);
@@ -222,6 +344,9 @@ export function clearUserCenterAuthState() {
   setStoredValue(REFRESH_TOKEN_EXPIRES_AT_KEY, null);
   setStoredValue(ME_KEY, null);
   setStoredMeFetchedAt(0);
+  setStoredValue(VIP_INFO_KEY, null);
+  setStoredVipInfoFetchedAt(0);
+  notifyUserCenterVipInfoUpdated();
 }
 
 export function getUserCenterAuthSnapshot(): UserCenterAuthSnapshot {
@@ -439,6 +564,12 @@ export async function verifyUserCenterSmsCode(request: UserCenterSmsVerifyReques
   });
   const response = mapLoginResponseToAuthResponse(envelope.data);
   storeAuthTokens(response);
+  clearStoredUserCenterVipInfo();
+  try {
+    await refreshUserCenterVipInfo();
+  } catch {
+    // Login should not be blocked by a secondary vip-info refresh failure.
+  }
   return response;
 }
 
@@ -474,6 +605,58 @@ export async function getUserCenterMe() {
   }
 
   return mePromise;
+}
+
+async function loadUserCenterVipInfo(forceRefresh = false) {
+  const cachedVipInfo = getStoredVipInfo();
+  const token = getAccessToken();
+
+  if (!forceRefresh && cachedVipInfo && hasFreshCachedVipInfo()) {
+    return cachedVipInfo;
+  }
+
+  if (!token && getRefreshToken()) {
+    await refreshUserCenterToken();
+  }
+
+  if (!vipInfoPromise || forceRefresh) {
+    const currentRequest = (async () => {
+      try {
+        const envelope = await requestAuthedEnvelope<UserCenterVipInfoResponseData>("/pay/user/vip", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        });
+        const vipInfo = normalizeUserCenterVipInfo(envelope.data, cachedVipInfo);
+        storeUserCenterVipInfo(vipInfo);
+        return vipInfo;
+      } catch (error) {
+        if (cachedVipInfo && !isUserCenterUnauthorizedError(error)) {
+          return cachedVipInfo;
+        }
+        throw error;
+      }
+    })();
+
+    vipInfoPromise = currentRequest;
+    void currentRequest.finally(() => {
+      if (vipInfoPromise === currentRequest) {
+        vipInfoPromise = null;
+      }
+    });
+  }
+
+  return vipInfoPromise;
+}
+
+export async function getUserCenterVipInfo() {
+  return loadUserCenterVipInfo(false);
+}
+
+export async function refreshUserCenterVipInfo() {
+  return loadUserCenterVipInfo(true);
 }
 
 export async function logoutUserCenter() {

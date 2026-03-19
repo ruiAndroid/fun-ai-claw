@@ -1,4 +1,4 @@
-﻿export interface UserCenterMe {
+export interface UserCenterMe {
   userId: string;
   uid: string;
   nickname?: string | null;
@@ -12,6 +12,16 @@
   status: string;
   createdAt: string;
   lastLoginAt?: string | null;
+}
+
+export interface UserCenterVipInfo {
+  userId: string;
+  username: string;
+  isVip: boolean;
+  validStartTime: string;
+  validEndTime: string;
+  coinAmount: number;
+  isBuyMaterial: boolean;
 }
 
 export interface UserCenterApiEnvelope<T> {
@@ -47,6 +57,16 @@ export interface UserCenterUserInfo {
   payUserId?: number | string | null;
   lastLogin?: string | null;
   status?: number | string | null;
+}
+
+export interface UserCenterVipInfoResponseData {
+  userId?: number | string | null;
+  username?: string | null;
+  isVip?: number | string | boolean | null;
+  validStartTime?: string | null;
+  validEndTime?: string | null;
+  coinAmount?: number | string | null;
+  isBuyMaterial?: number | string | boolean | null;
 }
 
 export interface UserCenterLoginResponseData {

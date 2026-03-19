@@ -86,6 +86,15 @@ If your local Windows machine cannot access the current user center address, edi
 src/config/app-config.local.ts
 ```
 
+For deployment override, `userCenterBaseUrl` also supports:
+
+```text
+NEXT_PUBLIC_USER_CENTER_BASE_URL
+```
+
+This is useful when the browser must access a public user-center address while
+the checked-in profile file keeps an internal default.
+
 ## Routes
 
 - Dashboard: `http://localhost:3000/fun-claw`

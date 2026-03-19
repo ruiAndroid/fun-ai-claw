@@ -47,7 +47,7 @@ function isUserCenterSuccessCode(code?: number | null) {
 
 function requireUserCenterBaseUrl(): string {
   if (!USER_CENTER_BASE_URL) {
-    throw new Error("未配置用户中心地址，请设置 NEXT_PUBLIC_USER_CENTER_BASE_URL");
+    throw new Error("未配置用户中心地址，请检查 app-config.<profile>.ts 或 NEXT_PUBLIC_USER_CENTER_BASE_URL");
   }
   return USER_CENTER_BASE_URL.replace(/\/$/, "");
 }

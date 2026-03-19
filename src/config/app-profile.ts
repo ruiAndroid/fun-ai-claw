@@ -1,1 +1,1 @@
-export const activeAppProfile = "local" as const;
+export const activeAppProfile = "prod" as const;

@@ -38,7 +38,7 @@ export function AccountSidebar({
                 key={item.key}
                 type="button"
                 onClick={() => onChange(item.key)}
-                className={`flex w-full items-center gap-3 rounded-[24px] px-6 py-6 text-left text-[20px] font-black tracking-[-0.03em] transition-all duration-300 ${
+                className={`flex w-full items-center gap-3 rounded-[24px] px-6 py-6 text-left text-[20px] font-black tracking-[-0.03em] transition-[background-color,color,box-shadow] duration-300 ${
                   isActive
                     ? "bg-violet-100 text-violet-900 shadow-[0_18px_40px_rgba(147,51,234,0.16)]"
                     : "text-slate-950 hover:bg-white/70"

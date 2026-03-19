@@ -14,7 +14,6 @@ import type { AccountTabKey } from "./account-data";
 import { AccountSidebar } from "./account-sidebar";
 import { AccountSettingsPanel } from "./account-settings-panel";
 import { AccountUsagePanel } from "./account-usage-panel";
-import { AccountWorksPanel } from "./account-works-panel";
 
 function extractErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "请求失败，请稍后重试";
@@ -83,8 +82,6 @@ export function AccountPage() {
     switch (activeTab) {
       case "usage":
         return <AccountUsagePanel />;
-      case "works":
-        return <AccountWorksPanel />;
       case "settings":
       default:
         return <AccountSettingsPanel profile={profile} />;

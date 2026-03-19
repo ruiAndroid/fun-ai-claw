@@ -72,6 +72,10 @@ body {
     "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 * {
   box-sizing: border-box;
 }

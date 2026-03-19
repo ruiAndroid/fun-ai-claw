@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Bot, Cpu, RefreshCw, Sparkles } from "lucide-react";
+import { HomepageAgentDetailModal } from "./homepage-agent-detail-modal";
 import { HomepageSectionHeader } from "./homepage-section-header";
 import { listHomepageAgents } from "@/lib/homepage-api";
 import type { AgentBaselineSummary } from "@/types/contracts";
@@ -56,6 +57,7 @@ export function HomepageAgentSection({
   const [agents, setAgents] = useState<AgentBaselineSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [detailAgent, setDetailAgent] = useState<AgentBaselineSummary | null>(null);
 
   const loadAgents = useCallback(async () => {
     setLoading(true);
@@ -130,7 +132,8 @@ export function HomepageAgentSection({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, delay: Math.min(index, 8) * 0.04, ease: [0.22, 1, 0.36, 1] }}
               whileHover={{ y: -6, scale: 1.01 }}
-              className="group relative overflow-hidden rounded-[30px] border border-white/70 bg-white/88 p-6 shadow-[0_24px_60px_rgba(81,38,145,0.08)] backdrop-blur-xl transition-shadow duration-300 hover:shadow-[0_30px_70px_rgba(139,61,255,0.14)]"
+              onClick={() => setDetailAgent(agent)}
+              className="group relative cursor-pointer overflow-hidden rounded-[30px] border border-white/70 bg-white/88 p-6 shadow-[0_24px_60px_rgba(81,38,145,0.08)] backdrop-blur-xl transition-shadow duration-300 hover:shadow-[0_30px_70px_rgba(139,61,255,0.14)]"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,122,24,0.10),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(139,61,255,0.08),transparent_28%)]" />
 
@@ -191,6 +194,7 @@ export function HomepageAgentSection({
                   </span>
                   <Link
                     href={messagesHref}
+                    onClick={(e) => e.stopPropagation()}
                     className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-4 py-2 text-sm font-semibold text-md-on-primary shadow-[0_14px_28px_rgba(139,61,255,0.16)] transition-all duration-300 hover:shadow-[0_18px_36px_rgba(139,61,255,0.22)]"
                   >
                     {authenticated ? "立即体验" : "登录后体验"}
@@ -201,6 +205,14 @@ export function HomepageAgentSection({
           ))}
         </div>
       ) : null}
+
+      <HomepageAgentDetailModal
+        agent={detailAgent}
+        open={detailAgent !== null}
+        onClose={() => setDetailAgent(null)}
+        messagesHref={messagesHref}
+        authenticated={authenticated}
+      />
     </section>
   );
 }

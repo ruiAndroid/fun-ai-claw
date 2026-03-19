@@ -15,8 +15,20 @@ function formatErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "首页数据加载失败";
 }
 
+const UNAUTHENTICATED_SNAPSHOT: Awaited<ReturnType<typeof loadHomepageShellSnapshot>> = {
+  authenticated: false,
+  profile: null,
+  instances: [],
+  recentSessions: [],
+  supportsXiamiBalance: false,
+  supportsRecentSessions: false,
+  xiamiBalance: null,
+};
+
 export function useHomepageShellData() {
-  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof loadHomepageShellSnapshot>>>(() => getInitialHomepageShellSnapshot());
+  // Always start with unauthenticated state to avoid SSR/client hydration mismatch.
+  // The real auth state is resolved in the effect below.
+  const [snapshot, setSnapshot] = useState(UNAUTHENTICATED_SNAPSHOT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
 
@@ -35,6 +47,11 @@ export function useHomepageShellData() {
   }, []);
 
   useEffect(() => {
+    // Immediately apply cached auth snapshot so UI updates before the async load completes
+    const initialSnapshot = getInitialHomepageShellSnapshot();
+    if (initialSnapshot.authenticated) {
+      setSnapshot(initialSnapshot);
+    }
     void loadData();
   }, [loadData]);
 

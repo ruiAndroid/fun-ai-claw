@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { Crown, PackageCheck, RefreshCw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useUserCenterOrders } from "@/lib/use-user-center-orders";
 import { useUserCenterVipInfo } from "@/lib/use-user-center-vip-info";
 import type { UserCenterOrderRecord } from "@/types/user-center";
-import type { UsageFilterKey } from "./account-data";
-import { usageFilters } from "./account-data";
 
 type UsageRecordItem = {
   id: string;
@@ -15,7 +13,7 @@ type UsageRecordItem = {
   detail: string;
   time: string;
   amountLabel: string;
-  type: Exclude<UsageFilterKey, "all">;
+  tone: "default" | "success";
 };
 
 const currencyFormatter = new Intl.NumberFormat("zh-CN", {
@@ -98,7 +96,7 @@ function buildOrderRecords(orders: UserCenterOrderRecord[]) {
         detail,
         time,
         amountLabel: `-¥ ${formatAmount(cashSpent)}`,
-        type: "spent",
+        tone: "default",
       });
     }
 
@@ -109,7 +107,7 @@ function buildOrderRecords(orders: UserCenterOrderRecord[]) {
         detail,
         time,
         amountLabel: `+${formatAmount(order.coinAmount)} 虾米`,
-        type: "added",
+        tone: "success",
       });
     }
 
@@ -120,7 +118,7 @@ function buildOrderRecords(orders: UserCenterOrderRecord[]) {
         detail,
         time,
         amountLabel: `+¥ ${formatAmount(order.refundAmount)}`,
-        type: "added",
+        tone: "success",
       });
     }
 
@@ -131,7 +129,7 @@ function buildOrderRecords(orders: UserCenterOrderRecord[]) {
         detail,
         time,
         amountLabel: "--",
-        type: "spent",
+        tone: "default",
       });
     }
   });
@@ -140,7 +138,6 @@ function buildOrderRecords(orders: UserCenterOrderRecord[]) {
 }
 
 export function AccountUsagePanel() {
-  const [activeFilter, setActiveFilter] = useState<UsageFilterKey>("all");
   const {
     vipInfo,
     loading: vipLoading,
@@ -156,15 +153,7 @@ export function AccountUsagePanel() {
 
   const loading = vipLoading || ordersLoading;
   const errorMessage = ordersError || vipError;
-
   const orderRecords = useMemo(() => buildOrderRecords(orders), [orders]);
-
-  const filteredEntries = useMemo(() => {
-    if (activeFilter === "all") {
-      return orderRecords;
-    }
-    return orderRecords.filter((item) => item.type === activeFilter);
-  }, [activeFilter, orderRecords]);
 
   const balanceLabel = loading && !vipInfo ? "..." : `${vipInfo?.coinAmount ?? 0}`;
   const vipStatusLabel = vipInfo?.isVip ? "会员已开通" : "当前未开通会员";
@@ -239,31 +228,7 @@ export function AccountUsagePanel() {
       </section>
 
       <section className="mt-12 rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950">购买记录</div>
-            <div className="mt-2 text-base font-semibold text-slate-500">
-              已对接 `/pay/user/orders`，这里展示用户实际购买产生的记录。
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 flex flex-wrap gap-6">
-          {usageFilters.map((filter) => (
-            <button
-              key={filter.key}
-              type="button"
-              onClick={() => setActiveFilter(filter.key)}
-              className={`min-w-[180px] rounded-full px-8 py-4 text-[22px] font-black tracking-[-0.03em] transition-colors duration-300 ${
-                activeFilter === filter.key
-                  ? "bg-slate-200 text-slate-950"
-                  : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-950"
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
+        <div className="text-[28px] font-black tracking-[-0.04em] text-slate-950">购买记录</div>
 
         {loading ? (
           <div className="mt-14 rounded-[24px] border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center">
@@ -274,9 +239,9 @@ export function AccountUsagePanel() {
           </div>
         ) : null}
 
-        {!loading && filteredEntries.length > 0 ? (
-          <div className="mt-14 space-y-10">
-            {filteredEntries.map((item) => (
+        {!loading && orderRecords.length > 0 ? (
+          <div className="mt-10 space-y-10">
+            {orderRecords.map((item) => (
               <div
                 key={item.id}
                 className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center"
@@ -287,7 +252,7 @@ export function AccountUsagePanel() {
                   <div className="mt-2 text-[18px] font-bold text-slate-400">{item.time}</div>
                 </div>
                 <div className={`text-right text-[24px] font-black tracking-[-0.03em] ${
-                  item.type === "added" ? "text-emerald-600" : "text-slate-950"
+                  item.tone === "success" ? "text-emerald-600" : "text-slate-950"
                 }`}
                 >
                   {item.amountLabel}
@@ -297,11 +262,11 @@ export function AccountUsagePanel() {
           </div>
         ) : null}
 
-        {!loading && filteredEntries.length === 0 ? (
+        {!loading && orderRecords.length === 0 ? (
           <div className="mt-14 rounded-[24px] border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center">
             <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">暂无购买记录</div>
             <div className="mt-3 text-lg font-semibold text-slate-400">
-              当前筛选条件下还没有可展示的订单数据。
+              当前还没有可展示的订单数据。
             </div>
           </div>
         ) : null}

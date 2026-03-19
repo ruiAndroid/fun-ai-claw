@@ -4,9 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "node scripts/set-app-profile.mjs local && next dev",
+    "dev:staging": "node scripts/set-app-profile.mjs staging && next dev",
+    "dev:prod": "node scripts/set-app-profile.mjs prod && next dev",
     "build": "next build",
+    "build:local": "node scripts/set-app-profile.mjs local && next build",
+    "build:staging": "node scripts/set-app-profile.mjs staging && next build",
+    "build:prod": "node scripts/set-app-profile.mjs prod && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "profile:local": "node scripts/set-app-profile.mjs local",
+    "profile:staging": "node scripts/set-app-profile.mjs staging",
+    "profile:prod": "node scripts/set-app-profile.mjs prod"
   },
   "dependencies": {
     "antd": "^5.27.0",

@@ -1,7 +1,7 @@
 "use client";
 
 import { appConfig } from "@/config/app-config";
-import { getCurrentConsumerAccount, listConsumerChatSessions, listConsumerInstances } from "@/lib/consumer-api";
+import { listConsumerChatSessions, listConsumerInstances } from "@/lib/consumer-api";
 import { listInstanceAgentBindings } from "@/lib/control-api";
 import {
   getCachedUserCenterMe,
@@ -168,15 +168,14 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
     return initialSnapshot;
   }
 
-  const [profileResult, consumerAccountResult, instancesResult, recentSessionsResult] = await Promise.allSettled([
+  const [profileResult, instancesResult, recentSessionsResult] = await Promise.allSettled([
     getUserCenterMe(),
-    getCurrentConsumerAccount(),
     listConsumerInstances(),
     listConsumerChatSessions(),
   ]);
 
   const profile = profileResult.status === "fulfilled" ? profileResult.value : null;
-  const consumerAccount = consumerAccountResult.status === "fulfilled" ? consumerAccountResult.value : null;
+  const consumerAccount = null;
   const instances = instancesResult.status === "fulfilled" ? instancesResult.value.items : [];
   const agentDisplayNameByKey = recentSessionsResult.status === "fulfilled"
     ? await loadAgentDisplayNameMap(instances, recentSessionsResult.value.items)
@@ -185,12 +184,10 @@ export async function loadHomepageShellSnapshot(): Promise<HomepageShellSnapshot
     ? buildRecentSessions(recentSessionsResult.value.items, instances, agentDisplayNameByKey)
     : [];
 
-  if (!profile && !consumerAccount && instances.length === 0) {
+  if (!profile && instances.length === 0) {
     const rejectedReason = profileResult.status === "rejected"
       ? profileResult.reason
-      : consumerAccountResult.status === "rejected"
-        ? consumerAccountResult.reason
-        : instancesResult.status === "rejected"
+      : instancesResult.status === "rejected"
           ? instancesResult.reason
           : recentSessionsResult.status === "rejected"
             ? recentSessionsResult.reason

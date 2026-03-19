@@ -1,7 +1,7 @@
 "use client";
 
 import { QRCode } from "antd";
-import { ExternalLink, RefreshCw, X } from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 import type { RechargeConsumeOrder } from "@/lib/recharge-api";
 
 function formatDateTime(value?: string | null) {
@@ -68,10 +68,10 @@ export function RechargePaymentDialog({
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
           <div className="rounded-[28px] bg-[linear-gradient(180deg,#fff7f2_0%,#ffffff_100%)] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-            <div className="flex min-h-[320px] items-center justify-center rounded-[24px] border border-dashed border-orange-200 bg-white">
+            <div className="flex min-h-[320px] items-center justify-center rounded-[24px] border border-dashed border-orange-200 bg-white px-6">
               {loading ? (
-                <div className="px-8 text-center">
-                  <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-orange-200 border-t-orange-500" />
+                <div className="flex w-full flex-col items-center justify-center text-center">
+                  <div className="h-12 w-12 animate-spin rounded-full border-4 border-orange-200 border-t-orange-500" />
                   <div className="mt-5 text-xl font-black text-slate-950">正在生成支付二维码...</div>
                   <div className="mt-2 text-sm font-semibold text-slate-400">
                     稍等一下，订单创建成功后会自动展示二维码。
@@ -80,7 +80,7 @@ export function RechargePaymentDialog({
               ) : null}
 
               {!loading && error ? (
-                <div className="px-8 text-center">
+                <div className="flex w-full flex-col items-center justify-center text-center">
                   <div className="text-xl font-black text-slate-950">二维码获取失败</div>
                   <div className="mt-3 text-sm font-semibold leading-6 text-slate-400">
                     {error}
@@ -88,7 +88,7 @@ export function RechargePaymentDialog({
                   <button
                     type="button"
                     onClick={onRetry}
-                    className="mx-auto mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-6 text-sm font-bold text-white shadow-[0_14px_30px_rgba(139,61,255,0.24)] transition-transform duration-300 hover:scale-[1.01]"
+                    className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-6 text-sm font-bold text-white shadow-[0_14px_30px_rgba(139,61,255,0.24)] transition-transform duration-300 hover:scale-[1.01]"
                   >
                     <RefreshCw size={16} />
                     重新获取
@@ -97,9 +97,11 @@ export function RechargePaymentDialog({
               ) : null}
 
               {!loading && !error && order?.payUrl ? (
-                <div className="text-center">
-                  <QRCode value={order.payUrl} size={220} bordered={false} />
-                  <div className="mt-4 text-sm font-semibold text-slate-400">
+                <div className="flex w-full flex-col items-center justify-center text-center">
+                  <div className="mx-auto flex justify-center">
+                    <QRCode value={order.payUrl} size={220} bordered={false} />
+                  </div>
+                  <div className="mt-4 max-w-[220px] text-center text-sm font-semibold text-slate-400">
                     请使用微信或支持该链接的支付工具扫码
                   </div>
                 </div>
@@ -134,24 +136,6 @@ export function RechargePaymentDialog({
                 {formatDateTime(order?.validEndTime)}
               </div>
             </div>
-
-            <div className="rounded-[22px] bg-[linear-gradient(135deg,rgba(255,122,24,0.08)_0%,rgba(139,61,255,0.08)_100%)] px-5 py-4 text-sm font-semibold leading-7 text-slate-500">
-              二维码失效后可以重新点击套餐按钮再次生成。若当前设备不方便扫码，也可以直接打开支付链接继续支付。
-            </div>
-
-            <a
-              href={order?.payUrl || "#"}
-              target="_blank"
-              rel="noreferrer"
-              className={`mt-auto inline-flex h-14 items-center justify-center gap-2 rounded-[18px] text-base font-black transition-transform duration-300 ${
-                order?.payUrl
-                  ? "bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] text-white shadow-[0_18px_40px_rgba(139,61,255,0.24)] hover:scale-[1.01]"
-                  : "pointer-events-none bg-slate-100 text-slate-400"
-              }`}
-            >
-              <ExternalLink size={18} />
-              打开支付链接
-            </a>
           </div>
         </div>
       </div>

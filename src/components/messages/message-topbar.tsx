@@ -1,12 +1,20 @@
 "use client";
 
-import { Bot, Plug, RotateCcw, Wifi, WifiOff } from "lucide-react";
+import { Bot, Power, Wifi, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MessageRobotTarget } from "./messages-types";
 
+const text = {
+  emptyTitle: "\u8bf7\u5148\u9009\u62e9\u667a\u80fd\u4f53",
+  emptySubtitle: "\u9009\u62e9\u4e00\u4e2a\u667a\u80fd\u4f53\u540e\uff0c\u5373\u53ef\u5f00\u59cb\u4e13\u5c5e\u4f1a\u8bdd",
+  readySubtitle: "\u5df2\u4e3a\u4f60\u51c6\u5907\u5c31\u7eea\uff0c\u76f4\u63a5\u5f00\u59cb\u5bf9\u8bdd\u5373\u53ef",
+  newSession: "\u65b0\u4f1a\u8bdd",
+  closeSession: "\u7ed3\u675f\u5bf9\u8bdd",
+  closingSession: "\u7ed3\u675f\u4e2d...",
+};
+
 export function MessageTopbar({
   selectedRobot,
-  loading,
   connected,
   connecting,
   remoteConnected,
@@ -15,14 +23,12 @@ export function MessageTopbar({
   statusTone,
   notice,
   error,
-  hasConversation,
-  onRefreshRobots,
-  onReconnect,
-  onDisconnect,
+  canCloseSession = false,
+  closingSession = false,
+  onCloseSession,
   onNewSession,
 }: {
   selectedRobot?: MessageRobotTarget;
-  loading: boolean;
   connected: boolean;
   connecting: boolean;
   remoteConnected?: boolean;
@@ -31,10 +37,9 @@ export function MessageTopbar({
   statusTone: "idle" | "starting" | "sending" | "generating" | "connected" | "remote" | "closed";
   notice?: string;
   error?: string;
-  hasConversation: boolean;
-  onRefreshRobots: () => void;
-  onReconnect: () => void;
-  onDisconnect: () => void;
+  canCloseSession?: boolean;
+  closingSession?: boolean;
+  onCloseSession: () => void;
   onNewSession: () => void;
 }) {
   const hasRemotePresence = Boolean(
@@ -58,12 +63,10 @@ export function MessageTopbar({
             </div>
             <div className="min-w-0">
               <div className="truncate text-[24px] font-black tracking-[-0.04em] text-slate-950">
-                {selectedRobot ? selectedRobot.displayName : "请选择机器人"}
+                {selectedRobot ? selectedRobot.displayName : text.emptyTitle}
               </div>
               <div className="truncate text-sm text-slate-500">
-                {selectedRobot
-                  ? "已为你准备就绪，直接开始对话即可"
-                  : "选择一个机器人后，即可开始专属会话"}
+                {selectedRobot ? text.readySubtitle : text.emptySubtitle}
               </div>
             </div>
           </div>
@@ -92,41 +95,24 @@ export function MessageTopbar({
 
           <button
             type="button"
-            onClick={onRefreshRobots}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(81,38,145,0.1)]"
-          >
-            <RotateCcw size={16} className={cn(loading && "animate-spin")} />
-            刷新列表
-          </button>
-
-          <button
-            type="button"
             onClick={onNewSession}
-            className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(139,61,255,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(139,61,255,0.24)]"
+            disabled={!selectedRobot || closingSession}
+            className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(139,61,255,0.18)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(139,61,255,0.24)] disabled:cursor-not-allowed disabled:opacity-45"
           >
-            新会话
+            {text.newSession}
           </button>
 
-          {connected ? (
+          {canCloseSession ? (
             <button
               type="button"
-              onClick={onDisconnect}
-              className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(244,63,94,0.12)]"
+              onClick={onCloseSession}
+              disabled={closingSession}
+              className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(244,63,94,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
             >
-              <Plug size={16} />
-              暂停对话
+              <Power size={16} />
+              {closingSession ? text.closingSession : text.closeSession}
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onReconnect}
-              disabled={!selectedRobot?.isAvailable || connecting || (!hasConversation && !selectedRobot)}
-              className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(139,61,255,0.12)] disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              <Wifi size={16} />
-              {hasRemotePresence ? "接管会话" : hasConversation ? "继续对话" : "开始对话"}
-            </button>
-          )}
+          ) : null}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bot, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bot, LoaderCircle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatRobotStatus } from "./messages-data";
 import type { MessageRobotTarget } from "./messages-types";
@@ -13,6 +13,8 @@ export function MessageSidebar({
   loading,
   error,
   activityByRobotId,
+  switchingRobotId,
+  interactionLocked = false,
   onSelect,
   onRefresh,
 }: {
@@ -21,6 +23,8 @@ export function MessageSidebar({
   loading: boolean;
   error?: string;
   activityByRobotId?: Record<string, MessageRobotActivity>;
+  switchingRobotId?: string;
+  interactionLocked?: boolean;
   onSelect: (robotId: string) => void;
   onRefresh: () => void;
 }) {
@@ -38,7 +42,8 @@ export function MessageSidebar({
         <button
           type="button"
           onClick={onRefresh}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(81,38,145,0.1)]"
+          disabled={interactionLocked}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(81,38,145,0.1)] disabled:cursor-wait disabled:opacity-70"
           aria-label="刷新机器人列表"
         >
           <RefreshCw size={16} className={cn(loading && "animate-spin")} />
@@ -90,20 +95,23 @@ export function MessageSidebar({
           <div className="space-y-3">
             {robots.map((robot) => {
               const isSelected = robot.id === selectedRobotId;
+              const isSwitching = robot.id === switchingRobotId;
               const activity = activityByRobotId?.[robot.id];
               const generatingCount = activity?.generatingSessionCount ?? 0;
-              const connectedCount = activity?.connectedSessionCount ?? 0;
 
               return (
                 <button
                   key={robot.id}
                   type="button"
                   onClick={() => onSelect(robot.id)}
+                  disabled={interactionLocked}
                   className={cn(
                     "w-full rounded-[26px] border px-4 py-4 text-left transition-all duration-300",
                     isSelected
                       ? "border-violet-200 bg-violet-50 shadow-[0_18px_40px_rgba(139,61,255,0.14)]"
                       : "border-white/70 bg-white/72 shadow-sm hover:bg-white hover:shadow-[0_18px_36px_rgba(81,38,145,0.08)]",
+                    interactionLocked && "cursor-wait",
+                    interactionLocked && !isSelected && "opacity-75",
                   )}
                 >
                   <div className="flex items-start gap-3">
@@ -113,35 +121,12 @@ export function MessageSidebar({
                         isSelected ? "bg-[linear-gradient(135deg,#ff7a18_0%,#8b3dff_100%)] text-white" : "bg-slate-100 text-slate-700",
                       )}
                     >
-                      <Bot size={18} />
+                      {isSwitching ? <LoaderCircle size={18} className="animate-spin" /> : <Bot size={18} />}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="truncate text-sm font-bold text-slate-950">
-                          {robot.displayName}
-                        </div>
-                        {generatingCount > 0 ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">
-                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-                            {`生成中${generatingCount > 1 ? ` ${generatingCount}` : ""}`}
-                          </span>
-                        ) : connectedCount > 0 ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold text-violet-600">
-                            <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-                            后台在线
-                          </span>
-                        ) : null}
-                        <span
-                          className={cn(
-                            "inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                            robot.isAvailable
-                              ? "bg-orange-100 text-orange-700"
-                              : "bg-slate-100 text-slate-500",
-                          )}
-                        >
-                          {formatRobotStatus(robot)}
-                        </span>
+                      <div className="truncate text-sm font-bold text-slate-950">
+                        {robot.displayName}
                       </div>
 
                       <div className="mt-1 truncate text-xs text-slate-500">
@@ -152,6 +137,31 @@ export function MessageSidebar({
                           {robot.description}
                         </div>
                       ) : null}
+                    </div>
+
+                    <div className="ml-2 flex shrink-0 flex-col items-end gap-2 pt-0.5">
+                      {isSwitching ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                          <LoaderCircle size={10} className="animate-spin" />
+                          切换中
+                        </span>
+                      ) : generatingCount > 0 ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                          {`生成中${generatingCount > 1 ? ` ${generatingCount}` : ""}`}
+                        </span>
+                      ) : null}
+
+                      <span
+                        className={cn(
+                          "inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                          robot.isAvailable
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-slate-100 text-slate-500",
+                        )}
+                      >
+                        {formatRobotStatus(robot)}
+                      </span>
                     </div>
                   </div>
                 </button>

@@ -47,6 +47,10 @@ export interface ConsumerRobotAdoptionResponse {
   instance: ConsumerBoundInstance;
 }
 
+export interface ConsumerInstanceRenameRequest {
+  name: string;
+}
+
 export interface ConsumerChatSession {
   sessionId: string;
   instanceId: string;

@@ -13,6 +13,7 @@ import type {
   ConsumerChatSession,
   ConsumerChatSessionCreateRequest,
   ConsumerChatSessionMessage,
+  ConsumerInstanceRenameRequest,
   ConsumerChatSessionRenameRequest,
   CreateConsumerRobotRequest,
 } from "@/types/consumer";
@@ -141,6 +142,19 @@ export async function adoptConsumerRobot(request: CreateConsumerRobotRequest) {
 
 export async function listConsumerInstances() {
   return requestConsumerJson<ListResponse<ConsumerBoundInstance>>("/app/v1/consumer/instances");
+}
+
+export async function renameConsumerInstance(instanceId: string, request: ConsumerInstanceRenameRequest) {
+  return requestConsumerJson<ConsumerBoundInstance>(`/app/v1/consumer/instances/${encodeURIComponent(instanceId)}/name`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteConsumerInstance(instanceId: string) {
+  return requestConsumerJson<void>(`/app/v1/consumer/instances/${encodeURIComponent(instanceId)}`, {
+    method: "DELETE",
+  });
 }
 
 export async function listConsumerChatSessions(params?: { instanceId?: string; agentId?: string }) {

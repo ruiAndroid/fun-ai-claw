@@ -265,36 +265,6 @@ export function useMessageSession({
     syncSelectedSessionConnectionState();
   }, [syncSelectedSessionConnectionState]);
 
-  const resetConversationState = useCallback(() => {
-    messagesRef.current = [];
-    pendingResponseRef.current = false;
-    sessionPhaseRef.current = "idle";
-    currentSessionIdRef.current = undefined;
-    selectedSessionRef.current = undefined;
-    coreFieldsRef.current = undefined;
-    historyLoadedRef.current = false;
-    localMessageSeqRef.current = 0;
-    sessionSnapshotsRef.current.clear();
-    resumableSessionIdsRef.current.clear();
-    manuallyPausedSessionIdsRef.current.clear();
-    setMessages([]);
-    setPendingResponse(false);
-    setSessionPhase("idle");
-    setConnecting(false);
-    setConnected(false);
-    setError(undefined);
-    setNotice(undefined);
-    setInteractionDraft(undefined);
-    setCurrentSessionId(undefined);
-    setSessionLoading(false);
-    sessionSocketsRef.current.clear();
-    connectingSessionIdsRef.current.clear();
-    queuedMessagesRef.current.clear();
-    rawLineBuffersRef.current.clear();
-    rawAssistantMessageIdsRef.current.clear();
-    connectAbortControllersRef.current.clear();
-  }, []);
-
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -1187,13 +1157,6 @@ export function useMessageSession({
     cancelPendingAttach();
     cancelHistoryLoad();
     rememberSessionSnapshot(currentSessionIdRef.current);
-    const robotChanged = Boolean(selectedRobotIdRef.current && selectedRobotIdRef.current !== selectedRobot?.id);
-    if (robotChanged) {
-      disconnectAllSessions(true);
-      resetConversationState();
-      selectedRobotIdRef.current = selectedRobot?.id;
-      return;
-    }
     selectedRobotIdRef.current = selectedRobot?.id;
     setSessionLoading(false);
 
@@ -1241,7 +1204,7 @@ export function useMessageSession({
       cancelPendingAttach();
       cancelHistoryLoad();
     };
-  }, [cancelHistoryLoad, cancelPendingAttach, disconnectAllSessions, loadHistoryForSession, openSocketForSession, rememberSessionSnapshot, resetConversationState, restoreSessionSnapshot, selectedRobot?.id, selectedSession?.sessionId, shouldAutoAttachSession, shouldRefreshHistoryOnSelect, syncSelectedSessionConnectionState]);
+  }, [cancelHistoryLoad, cancelPendingAttach, loadHistoryForSession, openSocketForSession, rememberSessionSnapshot, restoreSessionSnapshot, selectedRobot?.id, selectedSession?.sessionId, shouldAutoAttachSession, shouldRefreshHistoryOnSelect, syncSelectedSessionConnectionState]);
 
   useEffect(() => () => {
     cancelPendingAttach();

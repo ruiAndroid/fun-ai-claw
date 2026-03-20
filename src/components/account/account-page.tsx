@@ -12,6 +12,7 @@ import {
 import type { UserCenterMe } from "@/types/user-center";
 import type { AccountTabKey } from "./account-data";
 import { AccountSidebar } from "./account-sidebar";
+import { AccountAssetsPanel } from "./account-assets-panel";
 import { AccountSettingsPanel } from "./account-settings-panel";
 import { AccountUsagePanel } from "./account-usage-panel";
 
@@ -80,6 +81,8 @@ export function AccountPage() {
     }
 
     switch (activeTab) {
+      case "assets":
+        return <AccountAssetsPanel />;
       case "usage":
         return <AccountUsagePanel />;
       case "settings":

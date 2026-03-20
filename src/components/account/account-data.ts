@@ -1,7 +1,7 @@
-import { CreditCard, Settings2 } from "lucide-react";
+import { CreditCard, Package, Settings2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-export type AccountTabKey = "settings" | "usage";
+export type AccountTabKey = "settings" | "assets" | "usage";
 
 export type AccountNavItem = {
   key: AccountTabKey;
@@ -25,14 +25,15 @@ export type WorkItem = {
 };
 
 export const accountNavItems: AccountNavItem[] = [
-  { key: "settings", label: "用户资料", icon: Settings2 },
-  { key: "usage", label: "积分中心", icon: CreditCard },
+  { key: "settings", label: "\u7528\u6237\u8d44\u6599", icon: Settings2 },
+  { key: "assets", label: "\u6211\u7684\u8d44\u4ea7", icon: Package },
+  { key: "usage", label: "\u79ef\u5206\u4e2d\u5fc3", icon: CreditCard },
 ];
 
 export const usageFilters: Array<{ key: UsageFilterKey; label: string }> = [
-  { key: "all", label: "全部" },
-  { key: "spent", label: "支出" },
-  { key: "added", label: "收入" },
+  { key: "all", label: "\u5168\u90e8" },
+  { key: "spent", label: "\u652f\u51fa" },
+  { key: "added", label: "\u6536\u5165" },
 ];
 
 export const accountBalance: number | null = null;

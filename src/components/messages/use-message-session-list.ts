@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -31,11 +31,23 @@ export type MessageSessionListItem = {
   canDelete: boolean;
 };
 
+type SessionCacheUpdateOptions = {
+  preferredRobotKey?: string;
+  preferredSessionId?: string;
+};
+
+function buildRobotKey(robot?: Pick<MessageRobotTarget, "instanceId" | "agentId"> | Pick<ConsumerChatSession, "instanceId" | "agentId">) {
+  if (!robot) {
+    return undefined;
+  }
+  return `${robot.instanceId}:${robot.agentId}`;
+}
+
 function buildSessionTitle(item: ConsumerChatSession, index: number) {
   if (item.title?.trim()) {
     return item.title.trim();
   }
-  return `会话 ${index + 1}`;
+  return `\u4f1a\u8bdd ${index + 1}`;
 }
 
 function buildSessionSubtitle(item: ConsumerChatSession) {
@@ -43,7 +55,7 @@ function buildSessionSubtitle(item: ConsumerChatSession) {
 }
 
 function buildStatusLabel(status: string) {
-  return status === "ACTIVE" ? "待开始" : "已关闭";
+  return status === "ACTIVE" ? "\u5f85\u5f00\u59cb" : "\u5df2\u5173\u95ed";
 }
 
 function toSessionListItem(item: ConsumerChatSession, index: number): MessageSessionListItem {
@@ -51,7 +63,7 @@ function toSessionListItem(item: ConsumerChatSession, index: number): MessageSes
     sessionId: item.sessionId,
     title: buildSessionTitle(item, index),
     subtitle: buildSessionSubtitle(item),
-    sourceLabel: "聊天会话",
+    sourceLabel: "\u804a\u5929\u4f1a\u8bdd",
     statusLabel: buildStatusLabel(item.status),
     status: item.status,
     updatedAt: item.lastMessageAt ?? item.updatedAt,
@@ -78,128 +90,247 @@ function sortSessions(sessions: ConsumerChatSession[]) {
 }
 
 function pickNextSessionId(sessions: ConsumerChatSession[]) {
-  const remaining = [...sessions]
-    .sort((left, right) => {
-      if (left.status !== right.status) {
-        return left.status === "ACTIVE" ? -1 : 1;
-      }
-      const rightTime = new Date(right.lastMessageAt ?? right.updatedAt).getTime();
-      const leftTime = new Date(left.lastMessageAt ?? left.updatedAt).getTime();
-      return rightTime - leftTime;
-    });
+  const remaining = [...sessions].sort((left, right) => {
+    if (left.status !== right.status) {
+      return left.status === "ACTIVE" ? -1 : 1;
+    }
+    const rightTime = new Date(right.lastMessageAt ?? right.updatedAt).getTime();
+    const leftTime = new Date(left.lastMessageAt ?? left.updatedAt).getTime();
+    return rightTime - leftTime;
+  });
   return remaining[0]?.sessionId;
 }
 
+function resolveSelectedSessionId(
+  sessions: ConsumerChatSession[],
+  currentSelectedSessionId?: string,
+  preferredSessionId?: string,
+) {
+  if (currentSelectedSessionId && sessions.some((item) => item.sessionId === currentSelectedSessionId)) {
+    return currentSelectedSessionId;
+  }
+  if (preferredSessionId && sessions.some((item) => item.sessionId === preferredSessionId)) {
+    return preferredSessionId;
+  }
+  return sessions.find((item) => item.status === "ACTIVE")?.sessionId ?? sessions[0]?.sessionId;
+}
+
+function groupSessionsByRobotKey(sessions: ConsumerChatSession[], robotKeys: string[]) {
+  const grouped = robotKeys.reduce<Record<string, ConsumerChatSession[]>>((accumulator, robotKey) => {
+    accumulator[robotKey] = [];
+    return accumulator;
+  }, {});
+
+  sessions.forEach((session) => {
+    const robotKey = buildRobotKey(session);
+    if (!robotKey || !(robotKey in grouped)) {
+      return;
+    }
+    grouped[robotKey].push(session);
+  });
+
+  Object.keys(grouped).forEach((robotKey) => {
+    grouped[robotKey] = sortSessions(grouped[robotKey]);
+  });
+
+  return grouped;
+}
+
 export function useMessageSessionList({
+  robots = [],
   selectedRobot,
   preferredSessionId,
 }: {
+  robots?: MessageRobotTarget[];
   selectedRobot?: MessageRobotTarget;
   preferredSessionId?: string;
 }) {
-  const [remoteSessions, setRemoteSessions] = useState<ConsumerChatSession[]>([]);
-  const [remoteSessionsOwnerKey, setRemoteSessionsOwnerKey] = useState<string>();
-  const [selectedSessionId, setSelectedSessionId] = useState<string>();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>();
-  const loadRequestSeqRef = useRef(0);
-  const selectedRobotKey = selectedRobot ? `${selectedRobot.instanceId}:${selectedRobot.agentId}` : undefined;
-  const activeRobotKeyRef = useRef<string | undefined>(selectedRobotKey);
+  const [sessionCacheByRobotKey, setSessionCacheByRobotKey] = useState<Record<string, ConsumerChatSession[]>>({});
+  const [selectedSessionIdByRobotKey, setSelectedSessionIdByRobotKey] = useState<Record<string, string | undefined>>({});
+  const [loadingByRobotKey, setLoadingByRobotKey] = useState<Record<string, boolean>>({});
+  const [errorByRobotKey, setErrorByRobotKey] = useState<Record<string, string | undefined>>({});
+  const loadRequestSeqByRobotKeyRef = useRef<Map<string, number>>(new Map());
+  const preloadingAllSessionsRef = useRef(false);
 
-  useEffect(() => {
-    activeRobotKeyRef.current = selectedRobotKey;
-  }, [selectedRobotKey]);
+  const selectedRobotKey = buildRobotKey(selectedRobot);
+  const knownRobotKeys = useMemo(
+    () => robots
+      .map((robot) => buildRobotKey(robot))
+      .filter((robotKey): robotKey is string => Boolean(robotKey)),
+    [robots],
+  );
 
-  const loadSessions = useCallback(async () => {
-    if (!selectedRobot || !selectedRobotKey) {
-      setRemoteSessions([]);
-      setRemoteSessionsOwnerKey(undefined);
-      setSelectedSessionId(undefined);
-      setError(undefined);
-      setLoading(false);
+  const applySessionCacheUpdates = useCallback((nextSessionsByRobotKey: Record<string, ConsumerChatSession[]>, options?: SessionCacheUpdateOptions) => {
+    const normalizedEntries = Object.entries(nextSessionsByRobotKey).map(([robotKey, sessions]) => [robotKey, sortSessions(sessions)] as const);
+
+    setSessionCacheByRobotKey((current) => {
+      const next = { ...current };
+      normalizedEntries.forEach(([robotKey, sessions]) => {
+        next[robotKey] = sessions;
+      });
+      return next;
+    });
+
+    setSelectedSessionIdByRobotKey((current) => {
+      const next = { ...current };
+      normalizedEntries.forEach(([robotKey, sessions]) => {
+        next[robotKey] = resolveSelectedSessionId(
+          sessions,
+          current[robotKey],
+          robotKey === options?.preferredRobotKey ? options.preferredSessionId : undefined,
+        );
+      });
+      return next;
+    });
+  }, []);
+
+  const loadSessions = useCallback(async (targetRobot = selectedRobot) => {
+    if (!targetRobot) {
       return [] as ConsumerChatSession[];
     }
 
-    const requestSeq = ++loadRequestSeqRef.current;
-    const requestRobotKey = selectedRobotKey;
-    setLoading(true);
-    setError(undefined);
+    const robotKey = buildRobotKey(targetRobot);
+    if (!robotKey) {
+      return [] as ConsumerChatSession[];
+    }
+
+    const nextRequestSeq = (loadRequestSeqByRobotKeyRef.current.get(robotKey) ?? 0) + 1;
+    loadRequestSeqByRobotKeyRef.current.set(robotKey, nextRequestSeq);
+    setLoadingByRobotKey((current) => ({ ...current, [robotKey]: true }));
+    setErrorByRobotKey((current) => ({ ...current, [robotKey]: undefined }));
+
     try {
       const response = await listConsumerChatSessions({
-        instanceId: selectedRobot.instanceId,
-        agentId: selectedRobot.agentId,
+        instanceId: targetRobot.instanceId,
+        agentId: targetRobot.agentId,
       });
-      if (loadRequestSeqRef.current !== requestSeq || activeRobotKeyRef.current !== requestRobotKey) {
+      if (loadRequestSeqByRobotKeyRef.current.get(robotKey) !== nextRequestSeq) {
         return [] as ConsumerChatSession[];
       }
-      setRemoteSessions(response.items);
-      setRemoteSessionsOwnerKey(requestRobotKey);
-      return response.items;
+
+      const nextSessions = sortSessions(response.items);
+      applySessionCacheUpdates(
+        { [robotKey]: nextSessions },
+        {
+          preferredRobotKey: robotKey === selectedRobotKey ? robotKey : undefined,
+          preferredSessionId: robotKey === selectedRobotKey ? preferredSessionId : undefined,
+        },
+      );
+      return nextSessions;
     } catch (loadError) {
-      if (loadRequestSeqRef.current !== requestSeq || activeRobotKeyRef.current !== requestRobotKey) {
+      if (loadRequestSeqByRobotKeyRef.current.get(robotKey) !== nextRequestSeq) {
         return [] as ConsumerChatSession[];
       }
-      setRemoteSessions([]);
-      setRemoteSessionsOwnerKey(requestRobotKey);
-      setError(loadError instanceof Error ? loadError.message : "加载会话列表失败");
+      setErrorByRobotKey((current) => ({
+        ...current,
+        [robotKey]: loadError instanceof Error ? loadError.message : "\u52a0\u8f7d\u4f1a\u8bdd\u5217\u8868\u5931\u8d25",
+      }));
       return [];
     } finally {
-      if (loadRequestSeqRef.current === requestSeq && activeRobotKeyRef.current === requestRobotKey) {
-        setLoading(false);
+      if (loadRequestSeqByRobotKeyRef.current.get(robotKey) === nextRequestSeq) {
+        setLoadingByRobotKey((current) => ({ ...current, [robotKey]: false }));
       }
     }
-  }, [selectedRobot, selectedRobotKey]);
+  }, [applySessionCacheUpdates, preferredSessionId, selectedRobot, selectedRobotKey]);
 
-  useEffect(() => {
-    setSelectedSessionId(undefined);
-    setError(undefined);
-    if (!selectedRobotKey) {
-      setRemoteSessions([]);
-      setRemoteSessionsOwnerKey(undefined);
-      setLoading(false);
+  const preloadAllSessions = useCallback(async () => {
+    if (preloadingAllSessionsRef.current || knownRobotKeys.length <= 0) {
       return;
     }
-    setRemoteSessions([]);
-    setRemoteSessionsOwnerKey(selectedRobotKey);
-    setLoading(true);
-  }, [selectedRobotKey]);
+
+    preloadingAllSessionsRef.current = true;
+    try {
+      const response = await listConsumerChatSessions();
+      applySessionCacheUpdates(
+        groupSessionsByRobotKey(response.items, knownRobotKeys),
+        {
+          preferredRobotKey: selectedRobotKey,
+          preferredSessionId,
+        },
+      );
+    } catch {
+      // Warm-up failures should not interrupt the current robot flow.
+    } finally {
+      preloadingAllSessionsRef.current = false;
+    }
+  }, [applySessionCacheUpdates, knownRobotKeys, preferredSessionId, selectedRobotKey]);
 
   useEffect(() => {
-    void loadSessions();
-  }, [loadSessions]);
+    if (!selectedRobot) {
+      return;
+    }
+    void loadSessions(selectedRobot);
+  }, [loadSessions, selectedRobot]);
+
+  useEffect(() => {
+    if (knownRobotKeys.length <= 0) {
+      return;
+    }
+    const hasMissingCache = knownRobotKeys.some((robotKey) => !(robotKey in sessionCacheByRobotKey));
+    if (!hasMissingCache) {
+      return;
+    }
+    void preloadAllSessions();
+  }, [knownRobotKeys, preloadAllSessions, sessionCacheByRobotKey]);
 
   useEffect(() => {
     if (!selectedRobot) {
       return;
     }
     const timer = window.setInterval(() => {
-      void loadSessions();
+      void loadSessions(selectedRobot);
     }, 10000);
     return () => window.clearInterval(timer);
   }, [loadSessions, selectedRobot]);
 
-  const visibleRemoteSessions = useMemo(
-    () => (remoteSessionsOwnerKey === selectedRobotKey ? remoteSessions : []),
-    [remoteSessions, remoteSessionsOwnerKey, selectedRobotKey],
+  const remoteSessions = useMemo(
+    () => (selectedRobotKey ? sessionCacheByRobotKey[selectedRobotKey] ?? [] : []),
+    [selectedRobotKey, sessionCacheByRobotKey],
   );
 
+  const loading = selectedRobotKey ? Boolean(loadingByRobotKey[selectedRobotKey]) : false;
+  const error = selectedRobotKey ? errorByRobotKey[selectedRobotKey] : undefined;
+
   const sessionItems = useMemo(
-    () => visibleRemoteSessions.map((session, index) => toSessionListItem(session, index)),
-    [visibleRemoteSessions],
+    () => remoteSessions.map((session, index) => toSessionListItem(session, index)),
+    [remoteSessions],
   );
 
   useEffect(() => {
+    if (!selectedRobotKey) {
+      return;
+    }
     const nextPreferredSessionId = sessionItems.find((item) => item.sessionId === preferredSessionId)?.sessionId
       ?? sessionItems.find((item) => item.status === "ACTIVE")?.sessionId
       ?? sessionItems[0]?.sessionId;
 
-    setSelectedSessionId((current) => {
-      if (current && sessionItems.some((item) => item.sessionId === current)) {
+    setSelectedSessionIdByRobotKey((current) => {
+      const currentSelectedSessionId = current[selectedRobotKey];
+      if (currentSelectedSessionId && sessionItems.some((item) => item.sessionId === currentSelectedSessionId)) {
         return current;
       }
-      return nextPreferredSessionId;
+      if (currentSelectedSessionId === nextPreferredSessionId) {
+        return current;
+      }
+      return {
+        ...current,
+        [selectedRobotKey]: nextPreferredSessionId,
+      };
     });
-  }, [preferredSessionId, sessionItems]);
+  }, [preferredSessionId, selectedRobotKey, sessionItems]);
+
+  const selectedSessionId = selectedRobotKey ? selectedSessionIdByRobotKey[selectedRobotKey] : undefined;
+
+  const setSelectedSessionId = useCallback((sessionId: string) => {
+    if (!selectedRobotKey) {
+      return;
+    }
+    setSelectedSessionIdByRobotKey((current) => (
+      current[selectedRobotKey] === sessionId
+        ? current
+        : { ...current, [selectedRobotKey]: sessionId }
+    ));
+  }, [selectedRobotKey]);
 
   const selectedSession = useMemo(
     () => sessionItems.find((item) => item.sessionId === selectedSessionId),
@@ -207,11 +338,11 @@ export function useMessageSessionList({
   );
 
   const createSession = useCallback(async () => {
-    if (!selectedRobot) {
+    if (!selectedRobot || !selectedRobotKey) {
       return undefined;
     }
 
-    setError(undefined);
+    setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: undefined }));
     try {
       const created = await createConsumerChatSession({
         instanceId: selectedRobot.instanceId,
@@ -219,69 +350,94 @@ export function useMessageSessionList({
         title: undefined,
         remark: undefined,
       });
-      await loadSessions();
-      setSelectedSessionId(created.sessionId);
+      const nextSessions = await loadSessions(selectedRobot);
+      setSelectedSessionIdByRobotKey((current) => ({ ...current, [selectedRobotKey]: created.sessionId }));
+      const createdIndex = nextSessions.findIndex((item) => item.sessionId === created.sessionId);
       return {
-        ...toSessionListItem(created, remoteSessions.length),
-        title: created.title?.trim() || "新会话",
+        ...toSessionListItem(created, createdIndex >= 0 ? createdIndex : nextSessions.length),
+        title: created.title?.trim() || "\u65b0\u4f1a\u8bdd",
       } satisfies MessageSessionListItem;
     } catch (createError) {
-      const nextError = createError instanceof Error ? createError.message : "创建会话失败";
-      setError(nextError);
+      const nextError = createError instanceof Error ? createError.message : "\u521b\u5efa\u4f1a\u8bdd\u5931\u8d25";
+      setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: nextError }));
       throw createError;
     }
-  }, [loadSessions, remoteSessions.length, selectedRobot]);
+  }, [loadSessions, selectedRobot, selectedRobotKey]);
 
   const closeSession = useCallback(async (sessionId: string) => {
-    setError(undefined);
+    if (!selectedRobot || !selectedRobotKey) {
+      return;
+    }
+
+    setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: undefined }));
     try {
       await closeConsumerChatSession(sessionId);
-      const nextSessions = await loadSessions();
-      setSelectedSessionId((current) => {
-        if (current !== sessionId) {
+      const nextSessions = await loadSessions(selectedRobot);
+      setSelectedSessionIdByRobotKey((current) => {
+        if (current[selectedRobotKey] !== sessionId) {
           return current;
         }
-        return pickNextSessionId(nextSessions);
+        return {
+          ...current,
+          [selectedRobotKey]: pickNextSessionId(nextSessions),
+        };
       });
     } catch (closeError) {
-      const nextError = closeError instanceof Error ? closeError.message : "关闭会话失败";
-      setError(nextError);
+      const nextError = closeError instanceof Error ? closeError.message : "\u5173\u95ed\u4f1a\u8bdd\u5931\u8d25";
+      setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: nextError }));
       throw closeError;
     }
-  }, [loadSessions]);
+  }, [loadSessions, selectedRobot, selectedRobotKey]);
 
   const deleteSession = useCallback(async (sessionId: string) => {
-    setError(undefined);
+    if (!selectedRobot || !selectedRobotKey) {
+      return;
+    }
+
+    setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: undefined }));
     try {
       await deleteConsumerChatSession(sessionId);
-      const nextSessions = await loadSessions();
-      setSelectedSessionId((current) => {
-        if (current !== sessionId) {
+      const nextSessions = await loadSessions(selectedRobot);
+      setSelectedSessionIdByRobotKey((current) => {
+        if (current[selectedRobotKey] !== sessionId) {
           return current;
         }
-        return pickNextSessionId(nextSessions.filter((item) => item.sessionId !== sessionId));
+        return {
+          ...current,
+          [selectedRobotKey]: pickNextSessionId(nextSessions.filter((item) => item.sessionId !== sessionId)),
+        };
       });
     } catch (deleteError) {
-      const nextError = deleteError instanceof Error ? deleteError.message : "删除会话失败";
-      setError(nextError);
+      const nextError = deleteError instanceof Error ? deleteError.message : "\u5220\u9664\u4f1a\u8bdd\u5931\u8d25";
+      setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: nextError }));
       throw deleteError;
     }
-  }, [loadSessions]);
+  }, [loadSessions, selectedRobot, selectedRobotKey]);
 
   const renameSession = useCallback(async (sessionId: string, title: string) => {
-    setError(undefined);
+    if (!selectedRobotKey) {
+      throw new Error("\u5f53\u524d\u672a\u9009\u4e2d\u673a\u5668\u4eba");
+    }
+
+    setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: undefined }));
     try {
       const renamed = await renameConsumerChatSession(sessionId, { title });
-      setRemoteSessions((current) => sortSessions(
-        current.map((session) => (session.sessionId === sessionId ? { ...session, ...renamed } : session)),
-      ));
+      setSessionCacheByRobotKey((current) => {
+        const currentSessions = current[selectedRobotKey] ?? [];
+        return {
+          ...current,
+          [selectedRobotKey]: sortSessions(
+            currentSessions.map((session) => (session.sessionId === sessionId ? { ...session, ...renamed } : session)),
+          ),
+        };
+      });
       return renamed;
     } catch (renameError) {
-      const nextError = renameError instanceof Error ? renameError.message : "修改会话名失败";
-      setError(nextError);
+      const nextError = renameError instanceof Error ? renameError.message : "\u4fee\u6539\u4f1a\u8bdd\u540d\u5931\u8d25";
+      setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: nextError }));
       throw renameError;
     }
-  }, []);
+  }, [selectedRobotKey]);
 
   const ensureSession = useCallback(async () => {
     if (selectedSession) {

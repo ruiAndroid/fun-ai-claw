@@ -13,6 +13,8 @@ import { useMessageSession } from "./use-message-session";
 import { useMessageSessionActivity } from "./use-message-session-activity";
 import { useMessageSessionList } from "./use-message-session-list";
 
+const ROBOT_SWITCH_COOLDOWN_MS = 240;
+
 function MessagePageContent() {
   const searchParams = useSearchParams();
   const preferredInstanceId = searchParams.get("instanceId")?.trim() || undefined;
@@ -33,6 +35,7 @@ function MessagePageContent() {
   });
 
   const sessionList = useMessageSessionList({
+    robots,
     selectedRobot,
     preferredSessionId,
   });
@@ -41,6 +44,8 @@ function MessagePageContent() {
   const [closingSessionId, setClosingSessionId] = useState<string>();
   const [deletingSessionId, setDeletingSessionId] = useState<string>();
   const [renamingSessionId, setRenamingSessionId] = useState<string>();
+  const [switchingRobotId, setSwitchingRobotId] = useState<string>();
+  const [robotSwitchCooldown, setRobotSwitchCooldown] = useState(false);
 
   const session = useMessageSession({
     selectedRobot,
@@ -48,6 +53,22 @@ function MessagePageContent() {
     ensureSession: sessionList.ensureSession,
     refreshSessions: sessionList.refresh,
   });
+
+  const robotSwitchReady = Boolean(
+    switchingRobotId
+    && selectedRobot?.id === switchingRobotId
+    && sessionList.selectedSessionId
+    && session.currentSessionId === sessionList.selectedSessionId
+    && !session.sessionLoading,
+  );
+  const robotSwitching = Boolean(switchingRobotId) && !robotSwitchReady;
+  const robotSwitchInteractionLocked = robotSwitching || robotSwitchCooldown;
+  const showRobotSwitchLoading = Boolean(
+    switchingRobotId
+    && selectedRobot?.id === switchingRobotId
+    && !robotSwitchReady
+    && (sessionList.loading || session.sessionLoading || session.currentSessionId !== sessionList.selectedSessionId),
+  );
 
   const isCurrentSessionSelected = Boolean(
     session.currentSessionId
@@ -209,6 +230,7 @@ function MessagePageContent() {
       await sessionActivity.refreshActivity();
     } catch (deleteError) {
       session.setError(deleteError instanceof Error ? deleteError.message : "删除会话失败");
+      throw deleteError;
     } finally {
       setDeletingSessionId((current) => (current === sessionId ? undefined : current));
     }
@@ -239,6 +261,29 @@ function MessagePageContent() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!switchingRobotId) {
+      return;
+    }
+    if (selectedRobot?.id !== switchingRobotId) {
+      return;
+    }
+    if (robotSwitchReady || (!sessionList.loading && !session.sessionLoading)) {
+      setSwitchingRobotId(undefined);
+      setRobotSwitchCooldown(true);
+    }
+  }, [robotSwitchReady, selectedRobot?.id, session.sessionLoading, sessionList.loading, switchingRobotId]);
+
+  useEffect(() => {
+    if (!robotSwitchCooldown) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setRobotSwitchCooldown(false);
+    }, ROBOT_SWITCH_COOLDOWN_MS);
+    return () => window.clearTimeout(timer);
+  }, [robotSwitchCooldown]);
+
   return (
     <main className="brand-sunset-theme h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,122,24,0.2),transparent_28%),radial-gradient(circle_at_top_right,rgba(139,61,255,0.16),transparent_24%),linear-gradient(180deg,#fffaf7_0%,#fff7fb_48%,#f8f4ff_100%)]">
       <div className="mx-auto grid h-full max-w-[1920px] gap-4 p-4 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_320px] lg:p-6">
@@ -248,7 +293,15 @@ function MessagePageContent() {
           loading={loading}
           error={robotsError}
           activityByRobotId={activityByRobotId}
-          onSelect={setSelectedRobotId}
+          switchingRobotId={switchingRobotId}
+          interactionLocked={robotSwitchInteractionLocked}
+          onSelect={(robotId) => {
+            if (robotSwitchInteractionLocked || robotId === selectedRobotId) {
+              return;
+            }
+            setSwitchingRobotId(robotId);
+            setSelectedRobotId(robotId);
+          }}
           onRefresh={() => {
             void Promise.allSettled([refresh(), sessionActivity.refreshActivity()]);
           }}
@@ -257,7 +310,6 @@ function MessagePageContent() {
         <section className="flex min-h-0 flex-col gap-4">
           <MessageTopbar
             selectedRobot={selectedRobot}
-            loading={loading}
             connected={session.connected}
             connecting={session.connecting}
             remoteConnected={selectedSession?.remoteConnected}
@@ -266,15 +318,13 @@ function MessagePageContent() {
             statusTone={topbarStatus.tone}
             notice={session.notice}
             error={session.error ?? sessionList.error}
-            hasConversation={session.hasConversation}
-            onRefreshRobots={() => {
-              void Promise.allSettled([refresh(), sessionList.refresh(), sessionActivity.refreshActivity()]);
-            }}
-            onReconnect={() => {
-              void session.reconnect();
-            }}
-            onDisconnect={() => {
-              session.disconnect();
+            canCloseSession={selectedSession?.status === "ACTIVE"}
+            closingSession={Boolean(selectedSession && closingSessionId === selectedSession.sessionId)}
+            onCloseSession={() => {
+              if (!selectedSession?.sessionId) {
+                return;
+              }
+              void handleCloseSession(selectedSession.sessionId);
             }}
             onNewSession={() => {
               void handleCreateSession();
@@ -287,7 +337,7 @@ function MessagePageContent() {
               messages={session.messages}
               pendingResponse={session.pendingResponse}
               statusLabel={threadStatusLabel}
-              loading={session.sessionLoading}
+              loading={session.sessionLoading || showRobotSwitchLoading}
               selectedSessionTitle={selectedSession?.title}
               emptyNotice={threadEmptyNotice}
               interactionsEnabled={!viewOnly}
@@ -298,7 +348,7 @@ function MessagePageContent() {
               selectedRobot={selectedRobot}
               input={session.input}
               canSend={session.canSend && !viewOnly}
-              connecting={session.connecting || session.sessionLoading || session.sessionPhase === "starting"}
+              connecting={session.connecting || session.sessionLoading || session.sessionPhase === "starting" || robotSwitching}
               connected={session.connected}
               interactionDraft={session.interactionDraft}
               viewOnly={viewOnly}
@@ -319,29 +369,23 @@ function MessagePageContent() {
         </section>
 
         <div className="hidden min-h-0 xl:block">
-          <MessageSessionPanel
-            sessions={panelSessions}
-            selectedSessionId={sessionList.selectedSessionId}
-            loading={sessionList.loading}
-            switching={session.sessionLoading}
-            error={sessionList.error}
-            onSelect={sessionList.setSelectedSessionId}
-            onRefresh={() => {
-              void Promise.allSettled([sessionList.refresh(), sessionActivity.refreshActivity()]);
-            }}
-            onClose={(sessionId) => {
-              void handleCloseSession(sessionId);
-            }}
-            onDelete={(sessionId) => {
-              void handleDeleteSession(sessionId);
-            }}
-            onRename={(sessionId, title) => {
-              return handleRenameSession(sessionId, title);
-            }}
-            closingSessionId={closingSessionId}
-            deletingSessionId={deletingSessionId}
-            renamingSessionId={renamingSessionId}
-          />
+            <MessageSessionPanel
+              sessions={panelSessions}
+              selectedSessionId={sessionList.selectedSessionId}
+              loading={sessionList.loading}
+              switching={session.sessionLoading || showRobotSwitchLoading}
+              error={sessionList.error}
+              onSelect={sessionList.setSelectedSessionId}
+              onRefresh={() => {
+                void Promise.allSettled([sessionList.refresh(), sessionActivity.refreshActivity()]);
+              }}
+              onClose={handleCloseSession}
+              onDelete={handleDeleteSession}
+              onRename={handleRenameSession}
+              closingSessionId={closingSessionId}
+              deletingSessionId={deletingSessionId}
+              renamingSessionId={renamingSessionId}
+            />
         </div>
       </div>
     </main>

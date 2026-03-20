@@ -18,7 +18,7 @@ import type {
   InstanceAgentBinding,
   InstanceSkillBinding,
 } from "@/types/contracts";
-import { Alert, Button, Empty, Input, InputNumber, Select, Space, Switch, Tag, Typography, message } from "antd";
+import { Alert, Button, Empty, Input, InputNumber, Modal, Select, Space, Switch, Tag, Typography, message } from "antd";
 import { motion } from "framer-motion";
 import { Bot, Download, Eye, RefreshCw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -108,9 +108,40 @@ type InstanceAgentPanelProps = {
   onInstalledAgentsChange?: (bindings: InstanceAgentBinding[]) => void;
   onSaved?: () => void | Promise<void>;
   readOnly?: boolean;
+  subjectLabel?: string;
+  updatedBy?: string;
+  className?: string;
+  confirmBeforeSave?: boolean;
+  restartTargetLabel?: string;
+  hideAdvancedConfig?: boolean;
+  hideSystemPrompt?: boolean;
+  hideDetailSection?: boolean;
 };
 
-export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSaved, readOnly }: InstanceAgentPanelProps) {
+function formatRuntimeLabel(runtime?: string | null): string {
+  if (!runtime) {
+    return "-";
+  }
+  if (runtime === "ZEROCLAW") {
+    return "FUNCLAW";
+  }
+  return runtime;
+}
+
+export function InstanceAgentPanel({
+  instanceId,
+  onInstalledAgentsChange,
+  onSaved,
+  readOnly,
+  subjectLabel = "当前实例",
+  updatedBy = "ui-dashboard",
+  className,
+  confirmBeforeSave = false,
+  restartTargetLabel = "当前实例",
+  hideAdvancedConfig = false,
+  hideSystemPrompt = false,
+  hideDetailSection = false,
+}: InstanceAgentPanelProps) {
   const [baselines, setBaselines] = useState<AgentBaselineSummary[]>([]);
   const [bindings, setBindings] = useState<InstanceAgentBinding[]>([]);
   const [skillBindings, setSkillBindings] = useState<InstanceSkillBinding[]>([]);
@@ -125,6 +156,25 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
   const [error, setError] = useState<string>();
   const [systemPromptCollapsed, setSystemPromptCollapsed] = useState(true);
   const [messageApi, contextHolder] = message.useMessage();
+  const [modal, modalContextHolder] = Modal.useModal();
+
+  const confirmSaveWithRestart = useCallback(async () => {
+    if (!confirmBeforeSave || !onSaved) {
+      return true;
+    }
+
+    return await new Promise<boolean>((resolve) => {
+      modal.confirm({
+        title: "确认保存配置？",
+        content: `保存后会自动重启${restartTargetLabel}，重启期间可能会短暂不可用。确认继续吗？`,
+        okText: "确认保存并重启",
+        cancelText: "先不保存",
+        centered: true,
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+  }, [confirmBeforeSave, modal, onSaved, restartTargetLabel]);
 
   const loadAll = useCallback(async (showSuccess?: boolean) => {
     setLoading(true);
@@ -211,6 +261,11 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
   }, [candidateAgents, agentSearch]);
 
   useEffect(() => {
+    if (hideDetailSection) {
+      setSelectedBaselineDetail(undefined);
+      setDetailLoading(false);
+      return;
+    }
     if (selectedBinding) {
       setDraft(toDraft(selectedBinding));
       setSelectedBaselineDetail(undefined);
@@ -237,7 +292,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
       .finally(() => {
         setDetailLoading(false);
       });
-  }, [selectedAgentKey, selectedBinding]);
+  }, [hideDetailSection, selectedAgentKey, selectedBinding]);
 
   const runtimeToolOptions = useMemo(() => {
     return buildAgentToolOptions(toolCatalog.tools, draft?.allowedTools ?? []);
@@ -262,11 +317,11 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
     setError(undefined);
     try {
       await upsertInstanceAgentBinding(instanceId, targetAgentKey, {
-        updatedBy: "ui-dashboard",
+        updatedBy,
       });
       await loadAll();
       await onSaved?.();
-      messageApi.success("Agent 已装载到当前实例");
+      messageApi.success(`Agent 已装载到${subjectLabel}`);
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
@@ -274,13 +329,17 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadAll, messageApi, onSaved, readOnly, selectedAgentKey]);
+  }, [instanceId, loadAll, messageApi, onSaved, readOnly, selectedAgentKey, subjectLabel, updatedBy]);
 
   const handleSave = useCallback(async () => {
     if (readOnly) {
       return;
     }
     if (!selectedBinding || !draft) {
+      return;
+    }
+    const confirmed = await confirmSaveWithRestart();
+    if (!confirmed) {
       return;
     }
     setSaving(true);
@@ -294,11 +353,11 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
         systemPrompt: draft.systemPrompt,
         allowedTools: normalizeStringValues(draft.allowedTools),
         allowedSkills: normalizeStringValues(draft.allowedSkills),
-        updatedBy: "ui-dashboard",
+        updatedBy,
       });
       setBindings((current) => current.map((item) => (item.agentKey === saved.agentKey ? saved : item)));
       setDraft(toDraft(saved));
-      messageApi.success("实例 Agent 配置已保存");
+      messageApi.success(`${subjectLabel} Agent 配置已保存`);
       await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
@@ -307,7 +366,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
     } finally {
       setSaving(false);
     }
-  }, [draft, instanceId, messageApi, onSaved, readOnly, selectedBinding]);
+  }, [confirmSaveWithRestart, draft, instanceId, messageApi, onSaved, readOnly, selectedBinding, subjectLabel, updatedBy]);
 
   const handleUninstall = useCallback(async (agentKey?: string) => {
     if (readOnly) {
@@ -323,7 +382,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
     try {
       await uninstallInstanceAgentBinding(instanceId, targetAgentKey);
       await loadAll();
-      messageApi.success("Agent 已从当前实例卸载");
+      messageApi.success(`Agent 已从${subjectLabel}卸载`);
       await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
@@ -332,16 +391,18 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadAll, messageApi, onSaved, readOnly, selectedAgentKey, selectedBinding]);
+  }, [instanceId, loadAll, messageApi, onSaved, readOnly, selectedAgentKey, selectedBinding, subjectLabel]);
 
   const selectedBaselineSummary = useMemo(
     () => candidateAgents.find((item) => item.agentKey === selectedAgentKey),
     [candidateAgents, selectedAgentKey],
   );
+  const rootClassName = className ? `instance-agent-panel ${className}` : "instance-agent-panel";
 
   return (
-    <>
+    <div className={rootClassName}>
       {contextHolder}
+      {modalContextHolder}
       <Space direction="vertical" style={{ width: "100%" }} size="middle">
         <div className="tab-section-header">
           <div className="tab-section-title">
@@ -397,11 +458,19 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
                         <strong className="agent-selector-card-title">{item.displayName || item.agentKey}</strong>
                         <p className="agent-selector-card-path">{item.agentKey}</p>
                         <div className="agent-selector-card-meta">
-                          <span className="agent-selector-card-chip is-neutral">{item.runtime}</span>
-                          <span className={`agent-selector-card-chip ${item.enabled ? "is-agentic" : "is-neutral"}`}>
-                            {item.enabled ? "已启用" : "已禁用"}
-                          </span>
-                          {item.model ? <span className="agent-selector-card-chip is-model">{item.model}</span> : null}
+                          {hideAdvancedConfig ? (
+                            <span className={`agent-selector-card-chip ${item.enabled ? "is-agentic" : "is-neutral"}`}>
+                              {item.enabled ? "当前可用" : "暂不可用"}
+                            </span>
+                          ) : (
+                            <>
+                              <span className="agent-selector-card-chip is-neutral">{formatRuntimeLabel(item.runtime)}</span>
+                              <span className={`agent-selector-card-chip ${item.enabled ? "is-agentic" : "is-neutral"}`}>
+                                {item.enabled ? "已启用" : "已禁用"}
+                              </span>
+                              {item.model ? <span className="agent-selector-card-chip is-model">{item.model}</span> : null}
+                            </>
+                          )}
                         </div>
                       </button>
                       <Button
@@ -458,8 +527,14 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
                         <strong className="agent-selector-card-title">{item.displayName || item.agentKey}</strong>
                         <p className="agent-selector-card-path">{item.agentKey}</p>
                         <div className="agent-selector-card-meta">
-                          <span className="agent-selector-card-chip is-neutral">{item.runtime}</span>
-                          {item.model ? <span className="agent-selector-card-chip is-model">{item.model}</span> : null}
+                          {hideAdvancedConfig ? (
+                            <span className="agent-selector-card-chip is-neutral">可装载</span>
+                          ) : (
+                            <>
+                              <span className="agent-selector-card-chip is-neutral">{formatRuntimeLabel(item.runtime)}</span>
+                              {item.model ? <span className="agent-selector-card-chip is-model">{item.model}</span> : null}
+                            </>
+                          )}
                         </div>
                       </button>
                       <Button
@@ -489,7 +564,7 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
           </div>
         </div>
 
-        {selectedBinding ? (
+        {!hideDetailSection && selectedBinding ? (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -500,16 +575,18 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
                 <div className="agent-prompt-header">
                   <span className="agent-prompt-header-title">{selectedBinding.displayName || selectedBinding.agentKey}</span>
                   <Space size="small" wrap>
-                    <Button
-                      type="primary"
-                      size="small"
-                      icon={<Save size={12} />}
-                      disabled={readOnly || !draftDirty}
-                      loading={saving}
-                      onClick={() => void handleSave()}
-                    >
-                      保存配置
-                    </Button>
+                    {!hideAdvancedConfig ? (
+                      <Button
+                        type="primary"
+                        size="small"
+                        icon={<Save size={12} />}
+                        disabled={readOnly || !draftDirty}
+                        loading={saving}
+                        onClick={() => void handleSave()}
+                      >
+                        保存配置
+                      </Button>
+                    ) : null}
                     <Button
                       danger
                       size="small"
@@ -524,157 +601,170 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
                 </div>
 
                 <div className="agent-prompt-body is-spacious">
-                  <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                    <div className="agent-detail-grid">
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Agent 标识</span>
-                        <span className="agent-detail-prop-value">{selectedBinding.agentKey}</span>
-                      </div>
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">运行时</span>
-                        <span className="agent-detail-prop-value">{selectedBinding.runtime}</span>
-                      </div>
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">来源类型</span>
-                        <span className="agent-detail-prop-value">{selectedBinding.sourceType}</span>
-                      </div>
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">更新时间</span>
-                        <span className="agent-detail-prop-value">{formatTimestamp(selectedBinding.updatedAt)}</span>
-                      </div>
+                  {hideAdvancedConfig ? (
+                    <Space direction="vertical" style={{ width: "100%" }} size="middle">
                       <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">服务提供方</span>
-                        <Input
-                          value={draft?.provider ?? ""}
-                          disabled={readOnly}
-                          onChange={(event) => {
-                            setDraft((current) => (current ? { ...current, provider: event.target.value } : current));
-                          }}
-                          placeholder="custom:https://api.example.com/v1"
-                        />
+                        <span className="agent-detail-prop-label">Agent 说明</span>
+                        <span className="agent-detail-prop-value">
+                          {selectedBinding.description || "当前龙虾已挂载这个 Agent，可继续切换或卸载。"}
+                        </span>
                       </div>
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">模型</span>
-                        <Input
-                          value={draft?.model ?? ""}
-                          disabled={readOnly}
-                          onChange={(event) => {
-                            setDraft((current) => (current ? { ...current, model: event.target.value } : current));
-                          }}
-                          placeholder="MiniMax-M2.5"
-                        />
-                      </div>
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">温度</span>
-                        <InputNumber
-                          style={{ width: "100%" }}
-                          value={draft?.temperature ?? null}
-                          min={0}
-                          max={2}
-                          step={0.1}
-                          disabled={readOnly}
-                          onChange={(value) => {
-                            setDraft((current) => (
-                              current
-                                ? { ...current, temperature: typeof value === "number" ? value : null }
-                                : current
-                            ));
-                          }}
-                        />
-                      </div>
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">自主模式</span>
-                        <Switch
-                          checked={draft?.agentic ?? false}
-                          disabled={readOnly}
-                          onChange={(checked) => {
-                            setDraft((current) => (current ? { ...current, agentic: checked } : current));
-                          }}
-                        />
-                      </div>
-                      {draft?.agentic ? (
+                    </Space>
+                  ) : (
+                    <Space direction="vertical" style={{ width: "100%" }} size="middle">
+                      <div className="agent-detail-grid">
+                        <div className="agent-detail-prop">
+                          <span className="agent-detail-prop-label">Agent 标识</span>
+                          <span className="agent-detail-prop-value">{selectedBinding.agentKey}</span>
+                        </div>
+                        <div className="agent-detail-prop">
+                          <span className="agent-detail-prop-label">运行时</span>
+                          <span className="agent-detail-prop-value">{formatRuntimeLabel(selectedBinding.runtime)}</span>
+                        </div>
+                        <div className="agent-detail-prop">
+                          <span className="agent-detail-prop-label">来源类型</span>
+                          <span className="agent-detail-prop-value">{selectedBinding.sourceType}</span>
+                        </div>
+                        <div className="agent-detail-prop">
+                          <span className="agent-detail-prop-label">更新时间</span>
+                          <span className="agent-detail-prop-value">{formatTimestamp(selectedBinding.updatedAt)}</span>
+                        </div>
                         <div className="agent-detail-prop is-wide">
-                          <span className="agent-detail-prop-label">allowed_tools</span>
-                          <Select
-                            mode="tags"
-                            allowClear
-                            placeholder="Select runtime tools, not skill IDs"
-                            options={runtimeToolOptions}
+                          <span className="agent-detail-prop-label">服务提供方</span>
+                          <Input
+                            value={draft?.provider ?? ""}
+                            disabled={readOnly}
+                            onChange={(event) => {
+                              setDraft((current) => (current ? { ...current, provider: event.target.value } : current));
+                            }}
+                            placeholder="custom:https://api.example.com/v1"
+                          />
+                        </div>
+                        <div className="agent-detail-prop is-wide">
+                          <span className="agent-detail-prop-label">模型</span>
+                          <Input
+                            value={draft?.model ?? ""}
+                            disabled={readOnly}
+                            onChange={(event) => {
+                              setDraft((current) => (current ? { ...current, model: event.target.value } : current));
+                            }}
+                            placeholder="MiniMax-M2.5"
+                          />
+                        </div>
+                        <div className="agent-detail-prop">
+                          <span className="agent-detail-prop-label">温度</span>
+                          <InputNumber
                             style={{ width: "100%" }}
-                            value={draft?.allowedTools ?? []}
+                            value={draft?.temperature ?? null}
+                            min={0}
+                            max={2}
+                            step={0.1}
                             disabled={readOnly}
                             onChange={(value) => {
-                              setDraft((current) => (current ? { ...current, allowedTools: value } : current));
+                              setDraft((current) => (
+                                current
+                                  ? { ...current, temperature: typeof value === "number" ? value : null }
+                                  : current
+                              ));
+                            }}
+                          />
+                        </div>
+                        <div className="agent-detail-prop">
+                          <span className="agent-detail-prop-label">自主模式</span>
+                          <Switch
+                            checked={draft?.agentic ?? false}
+                            disabled={readOnly}
+                            onChange={(checked) => {
+                              setDraft((current) => (current ? { ...current, agentic: checked } : current));
+                            }}
+                          />
+                        </div>
+                        {draft?.agentic ? (
+                          <div className="agent-detail-prop is-wide">
+                            <span className="agent-detail-prop-label">工具白名单</span>
+                            <Select
+                              mode="tags"
+                              allowClear
+                              placeholder="选择这只龙虾允许运行的工具"
+                              options={runtimeToolOptions}
+                              style={{ width: "100%" }}
+                              value={draft?.allowedTools ?? []}
+                              disabled={readOnly}
+                              onChange={(value) => {
+                                setDraft((current) => (current ? { ...current, allowedTools: value } : current));
+                              }}
+                            />
+                            <Text type="secondary">
+                              对应配置字段 `allowed_tools`，这里只选择运行时工具，不包含 Skill。
+                            </Text>
+                          </div>
+                        ) : null}
+                        <div className="agent-detail-prop is-wide">
+                          <span className="agent-detail-prop-label">Skill 白名单</span>
+                          <Select
+                            mode="multiple"
+                            allowClear
+                            placeholder="留空表示允许这只龙虾使用全部已挂载 Skill"
+                            options={allowedSkillOptions}
+                            style={{ width: "100%" }}
+                            value={draft?.allowedSkills ?? []}
+                            disabled={readOnly}
+                            onChange={(value) => {
+                              setDraft((current) => (
+                                current ? { ...current, allowedSkills: normalizeStringValues(value) } : current
+                              ));
                             }}
                           />
                           <Text type="secondary">
-                            allowed_tools only matches ZeroClaw runtime tool names. Mounted skills are managed separately.
+                            对应配置字段 `allowed_skills`，用于限制当前 Agent 可见的 Skill 范围。
                           </Text>
                         </div>
-                      ) : null}
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">allowed_skills</span>
-                        <Select
-                          mode="multiple"
-                          allowClear
-                          placeholder="Leave empty to allow all mounted skills"
-                          options={allowedSkillOptions}
-                          style={{ width: "100%" }}
-                          value={draft?.allowedSkills ?? []}
-                          disabled={readOnly}
-                          onChange={(value) => {
-                            setDraft((current) => (
-                              current ? { ...current, allowedSkills: normalizeStringValues(value) } : current
-                            ));
-                          }}
-                        />
-                        <Text type="secondary">
-                          allowed_skills limits which mounted skills this agent can see and read. Leave empty to keep all.
-                        </Text>
+                        <div className="agent-detail-prop is-wide">
+                          <span className="agent-detail-prop-label">描述</span>
+                          <span className="agent-detail-prop-value">{selectedBinding.description || "-"}</span>
+                        </div>
+                        <div className="agent-detail-prop is-wide">
+                          <span className="agent-detail-prop-label">来源引用</span>
+                          <span className="agent-detail-prop-value">{selectedBinding.sourceRef || "-"}</span>
+                        </div>
                       </div>
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">描述</span>
-                        <span className="agent-detail-prop-value">{selectedBinding.description || "-"}</span>
-                      </div>
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">来源引用</span>
-                        <span className="agent-detail-prop-value">{selectedBinding.sourceRef || "-"}</span>
-                      </div>
-                    </div>
-                  </Space>
-                </div>
-              </div>
-
-              <div className="agent-prompt-card">
-                <div className="agent-prompt-header">
-                  <span className="agent-prompt-header-title">系统提示词</span>
-                  <Button
-                    size="small"
-                    icon={<Eye size={12} />}
-                    onClick={() => setSystemPromptCollapsed((current) => !current)}
-                  >
-                    {systemPromptCollapsed ? "展开提示词" : "收起提示词"}
-                  </Button>
-                </div>
-                <div className="agent-prompt-body">
-                  {systemPromptCollapsed ? (
-                    <Text type="secondary">提示词已收起</Text>
-                  ) : (
-                    <Input.TextArea
-                      className="prompt-textarea prompt-textarea-agent"
-                      rows={18}
-                      readOnly={readOnly}
-                      value={draft?.systemPrompt ?? ""}
-                      onChange={(event) => {
-                        setDraft((current) => (current ? { ...current, systemPrompt: event.target.value } : current));
-                      }}
-                    />
+                    </Space>
                   )}
                 </div>
               </div>
+
+              {!hideSystemPrompt ? (
+                <div className="agent-prompt-card">
+                  <div className="agent-prompt-header">
+                    <span className="agent-prompt-header-title">系统提示词</span>
+                    <Button
+                      size="small"
+                      icon={<Eye size={12} />}
+                      onClick={() => setSystemPromptCollapsed((current) => !current)}
+                    >
+                      {systemPromptCollapsed ? "展开提示词" : "收起提示词"}
+                    </Button>
+                  </div>
+                  <div className="agent-prompt-body">
+                    {systemPromptCollapsed ? (
+                      <Text type="secondary">提示词已收起</Text>
+                    ) : (
+                      <Input.TextArea
+                        className="prompt-textarea prompt-textarea-agent"
+                        rows={18}
+                        readOnly={readOnly}
+                        value={draft?.systemPrompt ?? ""}
+                        onChange={(event) => {
+                          setDraft((current) => (current ? { ...current, systemPrompt: event.target.value } : current));
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </Space>
           </motion.div>
-        ) : selectedAgentKey ? (
+        ) : !hideDetailSection && selectedAgentKey ? (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -698,46 +788,67 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
                   <Text type="secondary">正在加载 Agent 详情...</Text>
                 ) : selectedBaselineDetail ? (
                   <Space direction="vertical" style={{ width: "100%" }} size="middle">
-                    <div className="agent-detail-grid">
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">Agent 标识</span>
-                        <span className="agent-detail-prop-value">{selectedBaselineDetail.agentKey}</span>
-                      </div>
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">运行时</span>
-                        <span className="agent-detail-prop-value">{selectedBaselineDetail.runtime}</span>
-                      </div>
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">服务提供方</span>
-                        <span className="agent-detail-prop-value">{selectedBaselineDetail.provider || "-"}</span>
-                      </div>
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">模型</span>
-                        <span className="agent-detail-prop-value">{selectedBaselineDetail.model || "-"}</span>
-                      </div>
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">温度</span>
-                        <span className="agent-detail-prop-value">{selectedBaselineDetail.temperature ?? "-"}</span>
-                      </div>
-                      <div className="agent-detail-prop">
-                        <span className="agent-detail-prop-label">自主模式</span>
-                        <span className="agent-detail-prop-value">{selectedBaselineDetail.agentic ? "true" : "false"}</span>
-                      </div>
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Description</span>
-                        <span className="agent-detail-prop-value">{selectedBaselineDetail.description || "-"}</span>
-                      </div>
-                      <div className="agent-detail-prop is-wide">
-                        <span className="agent-detail-prop-label">Source Ref</span>
-                        <span className="agent-detail-prop-value">{selectedBaselineDetail.sourceRef || "-"}</span>
-                      </div>
-                    </div>
-                    <Input.TextArea
-                      className="prompt-textarea prompt-textarea-agent"
-                      rows={18}
-                      readOnly
-                      value={selectedBaselineDetail.systemPrompt ?? ""}
-                    />
+                    {hideAdvancedConfig ? (
+                      <>
+                        <Alert
+                          type="info"
+                          showIcon
+                          message="装载后将由这只龙虾使用该 Agent"
+                          description="底层模型参数和提示词由平台统一维护，这里不再直接展示。"
+                        />
+                        <div className="agent-detail-prop is-wide">
+                          <span className="agent-detail-prop-label">Agent 说明</span>
+                          <span className="agent-detail-prop-value">
+                            {selectedBaselineDetail.description || "这个 Agent 已可用于当前龙虾，装载后会自动同步生效。"}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="agent-detail-grid">
+                          <div className="agent-detail-prop">
+                            <span className="agent-detail-prop-label">Agent 标识</span>
+                            <span className="agent-detail-prop-value">{selectedBaselineDetail.agentKey}</span>
+                          </div>
+                          <div className="agent-detail-prop">
+                            <span className="agent-detail-prop-label">运行时</span>
+                            <span className="agent-detail-prop-value">{formatRuntimeLabel(selectedBaselineDetail.runtime)}</span>
+                          </div>
+                          <div className="agent-detail-prop is-wide">
+                            <span className="agent-detail-prop-label">服务提供方</span>
+                            <span className="agent-detail-prop-value">{selectedBaselineDetail.provider || "-"}</span>
+                          </div>
+                          <div className="agent-detail-prop is-wide">
+                            <span className="agent-detail-prop-label">模型</span>
+                            <span className="agent-detail-prop-value">{selectedBaselineDetail.model || "-"}</span>
+                          </div>
+                          <div className="agent-detail-prop">
+                            <span className="agent-detail-prop-label">温度</span>
+                            <span className="agent-detail-prop-value">{selectedBaselineDetail.temperature ?? "-"}</span>
+                          </div>
+                          <div className="agent-detail-prop">
+                            <span className="agent-detail-prop-label">自主模式</span>
+                            <span className="agent-detail-prop-value">{selectedBaselineDetail.agentic ? "已开启" : "未开启"}</span>
+                          </div>
+                          <div className="agent-detail-prop is-wide">
+                            <span className="agent-detail-prop-label">描述</span>
+                            <span className="agent-detail-prop-value">{selectedBaselineDetail.description || "-"}</span>
+                          </div>
+                          <div className="agent-detail-prop is-wide">
+                            <span className="agent-detail-prop-label">来源引用</span>
+                            <span className="agent-detail-prop-value">{selectedBaselineDetail.sourceRef || "-"}</span>
+                          </div>
+                        </div>
+                        {!hideSystemPrompt ? (
+                          <Input.TextArea
+                            className="prompt-textarea prompt-textarea-agent"
+                            rows={18}
+                            readOnly
+                            value={selectedBaselineDetail.systemPrompt ?? ""}
+                          />
+                        ) : null}
+                      </>
+                    )}
                   </Space>
                 ) : (
                   <Empty description="请选择一个 Agent 查看详情" />
@@ -745,10 +856,10 @@ export function InstanceAgentPanel({ instanceId, onInstalledAgentsChange, onSave
               </div>
             </div>
           </motion.div>
-        ) : (
+        ) : !hideDetailSection ? (
           !loading ? <Empty description="请选择一个 Agent 查看详情" /> : null
-        )}
+        ) : null}
       </Space>
-    </>
+    </div>
   );
 }

@@ -1010,6 +1010,385 @@ html {
 }
 
 /* =========================================
+   Lobster Detail Config
+   ========================================= */
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-nav {
+  position: relative;
+  padding: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(255, 244, 239, 0.92), rgba(250, 240, 255, 0.88));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 18px 34px rgba(139, 61, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-nav::before {
+  display: none !important;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-nav-wrap {
+  min-width: 0;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-nav-list {
+  gap: 8px;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-tab {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 18px !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 16px;
+  color: #6b7280 !important;
+  font-weight: 800;
+  transition:
+    color 0.24s var(--console-ease),
+    transform 0.24s var(--console-ease);
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-tab:hover .ant-tabs-tab-btn {
+  color: #8b3dff !important;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-tab.ant-tabs-tab-active {
+  background: transparent !important;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #c2410c !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-tab-active .ant-tabs-tab-btn::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 6px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff7a18, #ff9f43 46%, #8b3dff);
+  opacity: 0.96;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-ink-bar {
+  display: none !important;
+}
+
+.brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-content-holder {
+  padding-top: 24px;
+}
+
+.lobster-config-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.lobster-config-shell-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(255, 122, 24, 0.14), rgba(139, 61, 255, 0.10));
+  padding: 24px 26px;
+  box-shadow: 0 22px 44px rgba(139, 61, 255, 0.08);
+}
+
+.lobster-config-shell-hero::before {
+  content: "";
+  position: absolute;
+  inset: auto auto -40px -30px;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.30), transparent 70%);
+  pointer-events: none;
+}
+
+.lobster-config-shell-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #c2410c;
+}
+
+.lobster-config-shell-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c2410c;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.90), rgba(255, 243, 237, 0.84));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.lobster-config-shell-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #0f172a;
+}
+
+.lobster-config-shell-copy {
+  margin: 8px 0 0;
+  max-width: 760px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: #6b7280;
+}
+
+.lobster-config-shell-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lobster-config-shell-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.82);
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
+}
+
+.lobster-config-shell-meta-chip.is-code {
+  max-width: min(100%, 420px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+  color: #8b3dff;
+}
+
+.brand-sunset-theme .lobster-config-shell .tab-section-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.brand-sunset-theme .lobster-config-shell .tab-section-icon.is-agent {
+  background: linear-gradient(135deg, rgba(255, 122, 24, 0.16), rgba(139, 61, 255, 0.10));
+  color: #c2410c;
+}
+
+.brand-sunset-theme .lobster-config-shell .tab-section-icon.is-skill {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(250, 204, 21, 0.12));
+  color: #ea580c;
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-prompt-card,
+.brand-sunset-theme .lobster-config-shell .ant-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.82) !important;
+  border-radius: 24px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 251, 0.90)) !important;
+  box-shadow: 0 20px 40px rgba(139, 61, 255, 0.08);
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-prompt-card::before,
+.brand-sunset-theme .lobster-config-shell .ant-card::before {
+  content: "";
+  position: absolute;
+  top: -26px;
+  left: -26px;
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 122, 24, 0.09), transparent 70%);
+  pointer-events: none;
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-prompt-header,
+.brand-sunset-theme .lobster-config-shell .ant-card-head {
+  border-bottom: 1px solid rgba(255, 219, 255, 0.82) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 241, 248, 0.74)) !important;
+  padding: 16px 20px !important;
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-prompt-header-title,
+.brand-sunset-theme .lobster-config-shell .ant-card-head-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-card-body {
+  padding: 18px 20px !important;
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-detail-prop {
+  border: 1px solid rgba(255, 219, 255, 0.78);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 248, 252, 0.88));
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-detail-prop-label {
+  color: #8b3dff;
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-selector-card,
+.brand-sunset-theme .lobster-config-shell .skill-card-v2 {
+  border-color: rgba(255, 255, 255, 0.82);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 251, 0.92));
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-selector-card::before,
+.brand-sunset-theme .lobster-config-shell .skill-card-v2::before {
+  background: linear-gradient(90deg, #ff7a18, #8b3dff);
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-selector-card:hover,
+.brand-sunset-theme .lobster-config-shell .skill-card-v2:hover {
+  border-color: rgba(255, 122, 24, 0.36);
+  box-shadow: 0 18px 34px rgba(139, 61, 255, 0.12);
+}
+
+.brand-sunset-theme .lobster-config-shell .agent-selector-card.is-selected,
+.brand-sunset-theme .lobster-config-shell .skill-card-v2.is-selected {
+  border-color: rgba(255, 122, 24, 0.52);
+  box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.10), 0 18px 34px rgba(139, 61, 255, 0.12);
+}
+
+.brand-sunset-theme .lobster-config-shell .selector-card-hover-action {
+  box-shadow: 0 12px 24px rgba(139, 61, 255, 0.12);
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-alert {
+  border: 1px solid rgba(255, 255, 255, 0.82) !important;
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: 0 14px 26px rgba(139, 61, 255, 0.06);
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-tag {
+  border-radius: 999px;
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-btn-primary {
+  background: linear-gradient(135deg, #ff7a18, #ff9f43 42%, #8b3dff);
+  border: none !important;
+  box-shadow: 0 12px 24px rgba(139, 61, 255, 0.16);
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-btn-primary:not(:disabled):hover,
+.brand-sunset-theme .lobster-config-shell .ant-btn-primary:not(:disabled):focus {
+  background: linear-gradient(135deg, #ea580c, #f97316 42%, #7c3aed);
+  transform: translateY(-1px);
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-btn:not(.ant-btn-primary) {
+  border-color: rgba(255, 219, 255, 0.82);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-btn:not(.ant-btn-primary):not(:disabled):hover,
+.brand-sunset-theme .lobster-config-shell .ant-btn:not(.ant-btn-primary):not(:disabled):focus {
+  border-color: rgba(255, 122, 24, 0.38);
+  color: #c2410c;
+  transform: translateY(-1px);
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-input,
+.brand-sunset-theme .lobster-config-shell .ant-input-affix-wrapper,
+.brand-sunset-theme .lobster-config-shell .ant-input-number,
+.brand-sunset-theme .lobster-config-shell .ant-select-selector {
+  border-color: rgba(217, 184, 255, 0.42) !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: none !important;
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-input-number {
+  width: 100%;
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-input:hover,
+.brand-sunset-theme .lobster-config-shell .ant-input-affix-wrapper:hover,
+.brand-sunset-theme .lobster-config-shell .ant-input-number:hover,
+.brand-sunset-theme .lobster-config-shell .ant-select-selector:hover {
+  border-color: rgba(255, 122, 24, 0.36) !important;
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-input:focus,
+.brand-sunset-theme .lobster-config-shell .ant-input-focused,
+.brand-sunset-theme .lobster-config-shell .ant-input-affix-wrapper-focused,
+.brand-sunset-theme .lobster-config-shell .ant-input-number-focused,
+.brand-sunset-theme .lobster-config-shell .ant-select-focused .ant-select-selector {
+  border-color: rgba(255, 122, 24, 0.52) !important;
+  box-shadow: 0 0 0 4px rgba(255, 122, 24, 0.10) !important;
+}
+
+.brand-sunset-theme .lobster-config-shell .ant-switch.ant-switch-checked {
+  background: linear-gradient(135deg, #ff7a18, #8b3dff) !important;
+}
+
+.brand-sunset-theme .lobster-config-shell .prompt-textarea {
+  border-color: rgba(217, 184, 255, 0.42) !important;
+  background: linear-gradient(180deg, rgba(255, 252, 254, 0.98), rgba(255, 247, 251, 0.94)) !important;
+}
+
+.brand-sunset-theme .lobster-config-shell .prompt-textarea:focus,
+.brand-sunset-theme .lobster-config-shell .prompt-textarea:focus-visible {
+  border-color: rgba(255, 122, 24, 0.52) !important;
+  box-shadow: 0 0 0 4px rgba(255, 122, 24, 0.10) !important;
+}
+
+@media (max-width: 768px) {
+  .brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-nav {
+    border-radius: 20px;
+    padding: 6px !important;
+  }
+
+  .brand-sunset-theme .lobster-instance-detail-tabs .ant-tabs-tab {
+    padding: 10px 14px !important;
+  }
+
+  .lobster-config-shell-hero {
+    padding: 20px;
+  }
+
+  .lobster-config-shell-title {
+    font-size: 20px;
+  }
+
+  .lobster-config-shell-meta {
+    width: 100%;
+  }
+}
+
+/* =========================================
    Agent Detail Card
    ========================================= */
 

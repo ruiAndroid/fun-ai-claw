@@ -1,23 +1,19 @@
 "use client";
 
 import "@ant-design/v5-patch-for-react-19";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { HomepageAgentSection } from "./homepage-agent-section";
 import { HomepageHero } from "./homepage-hero";
-import { HomepageLobsterDetailsModal } from "./homepage-lobster-details-modal";
 import { HomepageRobotAdoptionModal } from "./homepage-robot-adoption-modal";
 import { HomepageSidebar } from "./homepage-sidebar";
 import { HomepageTopbar } from "./homepage-topbar";
 import { useHomepageShellData } from "./use-homepage-shell-data";
-import { useState } from "react";
 
 export function LandingPage() {
   const [adoptionModalOpen, setAdoptionModalOpen] = useState(false);
-  const [lobsterDetailsOpen, setLobsterDetailsOpen] = useState(false);
   const {
     authenticated,
     instances,
-    recentSessions,
     messagesHref,
     navItems,
     rechargeHref,
@@ -27,10 +23,9 @@ export function LandingPage() {
     refresh,
   } = useHomepageShellData();
   const primaryInstance = instances[0];
-  const primaryInstanceMessagesHref = primaryInstance
-    ? `/messages?instanceId=${encodeURIComponent(primaryInstance.instanceId)}`
-    : messagesHref;
-  const primaryConversationHref = recentSessions[0]?.href || primaryInstanceMessagesHref;
+  const primaryInstanceDetailsHref = primaryInstance
+    ? `/lobster/${encodeURIComponent(primaryInstance.instanceId)}`
+    : undefined;
 
   useEffect(() => {
     const previousHtmlOverflow = document.documentElement.style.overflow;
@@ -74,8 +69,7 @@ export function LandingPage() {
                 name: primaryInstance.name,
                 status: primaryInstance.status,
               } : undefined}
-              primaryConversationHref={primaryConversationHref}
-              onViewOwnedLobster={primaryInstance ? () => setLobsterDetailsOpen(true) : undefined}
+              ownedLobsterHref={primaryInstanceDetailsHref}
               onAdoptRequest={() => setAdoptionModalOpen(true)}
             />
             <HomepageAgentSection authenticated={authenticated} messagesHref={messagesHref} />
@@ -89,13 +83,6 @@ export function LandingPage() {
         onAdopted={() => {
           void refresh();
         }}
-      />
-      <HomepageLobsterDetailsModal
-        open={lobsterDetailsOpen}
-        onClose={() => setLobsterDetailsOpen(false)}
-        instance={primaryInstance}
-        conversationHref={primaryConversationHref}
-        recentSession={recentSessions[0]}
       />
     </main>
   );

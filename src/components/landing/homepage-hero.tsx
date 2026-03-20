@@ -103,21 +103,19 @@ export function HomepageHero({
   messagesHref,
   authenticated,
   activeInstance,
-  primaryConversationHref,
-  onViewOwnedLobster,
+  ownedLobsterHref,
   onAdoptRequest,
 }: {
   messagesHref: string;
   authenticated: boolean;
   activeInstance?: HeroOwnedLobster;
-  primaryConversationHref?: string;
-  onViewOwnedLobster?: () => void;
+  ownedLobsterHref?: string;
   onAdoptRequest?: () => void;
 }) {
   const hasOwnedLobster = authenticated && Boolean(activeInstance);
   const currentLobsterName = activeInstance?.name?.trim() || "你的龙虾";
   const currentLobsterStatus = formatOwnedLobsterStatus(activeInstance?.status);
-  const enterLobsterHref = primaryConversationHref || messagesHref;
+  const viewOwnedLobsterHref = ownedLobsterHref || "/me";
 
   const steps: HeroStepItem[] = hasOwnedLobster
     ? [
@@ -125,19 +123,18 @@ export function HomepageHero({
           step: "Step 2",
           title: `查看 ${currentLobsterName} 的状态、绑定信息和最近动作`,
           actionLabel: "查看详情",
-          href: "/me",
-          onAction: onViewOwnedLobster,
+          href: viewOwnedLobsterHref,
         },
       ]
-    : heroStartSteps.map((item, index) => {
-        if (index === 0) {
+    : heroStartSteps.map((item) => {
+        if (authenticated) {
           return {
             ...item,
-            onAction: authenticated ? onAdoptRequest : undefined,
+            onAction: onAdoptRequest,
           };
         }
 
-        if (index === 1) {
+        if (item.href === "/messages") {
           return {
             ...item,
             href: messagesHref,
@@ -236,14 +233,13 @@ export function HomepageHero({
 
             <div className={`mt-5 ${hasOwnedLobster ? "" : "space-y-2.5"}`}>
               {hasOwnedLobster ? (
-                <button
-                  type="button"
-                  onClick={onViewOwnedLobster}
+                <Link
+                  href={viewOwnedLobsterHref}
                   className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] text-[13px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]"
                 >
                   <XiamiIcon size={15} title="查看详情" />
                   查看详情
-                </button>
+                </Link>
               ) : (
                 steps.map((item) => (
                   <HeroStartStep

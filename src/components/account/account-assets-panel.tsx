@@ -45,6 +45,10 @@ const text = {
   deleteDescription: "\u5220\u9664\u540e\uff0c\u5bf9\u5e94\u5b9e\u4f8b\u3001\u5bf9\u8bdd\u4f1a\u8bdd\u548c\u5386\u53f2\u6d88\u606f\u90fd\u4f1a\u4e00\u8d77\u6e05\u7406\uff0c\u8bf7\u8c28\u614e\u64cd\u4f5c\u3002",
   deleteBlockTitle: "\u5c06\u88ab\u5220\u9664\u7684\u9f99\u867e",
   deleteBlockDescription: "\u5220\u9664\u540e\u65e0\u6cd5\u6062\u590d\uff0c\u5982\u679c\u53ea\u662f\u60f3\u8c03\u6574\u540d\u79f0\uff0c\u5efa\u8bae\u4f7f\u7528\u6539\u540d\u64cd\u4f5c\u3002",
+  deleteSecondTag: "\u4e8c\u6b21\u786e\u8ba4",
+  deleteSecondTitle: "\u8bf7\u518d\u6b21\u786e\u8ba4\u5220\u9664",
+  deleteSecondDescription: "\u8fd9\u662f\u4e0d\u53ef\u6062\u590d\u7684\u9ad8\u98ce\u9669\u64cd\u4f5c\uff0c\u5220\u9664\u540e\u5c06\u65e0\u6cd5\u627e\u56de\u8fd9\u53ea\u9f99\u867e\u53ca\u5176\u76f8\u5173\u5bf9\u8bdd\u8bb0\u5f55\u3002",
+  deleteSecondConfirm: "\u4ecd\u8981\u5220\u9664",
   deleteFailedError: "\u5220\u9664\u9f99\u867e\u5931\u8d25",
   cancel: "\u53d6\u6d88",
   save: "\u4fdd\u5b58",
@@ -124,6 +128,7 @@ export function AccountAssetsPanel() {
   const [renameError, setRenameError] = useState<string>();
   const [deleteTarget, setDeleteTarget] = useState<ConsumerBoundInstance | null>(null);
   const [deleteError, setDeleteError] = useState<string>();
+  const [deleteSecondaryConfirmOpen, setDeleteSecondaryConfirmOpen] = useState(false);
 
   const loadAssets = useCallback(async () => {
     setLoading(true);
@@ -153,6 +158,7 @@ export function AccountAssetsPanel() {
 
   const renamePending = renameTarget ? renamingInstanceId === renameTarget.instanceId : false;
   const deletePending = deleteTarget ? deletingInstanceId === deleteTarget.instanceId : false;
+  const deletePrimaryLocked = deletePending || deleteSecondaryConfirmOpen;
 
   const closeRenameModal = () => {
     if (renamePending) {
@@ -169,6 +175,14 @@ export function AccountAssetsPanel() {
     }
     setDeleteTarget(null);
     setDeleteError(undefined);
+    setDeleteSecondaryConfirmOpen(false);
+  };
+
+  const closeDeleteSecondaryConfirm = () => {
+    if (deletePending) {
+      return;
+    }
+    setDeleteSecondaryConfirmOpen(false);
   };
 
   const handleRenameSubmit = async () => {
@@ -359,6 +373,7 @@ export function AccountAssetsPanel() {
                         onClick={() => {
                           setDeleteTarget(asset);
                           setDeleteError(undefined);
+                          setDeleteSecondaryConfirmOpen(false);
                         }}
                         className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 shadow-sm transition hover:bg-rose-100 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label={`${text.deleteAction} ${asset.name}`}
@@ -541,7 +556,7 @@ export function AccountAssetsPanel() {
                 <button
                   type="button"
                   onClick={closeDeleteModal}
-                  disabled={deletePending}
+                  disabled={deletePrimaryLocked}
                   className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/78 text-slate-500 shadow-sm transition hover:border-slate-200 hover:bg-white hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                   aria-label={text.closeDialog}
                 >
@@ -578,6 +593,90 @@ export function AccountAssetsPanel() {
                 <button
                   type="button"
                   onClick={closeDeleteModal}
+                  disabled={deletePrimaryLocked}
+                  className="inline-flex h-12 items-center justify-center rounded-full border border-white/70 bg-white/78 px-5 text-sm font-bold text-slate-600 shadow-sm transition hover:border-slate-200 hover:bg-white hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {text.cancel}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteError(undefined);
+                    setDeleteSecondaryConfirmOpen(true);
+                  }}
+                  disabled={deletePrimaryLocked}
+                  className="inline-flex h-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f43f5e_0%,#fb7185_42%,#ff7a18_100%)] px-6 text-sm font-bold text-white shadow-[0_16px_36px_rgba(244,63,94,0.24)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {deletePending ? text.deleting : text.confirmDelete}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteTarget && deleteSecondaryConfirmOpen ? (
+        <div
+          className="fixed inset-0 z-[82] flex items-center justify-center bg-[linear-gradient(180deg,rgba(15,23,42,0.22),rgba(15,23,42,0.42))] px-4 py-6 backdrop-blur-sm"
+          onClick={closeDeleteSecondaryConfirm}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-asset-delete-second-title"
+            aria-describedby="account-asset-delete-second-description"
+            className="relative w-full max-w-[460px] overflow-hidden rounded-[30px] border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(255,245,246,0.98)_100%)] shadow-[0_32px_100px_rgba(244,63,94,0.24)]"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top,rgba(244,63,94,0.18),transparent_62%)]" />
+
+            <div className="relative px-6 pb-6 pt-6 sm:px-7 sm:pb-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-rose-100 bg-white/86 px-3 py-1 text-xs font-bold text-rose-600 shadow-sm">
+                    <AlertTriangle size={14} />
+                    {text.deleteSecondTag}
+                  </div>
+                  <h3 id="account-asset-delete-second-title" className="mt-4 text-[24px] font-black tracking-[-0.04em] text-slate-950">
+                    {text.deleteSecondTitle}
+                  </h3>
+                  <p id="account-asset-delete-second-description" className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                    {text.deleteSecondDescription}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeDeleteSecondaryConfirm}
+                  disabled={deletePending}
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/78 text-slate-500 shadow-sm transition hover:border-slate-200 hover:bg-white hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={text.closeDialog}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-[24px] border border-rose-100 bg-white/88 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+                <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-rose-400">
+                  {text.deleteBlockTitle}
+                </div>
+                <div className="mt-2 text-lg font-black tracking-[-0.03em] text-slate-950">
+                  {deleteTarget.name}
+                </div>
+              </div>
+
+              {deleteError ? (
+                <div className="mt-4 rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-600">
+                  {deleteError}
+                </div>
+              ) : null}
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeDeleteSecondaryConfirm}
                   disabled={deletePending}
                   className="inline-flex h-12 items-center justify-center rounded-full border border-white/70 bg-white/78 px-5 text-sm font-bold text-slate-600 shadow-sm transition hover:border-slate-200 hover:bg-white hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -589,9 +688,9 @@ export function AccountAssetsPanel() {
                     void handleDeleteSubmit();
                   }}
                   disabled={deletePending}
-                  className="inline-flex h-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f43f5e_0%,#fb7185_42%,#ff7a18_100%)] px-6 text-sm font-bold text-white shadow-[0_16px_36px_rgba(244,63,94,0.24)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_48%,#ff7a18_100%)] px-6 text-sm font-bold text-white shadow-[0_16px_36px_rgba(244,63,94,0.28)] transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {deletePending ? text.deleting : text.confirmDelete}
+                  {deletePending ? text.deleting : text.deleteSecondConfirm}
                 </button>
               </div>
             </div>

@@ -156,7 +156,11 @@ function SidebarUserCard({
   }
 
   return (
-    <div className="mt-auto flex items-center gap-3 rounded-[24px] border border-white/70 bg-white/82 p-3 shadow-[0_18px_36px_rgba(81,38,145,0.08)]">
+    <Link
+      href={userCard.href}
+      className="group mt-auto flex items-center gap-3 rounded-[24px] border border-white/70 bg-white/82 p-3 shadow-[0_18px_36px_rgba(81,38,145,0.08)] transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-200/80 hover:shadow-[0_22px_40px_rgba(81,38,145,0.12)]"
+      aria-label="前往个人中心"
+    >
       {userCard.avatarUrl ? (
         <Image
           src={userCard.avatarUrl}
@@ -175,14 +179,13 @@ function SidebarUserCard({
         <div className="truncate text-base font-bold text-md-on-surface">{userCard.title}</div>
         <div className="truncate text-xs text-md-on-surface-variant">{userCard.subtitle}</div>
       </div>
-      <Link
-        href={userCard.href}
-        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm"
-        aria-label="前往个人中心"
+      <span
+        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/78 text-md-on-surface shadow-sm transition-all duration-300 group-hover:border-violet-200/80 group-hover:text-violet-700"
+        aria-hidden="true"
       >
         <UserRound size={16} />
-      </Link>
-    </div>
+      </span>
+    </Link>
   );
 }
 

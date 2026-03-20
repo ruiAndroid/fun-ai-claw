@@ -3,7 +3,7 @@
 import { uiText } from "@/constants/ui-text";
 import { getInstanceChannelsConfig, upsertInstanceChannelsConfig } from "@/lib/control-api";
 import type { InstanceChannelsConfig } from "@/types/contracts";
-import { Alert, Button, Card, Input, InputNumber, Skeleton, Space, Switch, Typography, message } from "antd";
+import { Alert, Button, Card, Input, InputNumber, Modal, Skeleton, Space, Switch, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const { Text } = Typography;
@@ -99,10 +99,22 @@ export function InstanceChannelsConfigPanel({
   instanceId,
   onSaved,
   readOnly,
+  subjectLabel = "当前实例",
+  updatedBy = "console",
+  className,
+  title = "渠道配置",
+  confirmBeforeSave = false,
+  restartTargetLabel = "当前实例",
 }: {
   instanceId: string;
   onSaved?: () => void | Promise<void>;
   readOnly?: boolean;
+  subjectLabel?: string;
+  updatedBy?: string;
+  className?: string;
+  title?: string;
+  confirmBeforeSave?: boolean;
+  restartTargetLabel?: string;
 }) {
   const [config, setConfig] = useState<InstanceChannelsConfig>();
   const [draft, setDraft] = useState<ChannelsDraft>({
@@ -121,6 +133,25 @@ export function InstanceChannelsConfigPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [messageApi, contextHolder] = message.useMessage();
+  const [modal, modalContextHolder] = Modal.useModal();
+
+  const confirmSaveWithRestart = useCallback(async () => {
+    if (!confirmBeforeSave || !onSaved) {
+      return true;
+    }
+
+    return await new Promise<boolean>((resolve) => {
+      modal.confirm({
+        title: "确认保存配置？",
+        content: `保存后会自动重启${restartTargetLabel}，重启期间可能会短暂不可用。确认继续吗？`,
+        okText: "确认保存并重启",
+        cancelText: "先不保存",
+        centered: true,
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+  }, [confirmBeforeSave, modal, onSaved, restartTargetLabel]);
 
   const applyResponse = useCallback((response: InstanceChannelsConfig) => {
     setConfig(response);
@@ -135,7 +166,7 @@ export function InstanceChannelsConfigPanel({
         const response = await getInstanceChannelsConfig(instanceId);
         applyResponse(response);
         if (showSuccess) {
-          messageApi.success("渠道配置已刷新");
+          messageApi.success(`${title}已刷新`);
         }
       } catch (apiError) {
         const messageText = apiError instanceof Error ? apiError.message : String(apiError);
@@ -145,7 +176,7 @@ export function InstanceChannelsConfigPanel({
         setLoading(false);
       }
     },
-    [applyResponse, instanceId, messageApi]
+    [applyResponse, instanceId, messageApi, title]
   );
 
   useEffect(() => {
@@ -188,6 +219,10 @@ export function InstanceChannelsConfigPanel({
       messageApi.warning("请填写 QQ 应用密钥");
       return;
     }
+    const confirmed = await confirmSaveWithRestart();
+    if (!confirmed) {
+      return;
+    }
 
     setSaving(true);
     setError(undefined);
@@ -203,10 +238,10 @@ export function InstanceChannelsConfigPanel({
         qqAppId: draft.qqAppId.trim(),
         qqAppSecret: draft.qqAppSecret,
         qqAllowedUsers: normalizeUsers(draft.qqAllowedUsersText),
-        updatedBy: "console",
+        updatedBy,
       });
       applyResponse(response);
-      messageApi.success("渠道配置已保存");
+      messageApi.success(`${title}已保存`);
       await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
@@ -215,21 +250,24 @@ export function InstanceChannelsConfigPanel({
     } finally {
       setSaving(false);
     }
-  }, [applyResponse, draft, instanceId, messageApi, onSaved, readOnly]);
+  }, [applyResponse, confirmSaveWithRestart, draft, instanceId, messageApi, onSaved, readOnly, title, updatedBy]);
 
   const metaText = useMemo(() => {
     if (!config) {
       return "-";
     }
-    return `来源：${formatSourceLabel(config.source)} / 最近更新：${formatTimestamp(config.overrideUpdatedAt)} / 更新人：${config.overrideUpdatedBy ?? "system"}`;
-  }, [config]);
+    return `作用对象：${subjectLabel} / 来源：${formatSourceLabel(config.source)} / 最近更新：${formatTimestamp(config.overrideUpdatedAt)} / 更新人：${config.overrideUpdatedBy ?? "system"}`;
+  }, [config, subjectLabel]);
+
+  const rootClassName = className ? `instance-channels-config-panel ${className}` : "instance-channels-config-panel";
 
   return (
-    <>
+    <div className={rootClassName}>
       {contextHolder}
+      {modalContextHolder}
       <Space direction="vertical" size="middle" style={{ width: "100%" }}>
         <Card
-          title="渠道配置"
+          title={title}
           extra={
             <Button onClick={() => void loadConfig(true)} disabled={controlsDisabled}>
               刷新
@@ -258,7 +296,7 @@ export function InstanceChannelsConfigPanel({
                 <Card type="inner" size="small" title="基础">
                   <Space direction="vertical" size="middle" style={{ width: "100%" }}>
                     <Space size="small">
-                      <Text>启用 CLI</Text>
+                      <Text>启用本地 CLI</Text>
                       <Switch
                         checked={draft.cliEnabled}
                         disabled={controlsDisabled}
@@ -299,7 +337,7 @@ export function InstanceChannelsConfigPanel({
                   }
                 >
                   <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                    <Text type="secondary">对应 `config.toml` 中的 `channels_config.dingtalk`。</Text>
+                    <Text type="secondary">这部分会写入当前龙虾的 `channels_config.dingtalk` 配置。</Text>
                     <Space size="middle" wrap>
                       <a href={CHANNEL_PLATFORM_LINKS.dingtalk.consoleUrl} target="_blank" rel="noreferrer">
                         前往钉钉开放平台
@@ -357,7 +395,7 @@ export function InstanceChannelsConfigPanel({
                   }
                 >
                   <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                    <Text type="secondary">对应 `config.toml` 中的 `channels_config.qq`。</Text>
+                    <Text type="secondary">这部分会写入当前龙虾的 `channels_config.qq` 配置。</Text>
                     <Space size="middle" wrap>
                       <a href={CHANNEL_PLATFORM_LINKS.qq.consoleUrl} target="_blank" rel="noreferrer">
                         前往 QQ 开放平台
@@ -412,6 +450,6 @@ export function InstanceChannelsConfigPanel({
           </Space>
         </Card>
       </Space>
-    </>
+    </div>
   );
 }

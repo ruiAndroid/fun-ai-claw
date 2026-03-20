@@ -40,10 +40,16 @@ export function InstanceSkillPanel({
   instanceId,
   onSaved,
   readOnly,
+  subjectLabel = "当前实例",
+  className,
+  hideDetailSection = false,
 }: {
   instanceId: string;
   onSaved?: () => void | Promise<void>;
   readOnly?: boolean;
+  subjectLabel?: string;
+  className?: string;
+  hideDetailSection?: boolean;
 }) {
   const [availableSkills, setAvailableSkills] = useState<SkillBaselineSummary[]>([]);
   const [bindings, setBindings] = useState<InstanceSkillBinding[]>([]);
@@ -112,6 +118,10 @@ export function InstanceSkillPanel({
   }, [instanceId, messageApi]);
 
   const loadSelectedSkillDetail = useCallback(async (skillKey?: string) => {
+    if (hideDetailSection) {
+      setSelectedSkillDetail(undefined);
+      return;
+    }
     if (!skillKey) {
       setSelectedSkillDetail(undefined);
       return;
@@ -125,7 +135,7 @@ export function InstanceSkillPanel({
     } finally {
       setDetailLoading(false);
     }
-  }, []);
+  }, [hideDetailSection]);
 
   useEffect(() => {
     void loadData();
@@ -182,7 +192,7 @@ export function InstanceSkillPanel({
         loadSelectedSkillDetail(targetSkillKey),
       ]);
       await onSaved?.();
-      messageApi.success("Skill 已装载到当前实例");
+      messageApi.success(`Skill 已装载到${subjectLabel}`);
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
       setError(messageText);
@@ -190,7 +200,7 @@ export function InstanceSkillPanel({
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, onSaved, readOnly, selectedSkillKey]);
+  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, onSaved, readOnly, selectedSkillKey, subjectLabel]);
 
   const handleUninstall = useCallback(async (skillKey?: string) => {
     if (readOnly) {
@@ -210,7 +220,7 @@ export function InstanceSkillPanel({
         loadRuntimeSkills(),
         loadSelectedSkillDetail(targetSkillKey),
       ]);
-      messageApi.success("Skill 已从当前实例卸载");
+      messageApi.success(`Skill 已从${subjectLabel}卸载`);
       await onSaved?.();
     } catch (apiError) {
       const messageText = apiError instanceof Error ? apiError.message : String(apiError);
@@ -219,10 +229,12 @@ export function InstanceSkillPanel({
     } finally {
       setSaving(false);
     }
-  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, onSaved, readOnly, selectedSkillKey]);
+  }, [instanceId, loadData, loadRuntimeSkills, loadSelectedSkillDetail, messageApi, onSaved, readOnly, selectedSkillKey, subjectLabel]);
+
+  const rootClassName = className ? `instance-skill-panel ${className}` : "instance-skill-panel";
 
   return (
-    <>
+    <div className={rootClassName}>
       {contextHolder}
       <Space direction="vertical" style={{ width: "100%" }} size="middle">
         {readOnly ? (
@@ -378,7 +390,7 @@ export function InstanceSkillPanel({
           </div>
         </div>
 
-        {selectedSkillDetail ? (
+        {!hideDetailSection && selectedSkillDetail ? (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -427,7 +439,7 @@ export function InstanceSkillPanel({
                     </div>
                     <div className="agent-detail-prop">
                       <span className="agent-detail-prop-label">是否启用</span>
-                      <span className="agent-detail-prop-value">{selectedSkillDetail.enabled ? "true" : "false"}</span>
+                      <span className="agent-detail-prop-value">{selectedSkillDetail.enabled ? "已启用" : "已禁用"}</span>
                     </div>
                     <div className="agent-detail-prop is-wide">
                       <span className="agent-detail-prop-label">描述</span>
@@ -455,9 +467,9 @@ export function InstanceSkillPanel({
                     <Text type="secondary">正在加载 Skill 详情...</Text>
                   ) : (
                     <Space direction="vertical" size={6} style={{ width: "100%" }}>
-                      <Text>该 Skill 由服务器上的 skill package 提供，不再直接返回 `SKILL.md` 内容。</Text>
-                      <Text type="secondary">Source Type：{selectedSkillDetail.sourceType}</Text>
-                      <Text type="secondary">Source Ref：{selectedSkillDetail.sourceRef || "-"}</Text>
+                      <Text>当前龙虾会在运行时加载这个 Skill 包，详情页不直接展示 `SKILL.md` 原文。</Text>
+                      <Text type="secondary">来源类型：{selectedSkillDetail.sourceType}</Text>
+                      <Text type="secondary">来源引用：{selectedSkillDetail.sourceRef || "-"}</Text>
                     </Space>
                   )}
                 </Space>
@@ -465,9 +477,9 @@ export function InstanceSkillPanel({
             </div>
           </motion.div>
         ) : (
-          !loading ? <Empty description="请选择一个 Skill 查看详情" /> : null
+          !hideDetailSection && !loading ? <Empty description="请选择一个 Skill 查看详情" /> : null
         )}
       </Space>
-    </>
+    </div>
   );
 }

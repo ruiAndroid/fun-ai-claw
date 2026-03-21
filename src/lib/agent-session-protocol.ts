@@ -20,6 +20,8 @@ export type AgentChatTiming = {
   provider?: string;
   model?: string;
   llmRequestCount?: number;
+  inputTokens?: number;
+  outputTokens?: number;
   firstThinkingDurationMs?: number;
   firstVisibleDurationMs?: number;
   modelDurationMs?: number;
@@ -41,6 +43,11 @@ export type AgentChatMessage = {
   createdAt?: string;
   emittedAt?: string;
   timing?: AgentChatTiming;
+  billing?: {
+    estimatedCny?: number;
+    estimatedXiami?: number;
+    settledXiami?: number;
+  };
 };
 export type AgentSessionStreamMessage = {
   version: string;
@@ -110,6 +117,8 @@ export type AgentTurnTracker = {
   provider?: string;
   model?: string;
   llmRequestCount: number;
+  inputTokens?: number;
+  outputTokens?: number;
   firstThinkingDurationMs?: number;
   firstVisibleDurationMs?: number;
   modelDurationMs: number;
@@ -135,6 +144,11 @@ export type ParsedAgentInteractionPayload = {
   stateId?: string;
   feedback?: string;
 };
+
+export type AgentTimingDebugEvent =
+  | { type: "request"; provider?: string; model?: string }
+  | { type: "response"; provider?: string; model?: string; durationMs?: number; inputTokens?: number; outputTokens?: number }
+  | { type: "complete" };
 
 export const AGENT_INTERACTION_BLOCK_PATTERN = /<fun_claw_interaction>\s*([\s\S]*?)\s*<\/fun_claw_interaction>/gi;
 export const AGENT_INTERACTION_STATE_LABELS: Record<string, string> = {
@@ -631,11 +645,92 @@ export function formatAgentTimingDuration(ms?: number): string | undefined {
   return `${minutes}m ${seconds}s`;
 }
 
+export function formatAgentTokenCount(count?: number): string | undefined {
+  if (typeof count !== "number" || !Number.isFinite(count) || count < 0) {
+    return undefined;
+  }
+  return new Intl.NumberFormat("zh-CN").format(Math.round(count));
+}
+
 export function getAgentTimingNow() {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
     return performance.now();
   }
   return Date.now();
+}
+
+export function buildAgentChatTiming(turn: AgentTurnTracker): AgentChatTiming | undefined {
+  const hasTiming = turn.llmRequestCount > 0
+    || typeof turn.inputTokens === "number"
+    || typeof turn.outputTokens === "number"
+    || typeof turn.firstThinkingDurationMs === "number"
+    || typeof turn.firstVisibleDurationMs === "number"
+    || turn.modelDurationMs > 0
+    || typeof turn.totalDurationMs === "number"
+    || typeof turn.agentDurationMs === "number";
+  if (!hasTiming) {
+    return undefined;
+  }
+  return {
+    provider: turn.provider,
+    model: turn.model,
+    llmRequestCount: turn.llmRequestCount > 0 ? turn.llmRequestCount : undefined,
+    inputTokens: typeof turn.inputTokens === "number" ? turn.inputTokens : undefined,
+    outputTokens: typeof turn.outputTokens === "number" ? turn.outputTokens : undefined,
+    firstThinkingDurationMs: typeof turn.firstThinkingDurationMs === "number" ? turn.firstThinkingDurationMs : undefined,
+    firstVisibleDurationMs: typeof turn.firstVisibleDurationMs === "number" ? turn.firstVisibleDurationMs : undefined,
+    modelDurationMs: turn.modelDurationMs > 0 ? turn.modelDurationMs : undefined,
+    agentDurationMs: typeof turn.agentDurationMs === "number" ? turn.agentDurationMs : undefined,
+    totalDurationMs: typeof turn.totalDurationMs === "number" ? turn.totalDurationMs : undefined,
+    firstThinkingAt: turn.firstThinkingAt,
+    firstVisibleAt: turn.firstVisibleAt,
+    completedAt: turn.completedAt,
+  };
+}
+
+function parseOptionalDebugMetric(line: string, fieldName: string): number | undefined {
+  const escapedFieldName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = line.match(new RegExp(`\\b${escapedFieldName}=(?:Some\\((\\d+)\\)|(\\d+)|None)`, "i"));
+  const rawValue = match?.[1] ?? match?.[2];
+  if (!rawValue) {
+    return undefined;
+  }
+  const parsedValue = Number(rawValue);
+  return Number.isFinite(parsedValue) ? parsedValue : undefined;
+}
+
+export function parseAgentTimingDebugLine(line: string): AgentTimingDebugEvent | undefined {
+  const trimmedLine = line.trim();
+  if (!trimmedLine) {
+    return undefined;
+  }
+
+  const requestMatch = trimmedLine.match(/\bllm\.request\b.*\bprovider=([^\s]+)\s+model=([^\s]+)/);
+  if (requestMatch) {
+    return {
+      type: "request",
+      provider: requestMatch[1],
+      model: requestMatch[2],
+    };
+  }
+
+  const responseMatch = trimmedLine.match(/\bllm\.response\b.*\bprovider=([^\s]+)\s+model=([^\s]+)/);
+  if (responseMatch) {
+    return {
+      type: "response",
+      provider: responseMatch[1],
+      model: responseMatch[2],
+      durationMs: parseOptionalDebugMetric(trimmedLine, "duration_ms"),
+      inputTokens: parseOptionalDebugMetric(trimmedLine, "input_tokens"),
+      outputTokens: parseOptionalDebugMetric(trimmedLine, "output_tokens"),
+    };
+  }
+
+  if (trimmedLine.includes("turn.complete")) {
+    return { type: "complete" };
+  }
+
+  return undefined;
 }
 
 export function formatAgentTimingTooltip(timing?: AgentChatTiming): string | undefined {

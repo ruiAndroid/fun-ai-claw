@@ -80,6 +80,15 @@ export interface ConsumerChatSessionRenameRequest {
   title: string;
 }
 
+export interface ConsumerChatSendAllowance {
+  allowed: boolean;
+  reason?: string | null;
+  balanceXiami: number;
+  reservedXiami: number;
+  availableXiami: number;
+  requiredXiami: number;
+}
+
 export interface ConsumerChatSessionMessage {
   id: string;
   sessionId: string;
@@ -88,10 +97,17 @@ export interface ConsumerChatSessionMessage {
   content: string;
   thinkingContent?: string | null;
   interaction?: Record<string, unknown> | null;
+  provider?: string | null;
+  model?: string | null;
   providerMessageId?: string | null;
   providerSequence?: number | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
   pending: boolean;
   emittedAt?: string | null;
   createdAt: string;
   rawPayload?: string | null;
+  estimatedCny?: number | null;
+  estimatedXiami?: number | null;
+  settledXiami?: number | null;
 }

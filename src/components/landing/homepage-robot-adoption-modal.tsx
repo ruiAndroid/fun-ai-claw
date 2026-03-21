@@ -307,21 +307,11 @@ export function HomepageRobotAdoptionModal({
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <div className="text-base font-bold text-md-on-surface">给龙虾起个名字</div>
-                  <div className="mt-1 text-sm leading-6 text-md-on-surface-variant">
-                    领养完成后会自动绑定到当前账号，你之后也可以继续调整。
-                  </div>
                 </div>
-                {selectedTemplate ? (
-                  <div className="inline-flex items-center gap-2 self-start rounded-full border border-md-outline-variant/35 bg-[linear-gradient(135deg,rgba(255,122,24,0.08),rgba(139,61,255,0.06))] px-3 py-1.5 text-sm font-semibold text-md-on-surface">
-                    <Rocket size={15} />
-                    {selectedTemplate.displayName}
-                  </div>
-                ) : null}
               </div>
 
               <div className="mt-4 space-y-4">
                 <div>
-                  <div className="mb-2 text-sm font-semibold text-md-on-surface">龙虾名称</div>
                   <Input
                     value={robotName}
                     onChange={(event) => setRobotName(event.target.value)}
@@ -339,7 +329,7 @@ export function HomepageRobotAdoptionModal({
                   <div className="rounded-[18px] border border-md-outline-variant/25 bg-[linear-gradient(135deg,rgba(255,122,24,0.08),rgba(139,61,255,0.06))] p-4">
                     <div className="inline-flex items-center gap-2 text-sm font-semibold text-md-on-surface">
                       <Rocket size={15} />
-                      已选龙虾：{selectedTemplate.displayName}
+                      已选模版：{selectedTemplate.displayName}
                     </div>
                   </div>
                 ) : null}

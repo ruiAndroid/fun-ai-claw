@@ -94,7 +94,6 @@ export function HomepageAgentSection({
   return (
     <section>
       <HomepageSectionHeader
-        eyebrow="Featured Lobsters"
         title="精选机器人，随时开聊"
         description={sectionDescription}
       />
@@ -122,7 +121,7 @@ export function HomepageAgentSection({
 
       {!loading && !error && agents.length === 0 ? (
         <div className="rounded-[28px] border border-dashed border-md-outline-variant/40 bg-white/76 p-8 text-center text-sm text-md-on-surface-variant">
-          暂无机器人可展示，请先在控制台创建并启用对应 Agent。
+          暂无机器人
         </div>
       ) : null}
 

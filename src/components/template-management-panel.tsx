@@ -10,17 +10,18 @@ import {
   upsertInstanceTemplate,
 } from "@/lib/control-api";
 import { buildAgentToolOptions, emptyAgentToolCatalog } from "@/lib/agent-tool-catalog";
+import { buildInstanceTemplateUpsertRequest } from "@/lib/instance-template-upsert";
 import type {
   AgentBaselineSummary,
   AgentToolCatalog,
   ImagePreset,
   InstanceTemplate,
   InstanceTemplateAgentBinding,
+  InstanceTemplateAgentConfig,
   InstanceTemplateChannelsConfig,
   InstanceTemplateDefaultModelConfig,
   InstanceTemplateMainAgentGuidance,
   InstanceTemplateRoutingConfig,
-  InstanceTemplateUpsertRequest,
   ModelRouteConfigItem,
   QueryClassificationRuleConfigItem,
   SkillBaselineSummary,
@@ -51,6 +52,9 @@ const { Paragraph, Text } = Typography;
 const DEFAULT_RULE_PRIORITY = 100;
 const DEFAULT_RULE_MIN_LENGTH = 0;
 const DEFAULT_RULE_MAX_LENGTH = 0;
+const DEFAULT_AGENT_MAX_TOOL_ITERATIONS = 10;
+const DEFAULT_AGENT_MAX_HISTORY_MESSAGES = 100;
+const DEFAULT_AGENT_TOOL_DISPATCHER = "auto";
 const TEMPLATE_DEFAULT_PROVIDER = "custom:https://api.ai.fun.tv/v1";
 const TEMPLATE_DEFAULT_MODEL = "MiniMax-M2.5";
 const MASKED_API_KEY_PLACEHOLDER = "***";
@@ -232,6 +236,16 @@ function buildEmptyRoutingConfig(): InstanceTemplateRoutingConfig {
   };
 }
 
+function buildEmptyAgentConfig(): InstanceTemplateAgentConfig {
+  return {
+    maxToolIterations: DEFAULT_AGENT_MAX_TOOL_ITERATIONS,
+    compactContext: false,
+    maxHistoryMessages: DEFAULT_AGENT_MAX_HISTORY_MESSAGES,
+    parallelTools: false,
+    toolDispatcher: DEFAULT_AGENT_TOOL_DISPATCHER,
+  };
+}
+
 function buildEmptyGuidance(): InstanceTemplateMainAgentGuidance {
   return {
     enabled: true,
@@ -338,6 +352,7 @@ function buildEmptyTemplate(templateKey = "", displayName = ""): InstanceTemplat
     channelsConfig: null,
     defaultModelConfig: null,
     routingConfig: null,
+    agentConfig: null,
     mainAgentGuidance: null,
     updatedBy: "ui-template-center",
     createdAt: now,
@@ -426,6 +441,23 @@ function normalizeRoutingConfigForCompare(value?: InstanceTemplateRoutingConfig 
   };
 }
 
+function normalizeAgentConfigForCompare(value?: InstanceTemplateAgentConfig | null) {
+  if (!value) {
+    return null;
+  }
+  return {
+    maxToolIterations: typeof value.maxToolIterations === "number"
+      ? value.maxToolIterations
+      : DEFAULT_AGENT_MAX_TOOL_ITERATIONS,
+    compactContext: typeof value.compactContext === "boolean" ? value.compactContext : false,
+    maxHistoryMessages: typeof value.maxHistoryMessages === "number"
+      ? value.maxHistoryMessages
+      : DEFAULT_AGENT_MAX_HISTORY_MESSAGES,
+    parallelTools: typeof value.parallelTools === "boolean" ? value.parallelTools : false,
+    toolDispatcher: normalizeOptionalText(value.toolDispatcher).trim() || DEFAULT_AGENT_TOOL_DISPATCHER,
+  };
+}
+
 function normalizeGuidanceForCompare(value?: InstanceTemplateMainAgentGuidance | null) {
   if (!value) {
     return null;
@@ -468,141 +500,13 @@ function snapshotTemplate(template?: InstanceTemplate | null, baselines: AgentBa
     channelsConfig: normalizeChannelsConfigForCompare(template.channelsConfig),
     defaultModelConfig: normalizeDefaultModelConfigForCompare(template.defaultModelConfig),
     routingConfig: normalizeRoutingConfigForCompare(template.routingConfig),
+    agentConfig: normalizeAgentConfigForCompare(template.agentConfig),
     mainAgentGuidance: normalizeGuidanceForCompare(template.mainAgentGuidance),
   });
 }
 
 function buildSkillLabel(skill: SkillBaselineSummary): string {
   return skill.displayName ? `${skill.displayName} (${skill.skillKey})` : skill.skillKey;
-}
-
-function toUpsertRequest(draft: InstanceTemplate): InstanceTemplateUpsertRequest {
-  const normalizedDefaultModel = draft.defaultModelConfig
-    ? {
-        apiKey: trimToNull(draft.defaultModelConfig.apiKey),
-        defaultProvider: trimToNull(draft.defaultModelConfig.defaultProvider),
-        defaultModel: trimToNull(draft.defaultModelConfig.defaultModel),
-        defaultTemperature: typeof draft.defaultModelConfig.defaultTemperature === "number"
-          ? draft.defaultModelConfig.defaultTemperature
-          : null,
-      }
-    : null;
-
-  const defaultModelConfig = normalizedDefaultModel
-    && (normalizedDefaultModel.apiKey !== null
-      || normalizedDefaultModel.defaultProvider !== null
-      || normalizedDefaultModel.defaultModel !== null
-      || normalizedDefaultModel.defaultTemperature !== null)
-    ? normalizedDefaultModel
-    : null;
-
-  const normalizedRoutingConfig = draft.routingConfig
-    ? {
-        queryClassificationEnabled: draft.routingConfig.queryClassificationEnabled,
-        modelRoutes: (draft.routingConfig.modelRoutes ?? [])
-          .map(normalizeRoute)
-          .filter((item) => item.hint || item.provider || item.model),
-        queryClassificationRules: (draft.routingConfig.queryClassificationRules ?? [])
-          .map(normalizeRule)
-          .filter((item) => item.hint || item.keywords.length > 0 || item.patterns.length > 0),
-      }
-    : null;
-
-  const routingConfig = normalizedRoutingConfig
-    && (
-      normalizedRoutingConfig.modelRoutes.length > 0
-      || normalizedRoutingConfig.queryClassificationEnabled
-      || normalizedRoutingConfig.queryClassificationRules.length > 0
-    )
-    ? normalizedRoutingConfig
-    : null;
-
-  const normalizedChannelsConfig = draft.channelsConfig
-    ? {
-        cliEnabled: draft.channelsConfig.cliEnabled,
-        messageTimeoutSecs: draft.channelsConfig.messageTimeoutSecs,
-        dingtalkEnabled: draft.channelsConfig.dingtalkEnabled,
-        dingtalkClientId: trimToNull(draft.channelsConfig.dingtalkClientId),
-        dingtalkClientSecret: trimToNull(draft.channelsConfig.dingtalkClientSecret),
-        dingtalkAllowedUsers: normalizeStringValues(draft.channelsConfig.dingtalkAllowedUsers),
-        qqEnabled: draft.channelsConfig.qqEnabled,
-        qqAppId: trimToNull(draft.channelsConfig.qqAppId),
-        qqAppSecret: trimToNull(draft.channelsConfig.qqAppSecret),
-        qqAllowedUsers: normalizeStringValues(draft.channelsConfig.qqAllowedUsers),
-      }
-    : null;
-
-  const channelsConfig = normalizedChannelsConfig
-    && (
-      normalizedChannelsConfig.cliEnabled
-      || normalizedChannelsConfig.dingtalkEnabled
-      || normalizedChannelsConfig.qqEnabled
-      || normalizedChannelsConfig.dingtalkAllowedUsers.length > 0
-      || normalizedChannelsConfig.qqAllowedUsers.length > 0
-      || normalizedChannelsConfig.dingtalkClientId !== null
-      || normalizedChannelsConfig.dingtalkClientSecret !== null
-      || normalizedChannelsConfig.qqAppId !== null
-      || normalizedChannelsConfig.qqAppSecret !== null
-      || normalizedChannelsConfig.messageTimeoutSecs !== 300
-    )
-    ? normalizedChannelsConfig
-    : null;
-
-  const normalizedGuidance = draft.mainAgentGuidance
-    ? {
-        prompt: bodyToNull(draft.mainAgentGuidance.prompt),
-        enabled: draft.mainAgentGuidance.enabled ?? null,
-      }
-    : null;
-
-  const mainAgentGuidance = normalizedGuidance
-    && (normalizedGuidance.prompt !== null || normalizedGuidance.enabled !== null)
-    ? normalizedGuidance
-    : null;
-
-  const agentBindings = resolveTemplateAgentBindings(draft)
-    .map((binding) => ({
-      agentKey: binding.agentKey.trim(),
-      provider: trimToNull(binding.provider),
-      model: trimToNull(binding.model),
-      temperature: typeof binding.temperature === "number" ? binding.temperature : null,
-      agentic: binding.agentic ?? null,
-      systemPrompt: bodyToNull(binding.systemPrompt),
-      allowedTools: normalizeStringValues(binding.allowedTools),
-      allowedSkills: normalizeStringValues(binding.allowedSkills),
-    }))
-    .filter((binding) => binding.agentKey);
-
-  return {
-    templateKey: draft.templateKey,
-    displayName: draft.displayName,
-    description: trimToNull(draft.description),
-    summary: trimToNull(draft.description),
-    enabled: draft.enabled,
-    imagePresetId: draft.imagePresetId,
-    desiredState: draft.desiredState,
-    mainAgent: {
-      agentKey: "",
-      provider: null,
-      model: null,
-      temperature: null,
-      agentic: null,
-      systemPrompt: null,
-      allowedTools: [],
-      allowedSkills: [],
-    },
-    agentBindings,
-    agentKeys: agentBindings.map((binding) => binding.agentKey),
-    skillKeys: normalizeStringValues(draft.skillKeys),
-    lockedScopes: [],
-    tags: normalizeStringValues(draft.tags),
-    runtimeConfigToml: null,
-    channelsConfig,
-    defaultModelConfig,
-    routingConfig,
-    mainAgentGuidance,
-    updatedBy: "ui-template-center",
-  };
 }
 
 export function TemplateManagementPanel({
@@ -952,6 +856,24 @@ export function TemplateManagementPanel({
     });
   }, []);
 
+  const ensureAgentConfig = useCallback(() => {
+    setDraft((current) => (current ? { ...current, agentConfig: current.agentConfig ?? buildEmptyAgentConfig() } : current));
+  }, []);
+
+  const updateAgentConfig = useCallback((patch: Partial<InstanceTemplateAgentConfig>) => {
+    setDraft((current) => (
+      current
+        ? {
+            ...current,
+            agentConfig: {
+              ...(current.agentConfig ?? buildEmptyAgentConfig()),
+              ...patch,
+            },
+          }
+        : current
+    ));
+  }, []);
+
   const ensureChannelsConfig = useCallback(() => {
     setDraft((current) => (current ? { ...current, channelsConfig: current.channelsConfig ?? buildEmptyChannelsConfig() } : current));
   }, []);
@@ -992,27 +914,7 @@ export function TemplateManagementPanel({
       const values = await createForm.validateFields();
       setCreating(true);
       const initial = buildEmptyTemplate(values.templateKey.trim(), values.displayName.trim());
-      const response = await createInstanceTemplate({
-        templateKey: initial.templateKey,
-        displayName: initial.displayName,
-        description: initial.description,
-        summary: initial.description,
-        enabled: initial.enabled,
-        imagePresetId: initial.imagePresetId,
-        desiredState: initial.desiredState,
-        mainAgent: initial.mainAgent,
-        agentBindings: initial.agentBindings,
-        agentKeys: initial.agentKeys,
-        skillKeys: initial.skillKeys,
-        lockedScopes: initial.lockedScopes,
-        tags: initial.tags,
-        runtimeConfigToml: initial.runtimeConfigToml,
-        channelsConfig: initial.channelsConfig,
-        defaultModelConfig: initial.defaultModelConfig,
-        routingConfig: initial.routingConfig,
-        mainAgentGuidance: initial.mainAgentGuidance,
-        updatedBy: initial.updatedBy,
-      });
+      const response = await createInstanceTemplate(buildInstanceTemplateUpsertRequest(initial));
       messageApi.success(`模板已创建：${response.displayName}`);
       setCreateModalOpen(false);
       createForm.resetFields();
@@ -1035,7 +937,7 @@ export function TemplateManagementPanel({
     try {
       setSaving(true);
       setError(undefined);
-      const response = await upsertInstanceTemplate(draft.templateKey, toUpsertRequest(draft));
+      const response = await upsertInstanceTemplate(draft.templateKey, buildInstanceTemplateUpsertRequest(draft));
       setDefaultModelStoredApiKey(response.defaultModelConfig?.apiKey ?? "");
       setDefaultModelApiKeyInput("");
       setDraft(cloneTemplate(response));
@@ -1073,7 +975,7 @@ export function TemplateManagementPanel({
     try {
       setPreviewLoading(true);
       setError(undefined);
-      const response = await previewInstanceTemplateConfig(toUpsertRequest(draft));
+      const response = await previewInstanceTemplateConfig(buildInstanceTemplateUpsertRequest(draft));
       setPreviewConfigToml(response.configToml);
       setPreviewOpen(true);
     } catch (apiError) {
@@ -1783,6 +1685,88 @@ export function TemplateManagementPanel({
                           label: "高级",
                           children: (
                             <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                              <Card
+                                type="inner"
+                                title="Agent 运行配置"
+                                extra={(
+                                  <Switch
+                                    checked={Boolean(draft.agentConfig)}
+                                    onChange={(checked) => {
+                                      if (checked) {
+                                        ensureAgentConfig();
+                                      } else {
+                                        updateDraft({ agentConfig: null });
+                                      }
+                                    }}
+                                  />
+                                )}
+                              >
+                                {draft.agentConfig ? (
+                                  <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                                    <Alert
+                                      type="info"
+                                      showIcon
+                                      message="这里对应实例 config.toml 的 [agent] 段"
+                                      description="模板创建实例时会写入 max_tool_iterations、compact_context、max_history_messages、parallel_tools、tool_dispatcher。"
+                                    />
+                                    <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                                      <CompactNumberInput
+                                        label="max_tool_iterations"
+                                        min={1}
+                                        precision={0}
+                                        value={draft.agentConfig.maxToolIterations ?? DEFAULT_AGENT_MAX_TOOL_ITERATIONS}
+                                        onChange={(value) => updateAgentConfig({
+                                          maxToolIterations: typeof value === "number" ? value : DEFAULT_AGENT_MAX_TOOL_ITERATIONS,
+                                        })}
+                                      />
+                                      <CompactNumberInput
+                                        label="max_history_messages"
+                                        min={1}
+                                        precision={0}
+                                        value={draft.agentConfig.maxHistoryMessages ?? DEFAULT_AGENT_MAX_HISTORY_MESSAGES}
+                                        onChange={(value) => updateAgentConfig({
+                                          maxHistoryMessages: typeof value === "number" ? value : DEFAULT_AGENT_MAX_HISTORY_MESSAGES,
+                                        })}
+                                      />
+                                    </div>
+                                    <div className="agent-detail-grid">
+                                      <div className="agent-detail-prop">
+                                        <span className="agent-detail-prop-label">compact_context</span>
+                                        <Switch
+                                          checked={draft.agentConfig.compactContext ?? false}
+                                          onChange={(checked) => updateAgentConfig({ compactContext: checked })}
+                                        />
+                                      </div>
+                                      <div className="agent-detail-prop">
+                                        <span className="agent-detail-prop-label">parallel_tools</span>
+                                        <Switch
+                                          checked={draft.agentConfig.parallelTools ?? false}
+                                          onChange={(checked) => updateAgentConfig({ parallelTools: checked })}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div style={{ maxWidth: 360 }}>
+                                      <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+                                        tool_dispatcher
+                                      </Text>
+                                      <Select
+                                        value={draft.agentConfig.toolDispatcher ?? DEFAULT_AGENT_TOOL_DISPATCHER}
+                                        style={{ width: "100%" }}
+                                        onChange={(value) => updateAgentConfig({ toolDispatcher: value })}
+                                        options={[
+                                          { label: "auto", value: "auto" },
+                                          { label: "native", value: "native" },
+                                          { label: "text_protocol", value: "text_protocol" },
+                                          { label: "xml", value: "xml" },
+                                        ]}
+                                      />
+                                    </div>
+                                  </Space>
+                                ) : (
+                                  <Text type="secondary">未配置模板级 Agent 运行参数，将沿用基础配置。</Text>
+                                )}
+                              </Card>
+
                               <Card
                                 type="inner"
                                 title="渠道配置"

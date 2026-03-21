@@ -10,7 +10,6 @@ const SESSION_TITLE_MAX_LENGTH = 10;
 
 const text = {
   panelTitle: "\u4f1a\u8bdd\u5217\u8868",
-  panelSubtitle: "\u5c55\u793a\u5f53\u524d\u667a\u80fd\u4f53\u4e0b\u7684\u5168\u90e8\u4f1a\u8bdd",
   refreshSessions: "\u5237\u65b0\u4f1a\u8bdd\u5217\u8868",
   current: "\u5f53\u524d",
   switching: "\u5207\u6362\u4e2d",
@@ -188,7 +187,6 @@ export function MessageSessionPanel({
         <div className="flex items-center justify-between gap-3 px-2 py-1">
           <div>
             <div className="text-sm font-bold text-slate-950">{text.panelTitle}</div>
-            <div className="text-xs text-slate-500">{text.panelSubtitle}</div>
           </div>
           <button
             type="button"

@@ -19,16 +19,19 @@ import { InstanceConfigPanel } from "@/components/instance-config-panel";
 import { InstanceSessionPanel } from "@/components/instance-session-panel";
 import { InstanceSkillPanel } from "@/components/instance-skill-panel";
 import { InstanceTaskPanel } from "@/components/instance-task-panel";
+import { ModelBillingConfigPanel } from "@/components/model-billing-config-panel";
+import { ConsumerBillingPanel } from "@/components/consumer-billing-panel";
 import { OpenPlatformPanel } from "@/components/open-platform-panel";
 import { SkillBaselinePanel } from "@/components/skill-baseline-panel";
 import { TemplateManagementPanel } from "@/components/template-management-panel";
 import { appConfig } from "@/config/app-config";
+import { estimateModelBilling, formatEstimatedCny, formatEstimatedXiami } from "@/lib/model-billing";
+import { useModelBillingConfigs } from "@/lib/use-model-billing-configs";
 import { ManagedInstanceTemplateError, createManagedInstanceFromTemplate, resolveTemplateImagePreset } from "@/lib/instance-template";
 import { ClawInstance, DesiredState, ImagePreset, InstanceActionType, InstanceAgentBinding, InstanceMainAgentGuidance, InstanceTemplate, PairingCodeResponse } from "@/types/contracts";
 import {
   type AgentChatMessage,
   type AgentChatRole,
-  type AgentChatTiming,
   type AgentComposerInteractionDraft,
   type AgentInteractionAction,
   type AgentSessionCoreFields,
@@ -37,8 +40,10 @@ import {
   type AgentSessionDisconnectNotice,
   type AgentSessionStreamMessage,
   type AgentTurnTracker,
+  buildAgentChatTiming,
   formatAgentInteractionPayloadForDisplay,
   formatAgentSessionDebugTimestamp,
+  formatAgentTokenCount,
   formatAgentTimingDuration,
   formatAgentTimingTooltip,
   getAgentInteractionResolvedNote,
@@ -51,9 +56,10 @@ import {
   parseAgentInteractionPayload,
   parseAgentSessionCoreFields,
   parseAgentSessionFrame,
+  parseAgentTimingDebugLine,
 } from "@/lib/agent-session-protocol";
 import { uiText } from "@/constants/ui-text";
-import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Trash2, Terminal, Eye, MonitorPlay, RefreshCw, FileText, Copy, Plug } from "lucide-react";
+import { ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Server, Wrench, Layers, AlertTriangle, Pause, Activity, Play, Square, RotateCcw, Trash2, Terminal, Eye, MonitorPlay, RefreshCw, FileText, Copy, Plug, CreditCard } from "lucide-react";
 import { Alert, Button, Card, Form, Input, Layout, Modal, Segmented, Select, Space, Spin, Switch, Tabs, Tag, Typography, message } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion, useSpring, useTransform, useMotionValue } from "framer-motion";
@@ -65,8 +71,9 @@ type CreateInstanceFormValues = {
   templateKey: string;
   desiredState: DesiredState;
 };
-type ConsoleView = "instances" | "templates" | "agents" | "skills" | "mcp" | "instance-detail" | "open-platform";
+type ConsoleView = "instances" | "templates" | "agents" | "skills" | "mcp" | "model-billing" | "consumer-billing" | "instance-detail" | "open-platform";
 type InstanceDetailTabKey = "claw" | "config" | "channels" | "agents" | "skills" | "sessions" | "tasks";
+type InstanceAudienceFilter = "all" | "consumer" | "console";
 type AgentMessageSendOptions = {
   displayText?: string;
   resolveInteractionMessageId?: string;
@@ -142,8 +149,53 @@ function shortInstanceId(id: string) {
   return `${id.slice(0, 8)}...${id.slice(-4)}`;
 }
 
+function getConsumerBindingCount(instance: Pick<ClawInstance, "consumerBindingCount" | "consumerBound">) {
+  const count = typeof instance.consumerBindingCount === "number" ? instance.consumerBindingCount : 0;
+  if (count > 0) {
+    return count;
+  }
+  return instance.consumerBound ? 1 : 0;
+}
+
+function isConsumerBoundInstance(instance: Pick<ClawInstance, "consumerBindingCount" | "consumerBound">) {
+  return getConsumerBindingCount(instance) > 0;
+}
+
+function getInstanceAudienceLabel(instance: Pick<ClawInstance, "consumerBindingCount" | "consumerBound">) {
+  return isConsumerBoundInstance(instance) ? uiText.instanceOwnershipConsumer : uiText.instanceOwnershipConsole;
+}
+
+function getConsumerBindingIdentity(binding: NonNullable<ClawInstance["consumerBindings"]>[number]) {
+  const externalUid = binding.externalUid?.trim();
+  if (externalUid) {
+    return `UID ${externalUid}`;
+  }
+  const phoneMasked = binding.phoneMasked?.trim();
+  if (phoneMasked) {
+    return phoneMasked;
+  }
+  const displayName = binding.displayName?.trim();
+  if (displayName) {
+    return displayName;
+  }
+  return shortInstanceId(binding.consumerAccountId);
+}
+
+function getConsumerBindingPreview(instance: Pick<ClawInstance, "consumerBindings" | "consumerBindingCount" | "consumerBound">, maxVisible = 2) {
+  const labels = (instance.consumerBindings ?? [])
+    .map(getConsumerBindingIdentity)
+    .filter((item) => Boolean(item));
+  if (labels.length === 0) {
+    return "";
+  }
+  const visible = labels.slice(0, maxVisible);
+  const hiddenCount = labels.length - visible.length;
+  return hiddenCount > 0 ? `${visible.join(" / ")} 等${labels.length}人` : visible.join(" / ");
+}
+
 export function Dashboard() {
   const [messageApi, messageContext] = message.useMessage();
+  const { configs: modelBillingConfigs } = useModelBillingConfigs();
   const [createForm] = Form.useForm<CreateInstanceFormValues>();
   const [instances, setInstances] = useState<ClawInstance[]>([]);
   const [images, setImages] = useState<ImagePreset[]>([]);
@@ -161,6 +213,7 @@ export function Dashboard() {
   const [restartPromptOpen, setRestartPromptOpen] = useState(false);
   const [restartPromptAction, setRestartPromptAction] = useState<"START" | "RESTART">("RESTART");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmValue, setDeleteConfirmValue] = useState("");
   const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const [creatingInstance, setCreatingInstance] = useState(false);
   const [submittingAction, setSubmittingAction] = useState(false);
@@ -215,6 +268,7 @@ export function Dashboard() {
   const [mainAgentGuidanceEditing, setMainAgentGuidanceEditing] = useState(false);
   const [mainAgentGuidanceCollapsed, setMainAgentGuidanceCollapsed] = useState(true);
   const [instanceDetailTab, setInstanceDetailTab] = useState<InstanceDetailTabKey>("claw");
+  const [instanceAudienceFilter, setInstanceAudienceFilter] = useState<InstanceAudienceFilter>("all");
   const terminalSocketRef = useRef<WebSocket | null>(null);
   const [terminalOutput, setTerminalOutput] = useState("");
   const [terminalCommand, setTerminalCommand] = useState("");
@@ -247,6 +301,11 @@ export function Dashboard() {
     agentSessionHasStartedRef.current = agentSessionHasStarted;
   }, [agentSessionHasStarted]);
   const selectedStatus = selectedInstance?.status;
+  const selectedInstanceConsumerBindingCount = selectedInstance ? getConsumerBindingCount(selectedInstance) : 0;
+  const selectedInstanceRequiresDeleteTyping = selectedInstance ? isConsumerBoundInstance(selectedInstance) : false;
+  const selectedInstanceConsumerBindingPreview = selectedInstance ? getConsumerBindingPreview(selectedInstance, 3) : "";
+  const deleteConfirmMatches = !selectedInstanceRequiresDeleteTyping
+    || deleteConfirmValue.trim() === (selectedInstance?.name ?? "");
   const actionBusy = submittingAction || deletingInstance;
   const disableStart = !selectedInstance || actionBusy || selectedStatus === "RUNNING" || selectedStatus === "CREATING";
   const disableStop = !selectedInstance || actionBusy || selectedStatus === "STOPPED" || selectedStatus === "CREATING";
@@ -342,6 +401,19 @@ export function Dashboard() {
       errorCount,
     };
   }, [instances]);
+  const consumerBoundInstanceCount = useMemo(
+    () => instances.filter((item) => isConsumerBoundInstance(item)).length,
+    [instances]
+  );
+  const filteredInstances = useMemo(() => {
+    if (instanceAudienceFilter === "consumer") {
+      return instances.filter((item) => isConsumerBoundInstance(item));
+    }
+    if (instanceAudienceFilter === "console") {
+      return instances.filter((item) => !isConsumerBoundInstance(item));
+    }
+    return instances;
+  }, [instanceAudienceFilter, instances]);
   const activeMenuView: Exclude<ConsoleView, "instance-detail"> =
     activeView === "instance-detail" ? "instances" : activeView;
 
@@ -728,6 +800,7 @@ export function Dashboard() {
     if (!selectedInstance) {
       return;
     }
+    setDeleteConfirmValue("");
     setDeleteModalOpen(true);
   };
 
@@ -735,6 +808,7 @@ export function Dashboard() {
     if (deletingInstance) {
       return;
     }
+    setDeleteConfirmValue("");
     setDeleteModalOpen(false);
   };
 
@@ -879,15 +953,18 @@ export function Dashboard() {
 
     const instanceName = selectedInstance.name;
     const instanceId = selectedInstance.id;
+    const requiresForceDelete = isConsumerBoundInstance(selectedInstance);
     setDeletingInstance(true);
     try {
-      await deleteInstance(instanceId);
+      await deleteInstance(instanceId, { force: requiresForceDelete });
       await loadInstances();
+      setDeleteConfirmValue("");
       setDeleteModalOpen(false);
       messageApi.success(`${uiText.deleteSuccessPrefix}${instanceName}`);
     } catch (apiError) {
       if (apiError instanceof Error && apiError.message.includes("HTTP 404")) {
         await loadInstances();
+        setDeleteConfirmValue("");
         setDeleteModalOpen(false);
         messageApi.warning(uiText.instanceNotFound);
         return;
@@ -1001,31 +1078,6 @@ export function Dashboard() {
     agentTurnQueueRef.current = agentTurnQueueRef.current.filter((item) => !item.committed);
   }, []);
 
-  const buildAgentChatTiming = useCallback((turn: AgentTurnTracker): AgentChatTiming | undefined => {
-    const hasTiming = turn.llmRequestCount > 0
-      || typeof turn.firstThinkingDurationMs === "number"
-      || typeof turn.firstVisibleDurationMs === "number"
-      || turn.modelDurationMs > 0
-      || typeof turn.totalDurationMs === "number"
-      || typeof turn.agentDurationMs === "number";
-    if (!hasTiming) {
-      return undefined;
-    }
-    return {
-      provider: turn.provider,
-      model: turn.model,
-      llmRequestCount: turn.llmRequestCount > 0 ? turn.llmRequestCount : undefined,
-      firstThinkingDurationMs: typeof turn.firstThinkingDurationMs === "number" ? turn.firstThinkingDurationMs : undefined,
-      firstVisibleDurationMs: typeof turn.firstVisibleDurationMs === "number" ? turn.firstVisibleDurationMs : undefined,
-      modelDurationMs: turn.modelDurationMs > 0 ? turn.modelDurationMs : undefined,
-      agentDurationMs: typeof turn.agentDurationMs === "number" ? turn.agentDurationMs : undefined,
-      totalDurationMs: typeof turn.totalDurationMs === "number" ? turn.totalDurationMs : undefined,
-      firstThinkingAt: turn.firstThinkingAt,
-      firstVisibleAt: turn.firstVisibleAt,
-      completedAt: turn.completedAt,
-    };
-  }, []);
-
   const applyTimingToAgentChatMessage = useCallback((messageId: string, turn: AgentTurnTracker) => {
     const timing = buildAgentChatTiming(turn);
     if (!timing) {
@@ -1043,7 +1095,7 @@ export function Dashboard() {
         }
         : item
     )));
-  }, [buildAgentChatTiming]);
+  }, []);
 
   const commitAgentTurnTiming = useCallback((turn: AgentTurnTracker) => {
     if (!turn.assistantMessageId) {
@@ -1152,7 +1204,13 @@ export function Dashboard() {
     }
   }, [applyTimingToAgentChatMessage]);
 
-  const recordAgentTurnResponse = useCallback((provider?: string, model?: string, durationMs?: number) => {
+  const recordAgentTurnResponse = useCallback((
+    provider?: string,
+    model?: string,
+    durationMs?: number,
+    inputTokens?: number,
+    outputTokens?: number,
+  ) => {
     const activeTurn = agentTurnQueueRef.current.find((item) => typeof item.totalDurationMs !== "number");
     if (!activeTurn) {
       return;
@@ -1161,6 +1219,12 @@ export function Dashboard() {
     activeTurn.model = model ?? activeTurn.model;
     if (typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0) {
       activeTurn.modelDurationMs += durationMs;
+    }
+    if (typeof inputTokens === "number" && Number.isFinite(inputTokens) && inputTokens >= 0) {
+      activeTurn.inputTokens = inputTokens;
+    }
+    if (typeof outputTokens === "number" && Number.isFinite(outputTokens) && outputTokens >= 0) {
+      activeTurn.outputTokens = outputTokens;
     }
     if (activeTurn.assistantMessageId) {
       applyTimingToAgentChatMessage(activeTurn.assistantMessageId, activeTurn);
@@ -1187,19 +1251,25 @@ export function Dashboard() {
       .filter((line) => line.length > 0);
 
     lines.forEach((line) => {
-      const requestMatch = line.match(/\bllm\.request\b.*\bprovider=([^\s]+)\s+model=([^\s]+)/);
-      if (requestMatch) {
-        recordAgentTurnRequest(requestMatch[1], requestMatch[2]);
+      const timingEvent = parseAgentTimingDebugLine(line);
+      if (!timingEvent) {
         return;
       }
-
-      const responseMatch = line.match(/\bllm\.response\b.*\bprovider=([^\s]+)\s+model=([^\s]+).*?\bduration_ms=(\d+)/);
-      if (responseMatch) {
-        recordAgentTurnResponse(responseMatch[1], responseMatch[2], Number(responseMatch[3]));
+      if (timingEvent.type === "request") {
+        recordAgentTurnRequest(timingEvent.provider, timingEvent.model);
         return;
       }
-
-      if (line.includes("turn.complete")) {
+      if (timingEvent.type === "response") {
+        recordAgentTurnResponse(
+          timingEvent.provider,
+          timingEvent.model,
+          timingEvent.durationMs,
+          timingEvent.inputTokens,
+          timingEvent.outputTokens,
+        );
+        return;
+      }
+      if (timingEvent.type === "complete") {
         finalizeActiveAgentTurnTiming(emittedAt);
       }
     });
@@ -2475,6 +2545,24 @@ export function Dashboard() {
                 </button>
                 <button
                   type="button"
+                  className={`sidebar-item ${activeMenuView === "model-billing" ? "is-active" : ""}`}
+                  onClick={() => openMenuView("model-billing")}
+                  title="模型计费"
+                >
+                  <span className="sidebar-icon-wrap"><CreditCard size={16} /></span>
+                  {!sidebarCollapsed ? <span>模型计费</span> : null}
+                </button>
+                <button
+                  type="button"
+                  className={`sidebar-item ${activeMenuView === "consumer-billing" ? "is-active" : ""}`}
+                  onClick={() => openMenuView("consumer-billing")}
+                  title="消费明细"
+                >
+                  <span className="sidebar-icon-wrap"><FileText size={16} /></span>
+                  {!sidebarCollapsed ? <span>消费明细</span> : null}
+                </button>
+                <button
+                  type="button"
                   className={`sidebar-item ${activeMenuView === "open-platform" ? "is-active" : ""}`}
                   onClick={() => openMenuView("open-platform")}
                   title={uiText.menuOpenPlatform}
@@ -2544,15 +2632,30 @@ export function Dashboard() {
                     >
                       {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} /> : null}
                       <Text type="secondary">{uiText.listSubtitle}</Text>
+                      <div style={{ marginTop: 12, marginBottom: 12 }}>
+                        <Segmented
+                          value={instanceAudienceFilter}
+                          onChange={(value) => setInstanceAudienceFilter(value as InstanceAudienceFilter)}
+                          options={[
+                            { label: `${uiText.instanceFilterAll} (${instances.length})`, value: "all" },
+                            { label: `${uiText.instanceFilterConsumer} (${consumerBoundInstanceCount})`, value: "consumer" },
+                            { label: `${uiText.instanceFilterConsole} (${instances.length - consumerBoundInstanceCount})`, value: "console" },
+                          ]}
+                        />
+                      </div>
                       {loadingInstances ? (
                         <div className="empty-panel">{uiText.loadingInstances}</div>
                       ) : instances.length === 0 ? (
                         <div className="empty-panel">{uiText.noInstances}</div>
+                      ) : filteredInstances.length === 0 ? (
+                        <div className="empty-panel">{uiText.noInstancesForFilter}</div>
                       ) : (
                         <motion.div className="instance-card-grid" initial="initial" animate="animate" variants={staggerContainer}>
-                          {instances.map((instance) => {
+                          {filteredInstances.map((instance) => {
                             const isSelected = selectedInstanceId === instance.id;
                             const gatewayUrl = resolveUiControllerUrl(instance) ?? uiText.gatewayUrlUnavailable;
+                            const consumerBindingCount = getConsumerBindingCount(instance);
+                            const consumerBindingPreview = getConsumerBindingPreview(instance, 1);
                             return (
                               <motion.div
                                 key={instance.id}
@@ -2572,12 +2675,17 @@ export function Dashboard() {
                                 <div className="instance-card-head">
                                   <strong>{instance.name}</strong>
                                   <Space size={6} wrap>
+                                    <Tag color={isConsumerBoundInstance(instance) ? "geekblue" : "default"}>
+                                      {getInstanceAudienceLabel(instance)}
+                                    </Tag>
+                                    {consumerBindingCount > 0 ? <Tag color="cyan">{`${uiText.consumerBindingCount}: ${consumerBindingCount}`}</Tag> : null}
                                     <Tag color={statusColor(instance.status)}>{instance.status}</Tag>
                                     {instance.restartRequired ? <Tag color="orange">{uiText.instanceRestartRequiredTag}</Tag> : null}
                                   </Space>
                                 </div>
                                 <p className="instance-card-line">{instance.image}</p>
                                 <p className="instance-card-line">{gatewayUrl}</p>
+                                {consumerBindingPreview ? <p className="instance-card-line">{`${uiText.boundUsers}: ${consumerBindingPreview}`}</p> : null}
                                 <div className="instance-card-foot">
                                   <span
                                     onClick={(event) => event.stopPropagation()}
@@ -2619,16 +2727,24 @@ export function Dashboard() {
                         description="当前模板托管实例的主 Agent 提示词、渠道配置、默认模型、路由配置、原始 config.toml、Agent 与 Skill 均已开放编辑；相关变更保存后需要重启实例生效。"
                       />
                     ) : null}
-                    {selectedInstance.restartRequired ? (
-                      <Alert
-                        type="warning"
-                        showIcon
-                        message={uiText.instanceRestartRequiredAlertTitle}
-                        description={uiText.instanceRestartRequiredAlertDescription}
-                      />
-                    ) : null}
-                    <motion.div
-                      className="instance-detail-hero"
+                     {selectedInstance.restartRequired ? (
+                       <Alert
+                         type="warning"
+                         showIcon
+                         message={uiText.instanceRestartRequiredAlertTitle}
+                         description={uiText.instanceRestartRequiredAlertDescription}
+                       />
+                     ) : null}
+                     {selectedInstanceRequiresDeleteTyping ? (
+                       <Alert
+                         type="warning"
+                         showIcon
+                         message={uiText.deleteBoundInstanceWarningTitle}
+                         description={`${uiText.deleteBoundInstanceWarningDescription} 当前共有 ${selectedInstanceConsumerBindingCount} 个活跃用户绑定。`}
+                       />
+                     ) : null}
+                     <motion.div
+                       className="instance-detail-hero"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
@@ -2651,6 +2767,9 @@ export function Dashboard() {
                         </div>
                         <div className="instance-hero-status">
                           <Space size={8} wrap>
+                            <Tag color={selectedInstanceRequiresDeleteTyping ? "geekblue" : "default"}>
+                              {getInstanceAudienceLabel(selectedInstance)}
+                            </Tag>
                             <div className={`instance-status-badge is-${selectedInstance.status === "RUNNING" ? "running" : selectedInstance.status === "ERROR" ? "error" : selectedInstance.status === "CREATING" ? "creating" : "stopped"}`}>
                               <span className="instance-status-dot" />
                               {selectedInstance.status}
@@ -2660,10 +2779,22 @@ export function Dashboard() {
                         </div>
                       </div>
 
-                      <div className="instance-info-grid">
-                        <div className="instance-info-cell">
-                          <span className="instance-info-label">{uiText.hostId}</span>
-                          <span className="instance-info-value">{selectedInstance.hostId}</span>
+                        <div className="instance-info-grid">
+                         <div className="instance-info-cell">
+                           <span className="instance-info-label">{uiText.instanceOwnership}</span>
+                           <span className="instance-info-value">{getInstanceAudienceLabel(selectedInstance)}</span>
+                         </div>
+                         <div className="instance-info-cell">
+                           <span className="instance-info-label">{uiText.consumerBindingCount}</span>
+                           <span className="instance-info-value">{selectedInstanceConsumerBindingCount}</span>
+                          </div>
+                         <div className="instance-info-cell is-wide">
+                           <span className="instance-info-label">{uiText.boundUsers}</span>
+                           <span className="instance-info-value">{selectedInstanceConsumerBindingPreview || "-"}</span>
+                         </div>
+                         <div className="instance-info-cell">
+                           <span className="instance-info-label">{uiText.hostId}</span>
+                           <span className="instance-info-value">{selectedInstance.hostId}</span>
                         </div>
                         <div className="instance-info-cell">
                           <span className="instance-info-label">{uiText.image}</span>
@@ -2930,9 +3061,24 @@ export function Dashboard() {
                                       const modelDurationLabel = formatAgentTimingDuration(item.timing?.modelDurationMs);
                                       const agentDurationLabel = formatAgentTimingDuration(item.timing?.agentDurationMs);
                                       const totalDurationLabel = formatAgentTimingDuration(item.timing?.totalDurationMs);
+                                      const inputTokenLabel = formatAgentTokenCount(item.timing?.inputTokens);
+                                      const outputTokenLabel = formatAgentTokenCount(item.timing?.outputTokens);
+                                      const billingEstimate = item.role === "assistant"
+                                        ? estimateModelBilling(modelBillingConfigs, {
+                                          provider: item.timing?.provider ?? selectedAgent?.provider,
+                                          model: item.timing?.model ?? selectedAgent?.model,
+                                          inputTokens: item.timing?.inputTokens,
+                                          outputTokens: item.timing?.outputTokens,
+                                        })
+                                        : undefined;
+                                      const xiamiEstimateLabel = formatEstimatedXiami(billingEstimate?.estimatedXiami);
+                                      const cnyEstimateLabel = formatEstimatedCny(billingEstimate?.estimatedCny);
                                       const llmRequestCount = item.timing?.llmRequestCount ?? 0;
                                       const showTiming = item.role === "assistant" && (
-                                        Boolean(firstThinkingDurationLabel)
+                                        Boolean(inputTokenLabel)
+                                        || Boolean(outputTokenLabel)
+                                        || Boolean(xiamiEstimateLabel)
+                                        || Boolean(firstThinkingDurationLabel)
                                         || Boolean(firstVisibleDurationLabel)
                                         || Boolean(modelDurationLabel)
                                         || Boolean(agentDurationLabel)
@@ -2977,6 +3123,27 @@ export function Dashboard() {
                                             {item.pending && !thinkingStateVisible ? <div className="agent-chat-pending">{uiText.agentSessionPendingReply}</div> : null}
                                             {showTiming ? (
                                               <div className="agent-chat-timing" title={formatAgentTimingTooltip(item.timing)}>
+                                                {inputTokenLabel ? (
+                                                  <span className="agent-chat-timing-pill">
+                                                    <span className="agent-chat-timing-label">{"\u8f93\u5165"}</span>
+                                                    <strong>{inputTokenLabel}</strong>
+                                                  </span>
+                                                ) : null}
+                                                {outputTokenLabel ? (
+                                                  <span className="agent-chat-timing-pill">
+                                                    <span className="agent-chat-timing-label">{"\u8f93\u51fa"}</span>
+                                                    <strong>{outputTokenLabel}</strong>
+                                                  </span>
+                                                ) : null}
+                                                {xiamiEstimateLabel ? (
+                                                  <span
+                                                    className="agent-chat-timing-pill"
+                                                    title={cnyEstimateLabel ? `约 ¥${cnyEstimateLabel}` : undefined}
+                                                  >
+                                                    <span className="agent-chat-timing-label">预计虾米</span>
+                                                    <strong>{xiamiEstimateLabel}</strong>
+                                                  </span>
+                                                ) : null}
                                                 {firstThinkingDurationLabel ? (
                                                   <span className="agent-chat-timing-pill">
                                                     <span className="agent-chat-timing-label">{"\u601d\u8003\u9996\u5b57"}</span>
@@ -3217,6 +3384,16 @@ export function Dashboard() {
                 {activeView === "mcp" ? (
                   <Card className="glass-card" title={uiText.menuMcp}>
                     <div className="empty-panel">MCP 服务管理即将上线，敬请期待。</div>
+                  </Card>
+                ) : null}
+                {activeView === "model-billing" ? (
+                  <Card className="glass-card" title="模型计费">
+                    <ModelBillingConfigPanel />
+                  </Card>
+                ) : null}
+                {activeView === "consumer-billing" ? (
+                  <Card className="glass-card" title="消费明细">
+                    <ConsumerBillingPanel />
                   </Card>
                 ) : null}
                 {activeView === "open-platform" ? (
@@ -3506,10 +3683,31 @@ export function Dashboard() {
         okText={uiText.delete}
         cancelText={uiText.cancel}
         confirmLoading={deletingInstance}
-        okButtonProps={{ danger: true }}
+        okButtonProps={{ danger: true, disabled: !deleteConfirmMatches }}
         destroyOnHidden
       >
-        <Text>{`${uiText.deleteConfirmContentPrefix}${selectedInstance?.name ?? "-"}`}</Text>
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Text>{`${uiText.deleteConfirmContentPrefix}${selectedInstance?.name ?? "-"}`}</Text>
+          {selectedInstanceRequiresDeleteTyping ? (
+            <>
+              <Alert
+                type="warning"
+                showIcon
+                message={uiText.deleteBoundInstanceWarningTitle}
+                description={`${uiText.deleteBoundInstanceWarningDescription} 当前共有 ${selectedInstanceConsumerBindingCount} 个活跃用户绑定。`}
+              />
+              <div>
+                <Text strong>{uiText.deleteBoundInstanceInputLabel}</Text>
+                <Input
+                  style={{ marginTop: 8 }}
+                  value={deleteConfirmValue}
+                  placeholder={uiText.deleteBoundInstanceInputPlaceholder}
+                  onChange={(event) => setDeleteConfirmValue(event.target.value)}
+                />
+              </div>
+            </>
+          ) : null}
+        </Space>
       </Modal>
     </>
   );

@@ -9,6 +9,12 @@ import {
 } from "@/lib/control-api";
 import type { SkillBaseline, SkillBaselineSummary, SkillBaselineUpsertRequest } from "@/types/contracts";
 import {
+  isDuplicateManagedBaselineDisplayName,
+  isDuplicateManagedBaselineKey,
+  MANAGED_BASELINE_KEY_FORMAT_MESSAGE,
+  validateManagedBaselineKeyFormat,
+} from "@/lib/managed-baseline-form";
+import {
   Alert,
   Button,
   Card,
@@ -460,14 +466,43 @@ export function SkillBaselinePanel() {
           <Form.Item
             name="skillKey"
             label="Skill Key"
+            extra={MANAGED_BASELINE_KEY_FORMAT_MESSAGE}
             rules={[
               { required: true, message: "请输入 Skill Key" },
-              { pattern: /^[A-Za-z0-9._-]+$/, message: "仅支持字母、数字、点、下划线和中划线" },
+              {
+                validator: (_, value) => {
+                  const formatError = validateManagedBaselineKeyFormat(value);
+                  return formatError ? Promise.reject(new Error(formatError)) : Promise.resolve();
+                },
+              },
+              {
+                validator: (_, value) => (
+                  isDuplicateManagedBaselineKey(value, items.map((item) => item.skillKey))
+                    ? Promise.reject(new Error("Skill Key 已存在"))
+                    : Promise.resolve()
+                ),
+              },
             ]}
           >
             <Input placeholder="例如 screenplay-writer" />
           </Form.Item>
-          <Form.Item name="displayName" label="Display Name">
+          <Form.Item
+            name="displayName"
+            label="Display Name"
+            rules={[
+              {
+                validator: (_, value) => (
+                  isDuplicateManagedBaselineDisplayName(
+                    value,
+                    createSkillKeyValue,
+                    items.map((item) => ({ key: item.skillKey, displayName: item.displayName })),
+                  )
+                    ? Promise.reject(new Error("Display Name 已存在"))
+                    : Promise.resolve()
+                ),
+              },
+            ]}
+          >
             <Input placeholder="可选，不填时默认与 Skill Key 相同；需全局唯一" />
           </Form.Item>
           <Form.Item label="Skill ZIP">

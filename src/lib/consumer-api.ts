@@ -12,6 +12,7 @@ import type {
   ConsumerBoundInstance,
   ConsumerChatSession,
   ConsumerChatSessionCreateRequest,
+  ConsumerChatSendAllowance,
   ConsumerChatSessionMessage,
   ConsumerInstanceRenameRequest,
   ConsumerChatSessionRenameRequest,
@@ -188,6 +189,13 @@ export async function connectConsumerChatSession(sessionId: string, init?: Reque
     ...init,
     method: "POST",
   });
+}
+
+export async function getConsumerChatSessionSendAllowance(sessionId: string, init?: RequestInit) {
+  return requestConsumerJson<ConsumerChatSendAllowance>(
+    `/app/v1/chat/sessions/${encodeURIComponent(sessionId)}/send-allowance`,
+    init,
+  );
 }
 
 export async function closeConsumerChatSession(sessionId: string) {

@@ -62,9 +62,6 @@ export function MessageSidebar({
       <div className="mt-6 flex items-center justify-between gap-3 px-1">
         <div>
           <div className="text-sm font-bold text-slate-950">机器人列表</div>
-          <div className="text-xs text-slate-500">
-            基于实例与 Agent 绑定实时生成
-          </div>
         </div>
         <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
           {robots.length}
@@ -114,7 +111,7 @@ export function MessageSidebar({
                     interactionLocked && !isSelected && "opacity-75",
                   )}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     <div
                       className={cn(
                         "flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] text-sm font-black",
@@ -124,13 +121,13 @@ export function MessageSidebar({
                       {isSwitching ? <LoaderCircle size={18} className="animate-spin" /> : <Bot size={18} />}
                     </div>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 self-center">
                       <div className="truncate text-sm font-bold text-slate-950">
                         {robot.displayName}
                       </div>
                     </div>
 
-                    <div className="ml-2 flex shrink-0 flex-col items-end gap-2 pt-0.5">
+                    <div className="ml-2 flex min-h-12 shrink-0 flex-col items-end justify-center gap-1.5 self-center">
                       {isSwitching ? (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
                           <LoaderCircle size={10} className="animate-spin" />

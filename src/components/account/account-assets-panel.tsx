@@ -13,7 +13,6 @@ const MAX_INSTANCE_NAME_LENGTH = 128;
 
 const text = {
   pageTitle: "\u6211\u7684\u8d44\u4ea7",
-  pageDescription: "\u8fd9\u91cc\u5c55\u793a\u5f53\u524d\u8d26\u53f7\u5df2\u9886\u517b\u7684\u9f99\u867e\uff0c\u53ef\u4ee5\u76f4\u63a5\u8fdb\u884c\u6539\u540d\u548c\u5220\u9664\u7ba1\u7406\u3002",
   refresh: "\u5237\u65b0",
   refreshing: "\u5237\u65b0\u4e2d...",
   totalAssets: "\u5df2\u9886\u517b",
@@ -254,9 +253,6 @@ export function AccountAssetsPanel() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">{text.pageTitle}</h1>
-            <div className="mt-3 text-lg font-semibold text-slate-500">
-              {text.pageDescription}
-            </div>
           </div>
           <button
             type="button"

@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { XiamiIcon } from "@/components/ui/xiami-icon";
 import { cn } from "@/lib/utils";
 import type { RechargePlan } from "./recharge-data";
@@ -11,6 +12,13 @@ const currencyFormatter = new Intl.NumberFormat("zh-CN", {
 function formatCurrency(value: number) {
   return currencyFormatter.format(Number.isFinite(value) ? value : 0);
 }
+
+const twoLineClampStyle: CSSProperties = {
+  display: "-webkit-box",
+  overflow: "hidden",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 2,
+};
 
 export function RechargePlanCard({
   plan,
@@ -26,7 +34,7 @@ export function RechargePlanCard({
   return (
     <article
       className={cn(
-        "relative flex h-full flex-col rounded-[32px] border bg-white px-8 py-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)] transition-all duration-300",
+        "relative flex h-full flex-col rounded-[32px] border bg-white px-8 py-7 shadow-[0_24px_60px_rgba(15,23,42,0.08)] transition-all duration-300",
         selected
           ? "border-violet-300 shadow-[0_28px_70px_rgba(147,51,234,0.18)]"
           : "border-white hover:-translate-y-1 hover:shadow-[0_28px_70px_rgba(15,23,42,0.12)]",
@@ -42,7 +50,7 @@ export function RechargePlanCard({
         {plan.title}
       </div>
 
-      <div className="mt-10 text-[64px] font-black tracking-[-0.07em] text-slate-950 sm:text-[78px]">
+      <div className="mt-8 text-[64px] font-black tracking-[-0.07em] text-slate-950 sm:text-[78px]">
         ¥ {formatCurrency(plan.price)}
       </div>
 
@@ -52,7 +60,7 @@ export function RechargePlanCard({
         </div>
       ) : null}
 
-      <div className="mt-7 flex flex-wrap items-center gap-3 text-[36px] font-black tracking-[-0.04em] text-slate-950 sm:text-[44px]">
+      <div className="mt-6 flex flex-wrap items-center gap-3 text-[36px] font-black tracking-[-0.04em] text-slate-950 sm:text-[44px]">
         <span>{plan.benefitValue}</span>
         {plan.benefitLabel === "虾米" ? (
           <>
@@ -67,22 +75,26 @@ export function RechargePlanCard({
       </div>
 
       {plan.meta ? (
-        <div className="mt-4 text-base font-semibold text-slate-500">
+        <div className="mt-3 text-sm font-semibold text-slate-500">
           {plan.meta}
         </div>
       ) : null}
 
-      <p className="mt-12 min-h-[96px] text-[18px] font-bold leading-9 text-slate-400">
+      <p
+        className="mt-5 min-h-[56px] text-base font-bold leading-7 text-slate-400"
+        style={twoLineClampStyle}
+        title={plan.description}
+      >
         {plan.description}
       </p>
 
-      <div className="mt-auto pt-8">
+      <div className="mt-auto pt-5">
         <button
           type="button"
           onClick={() => onSelect(plan)}
           disabled={loading}
           className={cn(
-            "inline-flex h-18 w-full items-center justify-center rounded-[18px] text-[24px] font-black text-slate-950 transition-transform duration-300",
+            "inline-flex h-16 w-full items-center justify-center rounded-[18px] text-[22px] font-black text-slate-950 transition-transform duration-300",
             loading || selected
               ? "bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] shadow-[0_18px_40px_rgba(139,61,255,0.24)] hover:scale-[1.01]"
               : "bg-violet-300/95 hover:scale-[1.01]",

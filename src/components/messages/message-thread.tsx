@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { Bot, CheckCircle2, LoaderCircle, Sparkles, UserRound } from "lucide-react";
-import type { AgentChatMessage, AgentInteractionAction } from "@/lib/agent-session-protocol";
+import type { ModelBillingConfig } from "@/types/contracts";
+import { formatAgentTokenCount, type AgentChatMessage, type AgentInteractionAction } from "@/lib/agent-session-protocol";
+import { estimateModelBilling, formatEstimatedCny, formatEstimatedXiami } from "@/lib/model-billing";
+import { useModelBillingConfigs } from "@/lib/use-model-billing-configs";
 import { cn } from "@/lib/utils";
 import { formatInteractionDraftLabel, formatMessageTimestamp } from "./messages-data";
 import type { MessageRobotTarget } from "./messages-types";
@@ -46,10 +49,14 @@ function MessageInteractionActions({
 
 function ChatBubble({
   message,
+  selectedRobot,
+  billingConfigs,
   interactionsEnabled,
   onAction,
 }: {
   message: AgentChatMessage;
+  selectedRobot?: MessageRobotTarget;
+  billingConfigs: ModelBillingConfig[];
   interactionsEnabled: boolean;
   onAction: (messageId: string, action: AgentInteractionAction) => void;
 }) {
@@ -66,6 +73,20 @@ function ChatBubble({
   const isUser = message.role === "user";
   const showThinking = !isUser && Boolean(message.thinkingContent?.trim());
   const messageTime = formatMessageTimestamp(message.emittedAt ?? message.createdAt);
+  const inputTokenLabel = !isUser ? formatAgentTokenCount(message.timing?.inputTokens) : undefined;
+  const outputTokenLabel = !isUser ? formatAgentTokenCount(message.timing?.outputTokens) : undefined;
+  const billingEstimate = !isUser ? estimateModelBilling(billingConfigs, {
+    provider: message.timing?.provider ?? selectedRobot?.provider,
+    model: message.timing?.model ?? selectedRobot?.model,
+    inputTokens: message.timing?.inputTokens,
+    outputTokens: message.timing?.outputTokens,
+  }) : undefined;
+  const resolvedEstimatedXiami = !isUser ? (message.billing?.estimatedXiami ?? billingEstimate?.estimatedXiami) : undefined;
+  const resolvedEstimatedCny = !isUser ? (message.billing?.estimatedCny ?? billingEstimate?.estimatedCny) : undefined;
+  const xiamiEstimateLabel = !isUser ? formatEstimatedXiami(resolvedEstimatedXiami) : undefined;
+  const cnyEstimateLabel = !isUser ? formatEstimatedCny(resolvedEstimatedCny) : undefined;
+  const showTokenMetrics = !isUser && (Boolean(inputTokenLabel) || Boolean(outputTokenLabel));
+  const showBillingMetric = !isUser && Boolean(xiamiEstimateLabel);
 
   return (
     <div className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
@@ -118,6 +139,32 @@ function ChatBubble({
         ) : (
           <MessageInteractionActions message={message} enabled={interactionsEnabled} onAction={onAction} />
         )}
+
+        {showTokenMetrics || showBillingMetric ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {inputTokenLabel ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                <span className="text-slate-400">输入</span>
+                <strong className="text-slate-700">{inputTokenLabel}</strong>
+              </span>
+            ) : null}
+            {outputTokenLabel ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                <span className="text-slate-400">输出</span>
+                <strong className="text-slate-700">{outputTokenLabel}</strong>
+              </span>
+            ) : null}
+            {xiamiEstimateLabel ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700"
+                title={cnyEstimateLabel ? `约 ¥${cnyEstimateLabel}` : undefined}
+              >
+                <span className="text-emerald-500">预计虾米</span>
+                <strong>{xiamiEstimateLabel}</strong>
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {isUser ? (
@@ -223,6 +270,7 @@ export function MessageThread({
   onAction: (messageId: string, action: AgentInteractionAction) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { configs: billingConfigs } = useModelBillingConfigs(Boolean(selectedRobot));
 
   const hasPendingAssistant = useMemo(
     () => messages.some((message) => message.role === "assistant" && message.pending),
@@ -250,6 +298,8 @@ export function MessageThread({
               <ChatBubble
                 key={message.id}
                 message={message}
+                selectedRobot={selectedRobot}
+                billingConfigs={billingConfigs}
                 interactionsEnabled={interactionsEnabled}
                 onAction={onAction}
               />

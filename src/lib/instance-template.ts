@@ -4,14 +4,13 @@ import { isImagePresetAvailable } from "@/lib/agent-session-protocol";
 import {
   createInstance,
   installInstanceSkill,
+  previewInstanceTemplateConfig,
   submitInstanceAction,
   upsertInstanceAgentBinding,
-  upsertInstanceChannelsConfig,
   upsertInstanceConfig,
-  upsertInstanceDefaultModelConfig,
   upsertInstanceMainAgentGuidance,
-  upsertInstanceRoutingConfig,
 } from "@/lib/control-api";
+import { buildInstanceTemplateUpsertRequest } from "@/lib/instance-template-upsert";
 import type {
   ClawInstance,
   DesiredState,
@@ -100,6 +99,15 @@ function undefinedWhenNull<T>(value: T | null | undefined): T | undefined {
   return value ?? undefined;
 }
 
+function shouldApplyTemplateRuntimeConfig(template: InstanceTemplate) {
+  return Boolean(
+    template.channelsConfig
+    || template.defaultModelConfig
+    || template.routingConfig
+    || template.agentConfig,
+  );
+}
+
 export async function createManagedInstanceFromTemplate({
   hostId,
   name,
@@ -113,7 +121,7 @@ export async function createManagedInstanceFromTemplate({
     throw new ManagedInstanceTemplateError("当前没有可用的模板镜像，请先检查镜像预设。");
   }
 
-  onProgress?.("正在创建实例…");
+  onProgress?.("正在创建实例...");
   const instance = await createInstance({
     name,
     hostId,
@@ -122,7 +130,7 @@ export async function createManagedInstanceFromTemplate({
   });
 
   try {
-    onProgress?.("正在绑定主 Agent…");
+    onProgress?.("正在绑定 Agent...");
     const agentBindings = resolveTemplateAgentBindings(template);
     for (const binding of agentBindings) {
       await upsertInstanceAgentBinding(instance.id, binding.agentKey, {
@@ -138,63 +146,21 @@ export async function createManagedInstanceFromTemplate({
     }
 
     for (const skillKey of template.skillKeys) {
-      onProgress?.(`正在安装 Skill：${skillKey}`);
+      onProgress?.(`正在安装 Skill: ${skillKey}`);
       await installInstanceSkill(instance.id, skillKey, TEMPLATE_UPDATED_BY);
     }
 
-    if (false && template.runtimeConfigToml?.trim()) {
-      onProgress?.("正在写入运行时配置…");
+    if (shouldApplyTemplateRuntimeConfig(template)) {
+      onProgress?.("正在写入 runtime config...");
+      const preview = await previewInstanceTemplateConfig(buildInstanceTemplateUpsertRequest(template));
       await upsertInstanceConfig(instance.id, {
-        configToml: template.runtimeConfigToml ?? "",
-        updatedBy: TEMPLATE_UPDATED_BY,
-      });
-    }
-
-    if (template.channelsConfig) {
-      onProgress?.("正在写入渠道配置…");
-      await upsertInstanceChannelsConfig(instance.id, {
-        cliEnabled: template.channelsConfig.cliEnabled,
-        messageTimeoutSecs: template.channelsConfig.messageTimeoutSecs,
-        dingtalkEnabled: template.channelsConfig.dingtalkEnabled,
-        dingtalkClientId: undefinedWhenNull(template.channelsConfig.dingtalkClientId),
-        dingtalkClientSecret: undefinedWhenNull(template.channelsConfig.dingtalkClientSecret),
-        dingtalkAllowedUsers: template.channelsConfig.dingtalkAllowedUsers,
-        qqEnabled: template.channelsConfig.qqEnabled,
-        qqAppId: undefinedWhenNull(template.channelsConfig.qqAppId),
-        qqAppSecret: undefinedWhenNull(template.channelsConfig.qqAppSecret),
-        qqAllowedUsers: template.channelsConfig.qqAllowedUsers,
-        updatedBy: TEMPLATE_UPDATED_BY,
-      });
-    }
-
-    if (
-      template.defaultModelConfig
-      && typeof template.defaultModelConfig.defaultTemperature === "number"
-      && template.defaultModelConfig.defaultProvider
-      && template.defaultModelConfig.defaultModel
-      && template.defaultModelConfig.apiKey !== undefined
-      && template.defaultModelConfig.apiKey !== null
-    ) {
-      onProgress?.("正在写入默认模型配置…");
-      await upsertInstanceDefaultModelConfig(instance.id, {
-        apiKey: template.defaultModelConfig.apiKey,
-        defaultProvider: template.defaultModelConfig.defaultProvider,
-        defaultModel: template.defaultModelConfig.defaultModel,
-        defaultTemperature: template.defaultModelConfig.defaultTemperature,
-        updatedBy: TEMPLATE_UPDATED_BY,
-      });
-    }
-
-    if (template.routingConfig) {
-      onProgress?.("正在写入模型路由配置…");
-      await upsertInstanceRoutingConfig(instance.id, {
-        ...template.routingConfig,
+        configToml: preview.configToml,
         updatedBy: TEMPLATE_UPDATED_BY,
       });
     }
 
     if (template.mainAgentGuidance) {
-      onProgress?.("正在同步主 Agent Guidance…");
+      onProgress?.("正在同步 Main Agent Guidance...");
       await upsertInstanceMainAgentGuidance(instance.id, {
         prompt: undefinedWhenNull(template.mainAgentGuidance.prompt),
         enabled: undefinedWhenNull(template.mainAgentGuidance.enabled),
@@ -203,7 +169,7 @@ export async function createManagedInstanceFromTemplate({
     }
 
     if (desiredState === "RUNNING") {
-      onProgress?.("正在启动实例…");
+      onProgress?.("正在启动实例...");
       await submitInstanceAction(instance.id, "START");
     }
 

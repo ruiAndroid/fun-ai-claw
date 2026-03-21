@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Crown, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
+import { XiamiIcon } from "@/components/ui/xiami-icon";
 import { useUserCenterOrders } from "@/lib/use-user-center-orders";
 import { useUserCenterVipInfo } from "@/lib/use-user-center-vip-info";
 import type { UserCenterOrderRecord } from "@/types/user-center";
@@ -95,7 +96,7 @@ function buildOrderRecords(orders: UserCenterOrderRecord[]) {
         title,
         detail,
         time,
-        amountLabel: `-¥ ${formatAmount(cashSpent)}`,
+        amountLabel: `-￥ ${formatAmount(cashSpent)}`,
         tone: "default",
       });
     }
@@ -117,7 +118,7 @@ function buildOrderRecords(orders: UserCenterOrderRecord[]) {
         title: `${title} 退款`,
         detail,
         time,
-        amountLabel: `+¥ ${formatAmount(order.refundAmount)}`,
+        amountLabel: `+￥ ${formatAmount(order.refundAmount)}`,
         tone: "success",
       });
     }
@@ -152,11 +153,11 @@ export function AccountUsagePanel() {
   } = useUserCenterOrders();
 
   const loading = vipLoading || ordersLoading;
-  const errorMessage = ordersError || vipError;
   const orderRecords = useMemo(() => buildOrderRecords(orders), [orders]);
 
-  const balanceLabel = loading && !vipInfo ? "..." : `${vipInfo?.coinAmount ?? 0}`;
+  const balanceLabel = loading && !vipInfo ? "..." : formatAmount(vipInfo?.coinAmount ?? 0);
   const vipStatusLabel = vipInfo?.isVip ? "会员已开通" : "当前未开通会员";
+  const ordersEmptyDescription = ordersError || vipError || "当前还没有可展示的订单数据。";
 
   return (
     <div>
@@ -184,14 +185,18 @@ export function AccountUsagePanel() {
         </div>
       </div>
 
-      <div className="mt-16 text-center">
-        <div className="text-4xl font-black tracking-[-0.04em] text-slate-950">当前虾米</div>
-        <div className="mt-6 flex items-center justify-center gap-4 text-[64px] font-black leading-none tracking-[-0.05em] text-slate-950">
-          <span>{balanceLabel}</span>
-          <span className="text-[40px]">虾米</span>
-        </div>
-        <div className="mt-4 text-lg font-semibold text-slate-400">
-          {errorMessage || "登录后或支付成功后，会员信息会自动刷新到这里。"}
+      <div className="mt-10 flex justify-center lg:justify-start">
+        <div className="inline-flex max-w-full items-center gap-3 rounded-full border border-white/80 bg-white/84 px-5 py-3 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-sm">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-bold tracking-[0.08em] text-slate-500">
+            余额
+          </span>
+          <span className="bg-[linear-gradient(135deg,#ff7a18_0%,#ff4d8d_58%,#8b3dff_100%)] bg-clip-text text-[28px] font-black leading-none tracking-[-0.05em] text-transparent sm:text-[34px]">
+            {balanceLabel}
+          </span>
+          <XiamiIcon size={24} title="虾米" />
+          <span className="text-[20px] font-black tracking-[-0.03em] text-slate-700 sm:text-[24px]">
+            虾米
+          </span>
         </div>
       </div>
 
@@ -250,7 +255,7 @@ export function AccountUsagePanel() {
           <div className="mt-14 rounded-[24px] border border-dashed border-slate-300 bg-white/70 px-6 py-10 text-center">
             <div className="text-[22px] font-black tracking-[-0.03em] text-slate-950">暂无购买记录</div>
             <div className="mt-3 text-lg font-semibold text-slate-400">
-              当前还没有可展示的订单数据。
+              {ordersEmptyDescription}
             </div>
           </div>
         ) : null}

@@ -6,6 +6,9 @@ import {
   AgentSystemPrompt,
   AgentToolCatalog,
   ClawInstance,
+  ConsumerBillingArchiveStatus,
+  ConsumerBillingLocalRecord,
+  ConsumerBillingUserCenterOrder,
   CreateInstanceRequest,
   ImagePreset,
   InstanceAgentBinding,
@@ -21,6 +24,8 @@ import {
   InstanceTemplateUpsertRequest,
   InstanceActionType,
   ListResponse,
+  ModelBillingConfig,
+  ModelBillingConfigUpsertRequest,
   OpenClientApp,
   OpenClientAppCreateRequest,
   OpenClientAppCreateResponse,
@@ -254,8 +259,9 @@ export async function submitInstanceAction(instanceId: string, action: InstanceA
   });
 }
 
-export async function deleteInstance(instanceId: string) {
-  return requestVoid(`/v1/instances/${instanceId}`, {
+export async function deleteInstance(instanceId: string, options?: { force?: boolean }) {
+  const query = options?.force ? "?force=true" : "";
+  return requestVoid(`/v1/instances/${instanceId}${query}`, {
     method: "DELETE",
   });
 }
@@ -542,4 +548,60 @@ export async function deleteOpenApp(appId: string) {
   return requestVoid(`/v1/open-apps/${appId}`, {
     method: "DELETE",
   });
+}
+
+export async function listModelBillingConfigs() {
+  return requestJson<ListResponse<ModelBillingConfig>>("/v1/model-billing-configs");
+}
+
+export async function getModelBillingConfig(id: string) {
+  return requestJson<ModelBillingConfig>(`/v1/model-billing-configs/${id}`);
+}
+
+export async function createModelBillingConfig(request: ModelBillingConfigUpsertRequest) {
+  return requestJson<ModelBillingConfig>("/v1/model-billing-configs", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function upsertModelBillingConfig(id: string, request: ModelBillingConfigUpsertRequest) {
+  return requestJson<ModelBillingConfig>(`/v1/model-billing-configs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function deleteModelBillingConfig(id: string) {
+  return requestVoid(`/v1/model-billing-configs/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listConsumerBillingLocalRecords(params?: { keyword?: string; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.keyword?.trim()) {
+    query.set("keyword", params.keyword.trim());
+  }
+  if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
+    query.set("limit", String(params.limit));
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return requestJson<ListResponse<ConsumerBillingLocalRecord>>(`/v1/consumer-billing/local-records${suffix}`);
+}
+
+export async function getConsumerBillingArchiveStatus() {
+  return requestJson<ConsumerBillingArchiveStatus>("/v1/consumer-billing/archive-status");
+}
+
+export async function listConsumerBillingUserCenterOrders(params?: { keyword?: string; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.keyword?.trim()) {
+    query.set("keyword", params.keyword.trim());
+  }
+  if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
+    query.set("limit", String(params.limit));
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return requestJson<ListResponse<ConsumerBillingUserCenterOrder>>(`/v1/consumer-billing/user-center-orders${suffix}`);
 }

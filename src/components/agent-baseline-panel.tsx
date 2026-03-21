@@ -15,6 +15,12 @@ import {
   normalizeToolValues,
   resolveAgentAllowedTools,
 } from "@/lib/agent-tool-catalog";
+import {
+  isDuplicateManagedBaselineDisplayName,
+  isDuplicateManagedBaselineKey,
+  MANAGED_BASELINE_KEY_FORMAT_MESSAGE,
+  validateManagedBaselineKeyFormat,
+} from "@/lib/managed-baseline-form";
 import type {
   AgentBaseline,
   AgentBaselineSummary,
@@ -192,6 +198,7 @@ export function AgentBaselinePanel() {
   const [creating, setCreating] = useState(false);
   const [createForm] = Form.useForm<CreateBaselineForm>();
   const [messageApi, contextHolder] = message.useMessage();
+  const createAgentKeyValue = Form.useWatch("agentKey", createForm);
 
   const loadItems = useCallback(async (preferredAgentKey?: string) => {
     setLoading(true);
@@ -660,14 +667,43 @@ export function AgentBaselinePanel() {
           <Form.Item
             name="agentKey"
             label="Agent Key"
+            extra={MANAGED_BASELINE_KEY_FORMAT_MESSAGE}
             rules={[
               { required: true, message: "请输入 Agent Key" },
-              { pattern: /^[A-Za-z0-9._-]+$/, message: "仅允许字母、数字、点、下划线和连字符" },
+              {
+                validator: (_, value) => {
+                  const formatError = validateManagedBaselineKeyFormat(value);
+                  return formatError ? Promise.reject(new Error(formatError)) : Promise.resolve();
+                },
+              },
+              {
+                validator: (_, value) => (
+                  isDuplicateManagedBaselineKey(value, items.map((item) => item.agentKey))
+                    ? Promise.reject(new Error("Agent Key 已存在"))
+                    : Promise.resolve()
+                ),
+              },
             ]}
           >
             <Input placeholder="例如：mgc-novel-to-script" />
           </Form.Item>
-          <Form.Item name="displayName" label="Display Name">
+          <Form.Item
+            name="displayName"
+            label="Display Name"
+            rules={[
+              {
+                validator: (_, value) => (
+                  isDuplicateManagedBaselineDisplayName(
+                    value,
+                    createAgentKeyValue,
+                    items.map((item) => ({ key: item.agentKey, displayName: item.displayName })),
+                  )
+                    ? Promise.reject(new Error("Display Name 已存在"))
+                    : Promise.resolve()
+                ),
+              },
+            ]}
+          >
             <Input placeholder="选填，默认使用 Agent Key" />
           </Form.Item>
         </Form>

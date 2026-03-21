@@ -1,14 +1,19 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { connectConsumerChatSession, listConsumerChatSessionMessages } from "@/lib/consumer-api";
+import { connectConsumerChatSession, getConsumerChatSessionSendAllowance, listConsumerChatSessionMessages } from "@/lib/consumer-api";
+import { refreshUserCenterVipInfo } from "@/lib/user-center-api";
 import {
+  buildAgentChatTiming,
+  getAgentTimingNow,
   isAgentSessionThinkingPlaceholderContent,
   normalizeStructuredAgentChatMessage,
+  parseAgentTimingDebugLine,
   parseAgentInteractionPayload,
   parseAgentSessionCoreFields,
   parseAgentSessionFrame,
   type AgentChatMessage,
+  type AgentTurnTracker,
   type AgentInteraction,
   type AgentInteractionAction,
   type AgentSessionCoreFields,
@@ -50,6 +55,7 @@ type SessionSnapshot = {
 const SESSION_ATTACH_DEBOUNCE_MS = 180;
 const SESSION_HISTORY_TIMEOUT_MS = 12_000;
 const INPUT_LOCK_NOTICE = "正在生成上一轮回复，请等待完成后再继续发送";
+const INSUFFICIENT_BALANCE_NOTICE = "虾米余额不足，请充值后再继续发送";
 
 function isAbortLikeError(error: unknown) {
   return error instanceof DOMException
@@ -62,14 +68,64 @@ function nextLocalMessageId(sequence: React.MutableRefObject<number>, prefix: st
   return `${prefix}-${sequence.current}`;
 }
 
+function mergeDefinedObject<T extends Record<string, unknown>>(current: T | undefined, incoming: T | undefined): T | undefined {
+  if (!current) {
+    return incoming;
+  }
+  if (!incoming) {
+    return current;
+  }
+  const definedEntries = Object.entries(incoming).filter(([, value]) => value !== undefined);
+  if (definedEntries.length === 0) {
+    return current;
+  }
+  return {
+    ...current,
+    ...Object.fromEntries(definedEntries),
+  } as T;
+}
+
+function mergeAgentChatMessage(current: AgentChatMessage, incoming: AgentChatMessage): AgentChatMessage {
+  const definedEntries = Object.entries(incoming).filter(([key, value]) => (
+    key !== "id"
+    && key !== "timing"
+    && key !== "billing"
+    && value !== undefined
+  ));
+
+  return {
+    ...current,
+    ...Object.fromEntries(definedEntries),
+    timing: mergeDefinedObject(
+      current.timing as Record<string, unknown> | undefined,
+      incoming.timing as Record<string, unknown> | undefined,
+    ) as AgentChatMessage["timing"],
+    billing: mergeDefinedObject(
+      current.billing as Record<string, unknown> | undefined,
+      incoming.billing as Record<string, unknown> | undefined,
+    ) as AgentChatMessage["billing"],
+    createdAt: current.createdAt ?? incoming.createdAt,
+    emittedAt: incoming.emittedAt ?? current.emittedAt,
+  };
+}
+
 function upsertAgentMessage(messages: AgentChatMessage[], nextMessage: AgentChatMessage) {
   const existingIndex = messages.findIndex((item) => item.id === nextMessage.id);
   if (existingIndex < 0) {
     return [...messages, nextMessage];
   }
   return messages.map((item, index) => (index === existingIndex
-    ? { ...item, ...nextMessage, createdAt: item.createdAt ?? nextMessage.createdAt, emittedAt: nextMessage.emittedAt ?? item.emittedAt }
+    ? mergeAgentChatMessage(item, nextMessage)
     : item));
+}
+
+function mergeAgentMessageAtIndex(messages: AgentChatMessage[], index: number, nextMessage: AgentChatMessage) {
+  if (index < 0 || index >= messages.length) {
+    return messages;
+  }
+  return messages.map((item, itemIndex) => (
+    itemIndex === index ? mergeAgentChatMessage(item, nextMessage) : item
+  ));
 }
 
 function applyAgentDelta(messages: AgentChatMessage[], delta: AgentSessionDelta) {
@@ -152,6 +208,27 @@ function normalizeHistoryMessage(message: ConsumerChatSessionMessage, index: num
     interaction: (message.interaction ?? undefined) as AgentInteraction | undefined,
     createdAt: message.createdAt,
     emittedAt: message.emittedAt ?? message.createdAt,
+    timing: role === "assistant" && (
+      Boolean(message.provider?.trim())
+      || Boolean(message.model?.trim())
+      ||
+      typeof message.inputTokens === "number"
+      || typeof message.outputTokens === "number"
+    ) ? {
+      provider: message.provider?.trim() || undefined,
+      model: message.model?.trim() || undefined,
+      inputTokens: typeof message.inputTokens === "number" ? message.inputTokens : undefined,
+      outputTokens: typeof message.outputTokens === "number" ? message.outputTokens : undefined,
+    } : undefined,
+    billing: role === "assistant" && (
+      typeof message.estimatedCny === "number"
+      || typeof message.estimatedXiami === "number"
+      || typeof message.settledXiami === "number"
+    ) ? {
+      estimatedCny: typeof message.estimatedCny === "number" ? message.estimatedCny : undefined,
+      estimatedXiami: typeof message.estimatedXiami === "number" ? message.estimatedXiami : undefined,
+      settledXiami: typeof message.settledXiami === "number" ? message.settledXiami : undefined,
+    } : undefined,
   };
 }
 
@@ -173,18 +250,26 @@ function mergeHistoryWithSnapshot(historyMessages: AgentChatMessage[], snapshot?
   if (!snapshot) {
     return historyMessages;
   }
-  const duplicateBudget = new Map<string, number>();
-  for (const message of historyMessages) {
+  const historyMessageIndicesBySemanticKey = new Map<string, number[]>();
+  historyMessages.forEach((message, index) => {
     const key = buildMessageSemanticKey(message);
-    duplicateBudget.set(key, (duplicateBudget.get(key) ?? 0) + 1);
-  }
+    const existingIndices = historyMessageIndicesBySemanticKey.get(key);
+    if (existingIndices) {
+      existingIndices.push(index);
+      return;
+    }
+    historyMessageIndicesBySemanticKey.set(key, [index]);
+  });
+  const mergedDuplicateOffsets = new Map<string, number>();
   return snapshot.messages.reduce((current, message) => {
     if (isLocalEphemeralMessage(message)) {
       const key = buildMessageSemanticKey(message);
-      const remaining = duplicateBudget.get(key) ?? 0;
-      if (remaining > 0) {
-        duplicateBudget.set(key, remaining - 1);
-        return current;
+      const duplicateIndices = historyMessageIndicesBySemanticKey.get(key) ?? [];
+      const duplicateOffset = mergedDuplicateOffsets.get(key) ?? 0;
+      const targetIndex = duplicateIndices[duplicateOffset];
+      if (typeof targetIndex === "number") {
+        mergedDuplicateOffsets.set(key, duplicateOffset + 1);
+        return mergeAgentMessageAtIndex(current, targetIndex, message);
       }
     }
     return upsertAgentMessage(current, message);
@@ -230,6 +315,7 @@ export function useMessageSession({
   const messagesRef = useRef<AgentChatMessage[]>([]);
   const pendingResponseRef = useRef(false);
   const sessionPhaseRef = useRef<MessageSessionPhase>("idle");
+  const sessionTurnQueuesRef = useRef<Map<string, AgentTurnTracker[]>>(new Map());
   const resumableSessionIdsRef = useRef<Set<string>>(new Set());
   const manuallyPausedSessionIdsRef = useRef<Set<string>>(new Set());
   const sessionSnapshotsRef = useRef<Map<string, SessionSnapshot>>(new Map());
@@ -346,15 +432,16 @@ export function useMessageSession({
   }, []);
 
   const applySnapshotUpdate = useCallback((sessionId: string, updater: (snapshot: SessionSnapshot) => SessionSnapshot) => {
-    const baseSnapshot = currentSessionIdRef.current === sessionId
-      ? buildVisibleSnapshot()
-      : (sessionSnapshotsRef.current.get(sessionId) ?? {
-        messages: [],
-        pendingResponse: false,
-        phase: "idle",
-        coreFields: undefined,
-        historyLoaded: false,
-      });
+    const baseSnapshot = sessionSnapshotsRef.current.get(sessionId)
+      ?? (currentSessionIdRef.current === sessionId
+        ? buildVisibleSnapshot()
+        : {
+          messages: [],
+          pendingResponse: false,
+          phase: "idle" as const,
+          coreFields: undefined,
+          historyLoaded: false,
+        });
     const nextSnapshot = updater(baseSnapshot);
     sessionSnapshotsRef.current.set(sessionId, nextSnapshot);
     if (currentSessionIdRef.current === sessionId) {
@@ -362,6 +449,189 @@ export function useMessageSession({
     }
     return nextSnapshot;
   }, [buildVisibleSnapshot, restoreSessionSnapshot]);
+
+  const getSessionTurnQueue = useCallback((sessionId: string) => {
+    const existingQueue = sessionTurnQueuesRef.current.get(sessionId);
+    if (existingQueue) {
+      return existingQueue;
+    }
+    const nextQueue: AgentTurnTracker[] = [];
+    sessionTurnQueuesRef.current.set(sessionId, nextQueue);
+    return nextQueue;
+  }, []);
+
+  const pruneCommittedSessionTurns = useCallback((sessionId: string) => {
+    const queue = getSessionTurnQueue(sessionId);
+    sessionTurnQueuesRef.current.set(sessionId, queue.filter((item) => !item.committed));
+  }, [getSessionTurnQueue]);
+
+  const createSessionTurn = useCallback((sessionId: string, seed?: Partial<Pick<AgentTurnTracker, "userMessageId" | "userSentAt">>) => {
+    const queue = getSessionTurnQueue(sessionId);
+    const nextTurn: AgentTurnTracker = {
+      userMessageId: seed?.userMessageId ?? nextLocalMessageId(localMessageSeqRef, "turn"),
+      userSentAt: seed?.userSentAt ?? new Date().toISOString(),
+      startedAtMs: getAgentTimingNow(),
+      llmRequestCount: 0,
+      modelDurationMs: 0,
+    };
+    queue.push(nextTurn);
+    return nextTurn;
+  }, [getSessionTurnQueue]);
+
+  const ensureActiveSessionTurn = useCallback((sessionId: string, seed?: Partial<Pick<AgentTurnTracker, "userMessageId" | "userSentAt">>) => {
+    const queue = getSessionTurnQueue(sessionId);
+    return queue.find((item) => typeof item.totalDurationMs !== "number") ?? createSessionTurn(sessionId, seed);
+  }, [createSessionTurn, getSessionTurnQueue]);
+
+  const applyTimingToSessionMessage = useCallback((sessionId: string, messageId: string, turn: AgentTurnTracker) => {
+    const timing = buildAgentChatTiming(turn);
+    if (!timing) {
+      return;
+    }
+    applySnapshotUpdate(sessionId, (snapshot) => ({
+      ...snapshot,
+      messages: snapshot.messages.map((message) => (
+        message.id === messageId
+          ? {
+            ...message,
+            emittedAt: turn.assistantEmittedAt ?? message.emittedAt,
+            timing: {
+              ...message.timing,
+              ...timing,
+            },
+          }
+          : message
+      )),
+    }));
+  }, [applySnapshotUpdate]);
+
+  const commitSessionTurnTiming = useCallback((sessionId: string, turn: AgentTurnTracker) => {
+    if (!turn.assistantMessageId) {
+      return;
+    }
+    applyTimingToSessionMessage(sessionId, turn.assistantMessageId, turn);
+    if (typeof turn.totalDurationMs === "number") {
+      turn.committed = true;
+      pruneCommittedSessionTurns(sessionId);
+    }
+  }, [applyTimingToSessionMessage, pruneCommittedSessionTurns]);
+
+  const bindAssistantMessageToSessionTurn = useCallback((
+    sessionId: string,
+    messageId: string,
+    emittedAt?: string,
+    hasVisibleContent = false,
+    hasThinkingContent = false,
+  ) => {
+    const queue = getSessionTurnQueue(sessionId);
+    const existingTurn = queue.find((item) => item.assistantMessageId === messageId);
+    const pendingTurn = [...queue].reverse().find((item) => !item.assistantMessageId);
+    const targetTurn = existingTurn ?? pendingTurn ?? ensureActiveSessionTurn(sessionId);
+    let changed = false;
+
+    if (!targetTurn.assistantMessageId) {
+      targetTurn.assistantMessageId = messageId;
+      changed = true;
+    }
+    if (!targetTurn.assistantEmittedAt && emittedAt) {
+      targetTurn.assistantEmittedAt = emittedAt;
+      changed = true;
+    }
+    if (hasThinkingContent && typeof targetTurn.firstThinkingDurationMs !== "number") {
+      targetTurn.firstThinkingAt = emittedAt ?? targetTurn.firstThinkingAt ?? new Date().toISOString();
+      targetTurn.firstThinkingDurationMs = Math.max(Math.round(getAgentTimingNow() - targetTurn.startedAtMs), 0);
+      changed = true;
+    }
+    if (hasVisibleContent && typeof targetTurn.firstVisibleDurationMs !== "number") {
+      targetTurn.firstVisibleAt = emittedAt ?? targetTurn.firstVisibleAt ?? new Date().toISOString();
+      targetTurn.firstVisibleDurationMs = Math.max(Math.round(getAgentTimingNow() - targetTurn.startedAtMs), 0);
+      changed = true;
+    }
+    if (changed && targetTurn.assistantMessageId) {
+      applyTimingToSessionMessage(sessionId, targetTurn.assistantMessageId, targetTurn);
+    }
+    return targetTurn;
+  }, [applyTimingToSessionMessage, ensureActiveSessionTurn, getSessionTurnQueue]);
+
+  const recordSessionTurnRequest = useCallback((sessionId: string, provider?: string, model?: string) => {
+    const activeTurn = ensureActiveSessionTurn(sessionId);
+    activeTurn.provider = provider ?? activeTurn.provider;
+    activeTurn.model = model ?? activeTurn.model;
+    activeTurn.llmRequestCount += 1;
+    if (activeTurn.assistantMessageId) {
+      applyTimingToSessionMessage(sessionId, activeTurn.assistantMessageId, activeTurn);
+    }
+  }, [applyTimingToSessionMessage, ensureActiveSessionTurn]);
+
+  const recordSessionTurnResponse = useCallback((
+    sessionId: string,
+    provider?: string,
+    model?: string,
+    durationMs?: number,
+    inputTokens?: number,
+    outputTokens?: number,
+  ) => {
+    const activeTurn = ensureActiveSessionTurn(sessionId);
+    activeTurn.provider = provider ?? activeTurn.provider;
+    activeTurn.model = model ?? activeTurn.model;
+    if (typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0) {
+      activeTurn.modelDurationMs += durationMs;
+    }
+    if (typeof inputTokens === "number" && Number.isFinite(inputTokens) && inputTokens >= 0) {
+      activeTurn.inputTokens = inputTokens;
+    }
+    if (typeof outputTokens === "number" && Number.isFinite(outputTokens) && outputTokens >= 0) {
+      activeTurn.outputTokens = outputTokens;
+    }
+    if (activeTurn.assistantMessageId) {
+      applyTimingToSessionMessage(sessionId, activeTurn.assistantMessageId, activeTurn);
+    }
+  }, [applyTimingToSessionMessage, ensureActiveSessionTurn]);
+
+  const finalizeSessionTurnTiming = useCallback((sessionId: string, completedAt?: string) => {
+    const activeTurn = getSessionTurnQueue(sessionId).find((item) => typeof item.totalDurationMs !== "number");
+    if (!activeTurn) {
+      return;
+    }
+    const totalDurationMs = Math.max(Math.round(getAgentTimingNow() - activeTurn.startedAtMs), 0);
+    activeTurn.totalDurationMs = totalDurationMs;
+    activeTurn.agentDurationMs = Math.max(totalDurationMs - activeTurn.modelDurationMs, 0);
+    activeTurn.completedAt = completedAt ?? new Date().toISOString();
+    commitSessionTurnTiming(sessionId, activeTurn);
+  }, [commitSessionTurnTiming, getSessionTurnQueue]);
+
+  const trackSessionTimingFromDebug = useCallback((sessionId: string, content: string, emittedAt?: string) => {
+    const lines = content
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    lines.forEach((line) => {
+      const timingEvent = parseAgentTimingDebugLine(line);
+      if (!timingEvent) {
+        return;
+      }
+      if (timingEvent.type === "request") {
+        recordSessionTurnRequest(sessionId, timingEvent.provider, timingEvent.model);
+        return;
+      }
+      if (timingEvent.type === "response") {
+        recordSessionTurnResponse(
+          sessionId,
+          timingEvent.provider,
+          timingEvent.model,
+          timingEvent.durationMs,
+          timingEvent.inputTokens,
+          timingEvent.outputTokens,
+        );
+        return;
+      }
+      if (timingEvent.type === "complete") {
+        finalizeSessionTurnTiming(sessionId, emittedAt);
+      }
+    });
+  }, [finalizeSessionTurnTiming, recordSessionTurnRequest, recordSessionTurnResponse]);
 
   const shouldAutoAttachSession = useCallback((targetSession?: MessageSessionListItem, snapshot?: SessionSnapshot) => {
     const targetSessionId = targetSession?.sessionId;
@@ -440,7 +710,7 @@ export function useMessageSession({
     if (!chunk) {
       return;
     }
-    applySnapshotUpdate(sessionId, (snapshot) => {
+    const nextSnapshot = applySnapshotUpdate(sessionId, (snapshot) => {
       const messageId = rawAssistantMessageIdsRef.current.get(sessionId) ?? nextLocalMessageId(localMessageSeqRef, "assistant-raw");
       rawAssistantMessageIdsRef.current.set(sessionId, messageId);
       const existingIndex = snapshot.messages.findIndex((message) => message.id === messageId);
@@ -455,7 +725,18 @@ export function useMessageSession({
         historyLoaded: true,
       };
     });
-  }, [applySnapshotUpdate]);
+    const rawAssistantMessageId = rawAssistantMessageIdsRef.current.get(sessionId);
+    const rawAssistantMessage = nextSnapshot.messages.find((message) => message.id === rawAssistantMessageId);
+    if (rawAssistantMessageId && rawAssistantMessage) {
+      bindAssistantMessageToSessionTurn(
+        sessionId,
+        rawAssistantMessageId,
+        rawAssistantMessage.emittedAt ?? rawAssistantMessage.createdAt,
+        Boolean(rawAssistantMessage.content.trim()),
+        Boolean(rawAssistantMessage.thinkingContent?.trim()),
+      );
+    }
+  }, [applySnapshotUpdate, bindAssistantMessageToSessionTurn]);
 
   const processRawLine = useCallback((sessionId: string, rawLine: string) => {
     const normalizedLine = rawLine.replace(/\r$/, "");
@@ -483,6 +764,33 @@ export function useMessageSession({
       return;
     }
     if (isAgentSessionThinkingPlaceholderContent(trimmedLine)) {
+      return;
+    }
+    const timingEvent = parseAgentTimingDebugLine(trimmedLine);
+    if (timingEvent?.type === "request") {
+      recordSessionTurnRequest(sessionId, timingEvent.provider, timingEvent.model);
+      return;
+    }
+    if (timingEvent?.type === "response") {
+      recordSessionTurnResponse(
+        sessionId,
+        timingEvent.provider,
+        timingEvent.model,
+        timingEvent.durationMs,
+        timingEvent.inputTokens,
+        timingEvent.outputTokens,
+      );
+      return;
+    }
+    if (timingEvent?.type === "complete") {
+      finalizeRawAssistantMessage(sessionId);
+      finalizeSessionTurnTiming(sessionId);
+      applySnapshotUpdate(sessionId, (snapshot) => ({
+        ...snapshot,
+        pendingResponse: false,
+        phase: "idle",
+      }));
+      void refreshSessions?.();
       return;
     }
     if (isRawErrorLine(trimmedLine)) {
@@ -514,19 +822,18 @@ export function useMessageSession({
       return;
     }
     if (isRawLogLine(trimmedLine)) {
-      if (trimmedLine.includes("turn.complete")) {
-        finalizeRawAssistantMessage(sessionId);
-        applySnapshotUpdate(sessionId, (snapshot) => ({
-          ...snapshot,
-          pendingResponse: false,
-          phase: "idle",
-        }));
-        void refreshSessions?.();
-      }
       return;
     }
     appendRawAssistantChunk(sessionId, `${normalizedLine}\n`);
-  }, [appendRawAssistantChunk, applySnapshotUpdate, finalizeRawAssistantMessage, refreshSessions]);
+  }, [
+    appendRawAssistantChunk,
+    applySnapshotUpdate,
+    finalizeRawAssistantMessage,
+    finalizeSessionTurnTiming,
+    recordSessionTurnRequest,
+    recordSessionTurnResponse,
+    refreshSessions,
+  ]);
 
   const processRawChunk = useCallback((sessionId: string, chunk: string) => {
     if (!chunk) {
@@ -545,6 +852,43 @@ export function useMessageSession({
     rawLineBuffersRef.current.set(sessionId, pendingBuffer);
   }, [processRawLine]);
 
+  const syncLatestHistoryForSession = useCallback(async (sessionId: string) => {
+    if (!sessionId) {
+      return false;
+    }
+    try {
+      const response = await listConsumerChatSessionMessages(sessionId, 100);
+      if (currentSessionIdRef.current !== sessionId && !sessionSnapshotsRef.current.has(sessionId)) {
+        return false;
+      }
+      const historyMessages = response.items
+        .map((item, index) => normalizeHistoryMessage(item, index))
+        .filter((item): item is AgentChatMessage => item !== null);
+      const cachedSnapshot = sessionSnapshotsRef.current.get(sessionId);
+      const nextMessages = mergeHistoryWithSnapshot(historyMessages, cachedSnapshot);
+      const nextPendingResponse = Boolean(
+        cachedSnapshot?.pendingResponse
+        || nextMessages.some((message) => message.role === "assistant" && message.pending),
+      );
+      const nextSnapshot: SessionSnapshot = {
+        messages: nextMessages,
+        pendingResponse: nextPendingResponse,
+        phase: cachedSnapshot?.phase === "starting" || cachedSnapshot?.phase === "sending"
+          ? cachedSnapshot.phase
+          : (nextPendingResponse ? "generating" : "idle"),
+        coreFields: cachedSnapshot?.coreFields,
+        historyLoaded: true,
+      };
+      sessionSnapshotsRef.current.set(sessionId, nextSnapshot);
+      if (currentSessionIdRef.current === sessionId) {
+        restoreSessionSnapshot(nextSnapshot);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, [restoreSessionSnapshot]);
+
   const handleSocketMessage = useCallback((sessionId: string, data: string) => {
     const frame = parseAgentSessionFrame(data);
     if (!frame) {
@@ -553,7 +897,10 @@ export function useMessageSession({
     }
     finalizeRawAssistantMessage(sessionId);
     if (frame.eventType === "debug") {
-      if (typeof frame.chunk === "string" && isRawErrorLine(frame.chunk)) {
+      if (typeof frame.chunk === "string") {
+        trackSessionTimingFromDebug(sessionId, frame.chunk, frame.emittedAt);
+      }
+      if (typeof frame.chunk === "string" && frame.chunk.split(/\r?\n/).some((line) => isRawErrorLine(line))) {
         applySnapshotUpdate(sessionId, (snapshot) => ({
           ...snapshot,
           pendingResponse: false,
@@ -565,13 +912,26 @@ export function useMessageSession({
       return;
     }
     if (frame.eventType === "delta" && frame.delta) {
-      applySnapshotUpdate(sessionId, (snapshot) => ({
+      const nextSnapshot = applySnapshotUpdate(sessionId, (snapshot) => ({
         ...snapshot,
         messages: applyAgentDelta(snapshot.messages, frame.delta!),
         pendingResponse: true,
         phase: "generating",
         historyLoaded: true,
       }));
+      if (frame.delta.role === "assistant") {
+        const deltaMessage = nextSnapshot.messages.find((message) => message.id === frame.delta!.messageId);
+        const boundTurn = bindAssistantMessageToSessionTurn(
+          sessionId,
+          frame.delta.messageId,
+          frame.delta.emittedAt,
+          Boolean(deltaMessage?.content.trim()),
+          Boolean(deltaMessage?.thinkingContent?.trim()),
+        );
+        if (boundTurn && typeof boundTurn.totalDurationMs === "number") {
+          commitSessionTurnTiming(sessionId, boundTurn);
+        }
+      }
       return;
     }
     if (frame.eventType === "message" && frame.message) {
@@ -600,9 +960,34 @@ export function useMessageSession({
           phase: "idle",
         }));
         void refreshSessions?.();
+        void syncLatestHistoryForSession(sessionId);
+      }
+      if (normalizedMessage.role === "assistant") {
+        const boundTurn = bindAssistantMessageToSessionTurn(
+          sessionId,
+          normalizedMessage.id,
+          normalizedMessage.emittedAt,
+          Boolean(normalizedMessage.content.trim()),
+          Boolean(normalizedMessage.thinkingContent?.trim()),
+        );
+        if (boundTurn && typeof boundTurn.totalDurationMs === "number") {
+          commitSessionTurnTiming(sessionId, boundTurn);
+        }
       }
     }
-  }, [applySnapshotUpdate, finalizeRawAssistantMessage, processRawChunk, refreshSessions]);
+  }, [
+    applySnapshotUpdate,
+    bindAssistantMessageToSessionTurn,
+    commitSessionTurnTiming,
+    finalizeRawAssistantMessage,
+    finalizeSessionTurnTiming,
+    processRawChunk,
+    recordSessionTurnRequest,
+    recordSessionTurnResponse,
+    refreshSessions,
+    syncLatestHistoryForSession,
+    trackSessionTimingFromDebug,
+  ]);
 
   const disconnectSession = useCallback((sessionId?: string, silent = false) => {
     if (!sessionId) {
@@ -705,9 +1090,13 @@ export function useMessageSession({
       setNotice(undefined);
       setError(undefined);
     }
+    createSessionTurn(sessionId, {
+      userMessageId: userMessage.id,
+      userSentAt: sentAt,
+    });
     void refreshSessions?.();
     return true;
-  }, [applySnapshotUpdate, getSessionSocket, refreshSessions]);
+  }, [applySnapshotUpdate, createSessionTurn, getSessionSocket, refreshSessions]);
 
   const sendNormalizedMessage = useCallback((normalizedMessage: string, options?: SendMessageOptions) => {
     const activeSessionId = currentSessionIdRef.current;
@@ -716,6 +1105,24 @@ export function useMessageSession({
     }
     return sendNormalizedMessageToSession(activeSessionId, normalizedMessage, options);
   }, [sendNormalizedMessageToSession]);
+
+  const ensureSessionSendAllowed = useCallback(async (sessionId: string) => {
+    try {
+      const allowance = await getConsumerChatSessionSendAllowance(sessionId);
+      if (allowance.allowed) {
+        return true;
+      }
+      const reason = allowance.reason?.trim() || INSUFFICIENT_BALANCE_NOTICE;
+      setNotice(undefined);
+      setError(reason);
+      void refreshUserCenterVipInfo();
+      return false;
+    } catch (checkError) {
+      setNotice(undefined);
+      setError(checkError instanceof Error ? checkError.message : "发送前余额校验失败");
+      return false;
+    }
+  }, []);
 
   const flushQueuedMessagesForSession = useCallback((sessionId: string) => {
     const queuedMessages = queuedMessagesRef.current.get(sessionId);
@@ -1028,6 +1435,10 @@ export function useMessageSession({
       setError("请先创建会话");
       return false;
     }
+    const allowed = await ensureSessionSendAllowed(targetSession.sessionId);
+    if (!allowed) {
+      return false;
+    }
 
     selectedRobotIdRef.current = selectedRobot.id;
     if (currentSessionIdRef.current !== targetSession.sessionId) {
@@ -1066,6 +1477,7 @@ export function useMessageSession({
     return opened;
   }, [
     applySnapshotUpdate,
+    ensureSessionSendAllowed,
     ensureSession,
     flushQueuedMessagesForSession,
     isSessionSocketOpen,
@@ -1135,14 +1547,16 @@ export function useMessageSession({
     };
     const activeSessionId = currentSessionIdRef.current;
     const sent = activeSessionId && isSessionSocketOpen(activeSessionId)
-      ? sendNormalizedMessage(normalizedMessage, sendOptions)
+      ? (await ensureSessionSendAllowed(activeSessionId))
+        ? sendNormalizedMessage(normalizedMessage, sendOptions)
+        : false
       : await queueMessageAndConnect(normalizedMessage, sendOptions);
     if (sent) {
       setInput("");
       setInteractionDraft(undefined);
     }
     return sent;
-  }, [enrichInteractionMessage, input, interactionDraft, isSessionSocketOpen, queueMessageAndConnect, sendNormalizedMessage]);
+  }, [enrichInteractionMessage, ensureSessionSendAllowed, input, interactionDraft, isSessionSocketOpen, queueMessageAndConnect, sendNormalizedMessage]);
 
   const runInteractionAction = useCallback(async (messageId: string, action: AgentInteractionAction) => {
     if (action.kind === "send") {
@@ -1160,7 +1574,9 @@ export function useMessageSession({
       };
       const activeSessionId = currentSessionIdRef.current;
       const sent = activeSessionId && isSessionSocketOpen(activeSessionId)
-        ? sendNormalizedMessage(normalizedPayload, sendOptions)
+        ? (await ensureSessionSendAllowed(activeSessionId))
+          ? sendNormalizedMessage(normalizedPayload, sendOptions)
+          : false
         : await queueMessageAndConnect(normalizedPayload, sendOptions);
       if (sent) {
         setInteractionDraft(undefined);
@@ -1182,7 +1598,7 @@ export function useMessageSession({
     setInteractionDraft(undefined);
     setInput(action.payload);
     return true;
-  }, [enrichInteractionMessage, isSessionSocketOpen, queueMessageAndConnect, sendNormalizedMessage]);
+  }, [enrichInteractionMessage, ensureSessionSendAllowed, isSessionSocketOpen, queueMessageAndConnect, sendNormalizedMessage]);
 
   const reconnect = useCallback(async () => {
     disconnect(true);

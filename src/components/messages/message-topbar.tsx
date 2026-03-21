@@ -11,7 +11,6 @@ const text = {
   newSession: "\u65b0\u4f1a\u8bdd",
   closeSession: "\u7ed3\u675f\u5bf9\u8bdd",
   closingSession: "\u7ed3\u675f\u4e2d...",
-  sessionLimitHint: "\u8bf4\u660e\uff1a\u7ed3\u675f\u5bf9\u8bdd\u4e0d\u4f1a\u91ca\u653e\u4f1a\u8bdd\u540d\u989d\uff0c\u5220\u9664\u65e7\u4f1a\u8bdd\u540e\u624d\u80fd\u65b0\u5efa\u3002",
 };
 
 export function MessageTopbar({
@@ -125,12 +124,6 @@ export function MessageTopbar({
           )}
         >
           {error ?? notice}
-        </div>
-      ) : null}
-
-      {selectedRobot ? (
-        <div className="mt-3 text-xs leading-6 text-slate-500">
-          {text.sessionLimitHint}
         </div>
       ) : null}
     </header>

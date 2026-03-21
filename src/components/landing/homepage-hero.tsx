@@ -11,63 +11,79 @@ import {
 } from "./homepage-data";
 
 function HeroProofCard({
-  index,
   title,
   description,
 }: {
-  index: string;
   title: string;
   description: string;
 }) {
   return (
     <article className="rounded-[20px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.03)_100%)] px-4 py-3.5 backdrop-blur-sm">
-      <div className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-100/80">
-        {index} / 阶段
-      </div>
-      <h3 className="mt-2 text-sm font-bold text-white">{title}</h3>
+      <h3 className="text-sm font-bold text-white">{title}</h3>
       <p className="mt-1 text-xs leading-5 text-white/70">{description}</p>
     </article>
   );
 }
 
-function HeroStartStep({
-  step,
-  title,
+function HeroStepAction({
   actionLabel,
   href,
   onAction,
 }: {
-  step: string;
-  title: string;
   actionLabel: string;
   href: string;
   onAction?: () => void;
 }) {
+  const className = "inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] px-4 text-[11px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]";
+
+  if (onAction) {
+    return (
+      <button
+        type="button"
+        onClick={onAction}
+        className={className}
+      >
+        {actionLabel}
+      </button>
+    );
+  }
+
   return (
-    <article className="rounded-[20px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.04)_100%)] px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-sm">
-      <div className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-100/78">
-        {step}
-      </div>
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <p className="max-w-[190px] text-[13px] font-bold leading-5 text-white">{title}</p>
-        {onAction ? (
-          <button
-            type="button"
-            onClick={onAction}
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] px-4 text-[11px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]"
-          >
-            {actionLabel}
-          </button>
-        ) : (
-          <Link
-            href={href}
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-white/22 bg-[linear-gradient(135deg,#ffb46d_0%,#ff7a18_40%,#8b3dff_100%)] px-4 text-[11px] font-black text-white shadow-[0_10px_24px_rgba(139,61,255,0.18)] transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_14px_28px_rgba(139,61,255,0.24)]"
-          >
-            {actionLabel}
-          </Link>
-        )}
-      </div>
-    </article>
+    <Link
+      href={href}
+      className={className}
+    >
+      {actionLabel}
+    </Link>
+  );
+}
+
+function HeroStartStepLayers({
+  steps,
+}: {
+  steps: HeroStepItem[];
+}) {
+  return (
+    <div className="mt-4 overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.04)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-sm">
+      {steps.map((item, index) => (
+        <div
+          key={item.step}
+          className={`px-4 py-3 ${index > 0 ? "border-t border-white/10" : ""}`}
+        >
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-100/76">
+            {item.step}
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="max-w-[190px] text-[13px] font-bold leading-5 text-white">{item.title}</p>
+            <HeroStepAction
+              actionLabel={item.actionLabel}
+              href={item.href}
+              onAction={item.onAction}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -171,13 +187,12 @@ export function HomepageHero({
                 {item}
               </span>
             ))}
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-1 text-[11px] font-black tracking-[0.24em] uppercase text-violet-50/84">
+              Agent × Skill × Runtime
+            </span>
           </div>
 
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-1 text-[11px] font-black tracking-[0.24em] uppercase text-violet-50/84">
-            Agent × Skill × Runtime
-          </div>
-
-          <div className="mt-5 max-w-[34rem] rounded-[28px] bg-[linear-gradient(90deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.06)_72%,rgba(255,255,255,0.02)_100%)] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-[3px] sm:px-6">
+          <div className="mt-4 max-w-[34rem] rounded-[28px] bg-[linear-gradient(90deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.06)_72%,rgba(255,255,255,0.02)_100%)] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-[3px] sm:px-6">
             <div className="text-[32px] font-black leading-none tracking-[-0.05em] text-white sm:text-[46px]">
               FunClaw
             </div>
@@ -199,7 +214,6 @@ export function HomepageHero({
             {heroProofPoints.map((item) => (
               <HeroProofCard
                 key={item.index}
-                index={item.index}
                 title={item.title}
                 description={item.description}
               />
@@ -210,28 +224,30 @@ export function HomepageHero({
         <motion.aside
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 5.4, repeat: Infinity, ease: "easeInOut" }}
-          className="relative rounded-[28px] border border-white/14 bg-[linear-gradient(180deg,rgba(139,61,255,0.24)_0%,rgba(255,122,24,0.14)_100%)] p-4 shadow-[0_20px_54px_rgba(139,61,255,0.16)] backdrop-blur-xl"
+          className={`relative rounded-[28px] border border-white/14 bg-[linear-gradient(180deg,rgba(139,61,255,0.24)_0%,rgba(255,122,24,0.14)_100%)] shadow-[0_20px_54px_rgba(139,61,255,0.16)] backdrop-blur-xl ${hasOwnedLobster ? "p-4" : "p-3.5"}`}
         >
           <div className="pointer-events-none absolute inset-0 rounded-[32px] bg-[linear-gradient(180deg,rgba(255,255,255,0.05)_0%,transparent_22%,transparent_78%,rgba(255,255,255,0.03)_100%)]" />
-          <div className="relative rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(100,54,177,0.22)_0%,rgba(255,122,24,0.08)_100%)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="flex items-center justify-between">
-              <span className="rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[11px] font-black text-white/84">
-                {hasOwnedLobster ? "Ready" : "Beginning"}
-              </span>
-              <CircleCheckBig size={16} className="text-violet-100/78" />
-            </div>
+          <div className={`relative rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(100,54,177,0.22)_0%,rgba(255,122,24,0.08)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${hasOwnedLobster ? "p-5" : "p-4"}`}>
+            {hasOwnedLobster ? (
+              <div className="flex items-center justify-between">
+                <span className="rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[11px] font-black text-white/84">
+                  Ready
+                </span>
+                <CircleCheckBig size={16} className="text-violet-100/78" />
+              </div>
+            ) : null}
 
-            <div className="mt-4 flex items-center gap-2 text-[17px] font-black text-white">
+            <div className={`${hasOwnedLobster ? "mt-4" : ""} flex items-center gap-2 text-[17px] font-black text-white`}>
               <XiamiIcon size={18} title="龙虾" />
               <span>{hasOwnedLobster ? "你的龙虾已就绪" : "三步领养你的龙虾"}</span>
             </div>
-            <p className="mt-3 text-xs leading-6 text-white/72">
+            <p className={`${hasOwnedLobster ? "mt-3" : "mt-2"} text-xs leading-6 text-white/72`}>
               {hasOwnedLobster
                 ? `${currentLobsterName} 已绑定到你的账号，当前状态 ${currentLobsterStatus}。现在可以直接进入对话，或先查看详情。`
                 : "先领养，再命名，然后直接开始对话和创作。"}
             </p>
 
-            <div className={`mt-5 ${hasOwnedLobster ? "" : "space-y-2.5"}`}>
+            <div className={hasOwnedLobster ? "mt-5" : ""}>
               {hasOwnedLobster ? (
                 <Link
                   href={viewOwnedLobsterHref}
@@ -241,16 +257,7 @@ export function HomepageHero({
                   查看详情
                 </Link>
               ) : (
-                steps.map((item) => (
-                  <HeroStartStep
-                    key={item.step}
-                    step={item.step}
-                    title={item.title}
-                    actionLabel={item.actionLabel}
-                    href={item.href}
-                    onAction={item.onAction}
-                  />
-                ))
+                <HeroStartStepLayers steps={steps} />
               )}
             </div>
           </div>

@@ -3,6 +3,13 @@ export type DesiredState = "RUNNING" | "STOPPED";
 export type RuntimeType = "ZEROCLAW";
 export type InstanceActionType = "START" | "STOP" | "RESTART" | "RESTART_ZEROCLAW" | "ROLLBACK";
 
+export interface InstanceConsumerBindingSummary {
+  consumerAccountId: string;
+  externalUid?: string | null;
+  phoneMasked?: string | null;
+  displayName?: string | null;
+}
+
 export interface ClawInstance {
   id: string;
   name: string;
@@ -17,6 +24,9 @@ export interface ClawInstance {
   restartRequired: boolean;
   createdAt: string;
   updatedAt: string;
+  consumerBindingCount?: number | null;
+  consumerBound?: boolean | null;
+  consumerBindings?: InstanceConsumerBindingSummary[] | null;
 }
 
 export interface PairingCodeResponse {
@@ -376,6 +386,14 @@ export interface InstanceTemplateRoutingConfig {
   queryClassificationRules: QueryClassificationRuleConfigItem[];
 }
 
+export interface InstanceTemplateAgentConfig {
+  maxToolIterations?: number | null;
+  compactContext?: boolean | null;
+  maxHistoryMessages?: number | null;
+  parallelTools?: boolean | null;
+  toolDispatcher?: string | null;
+}
+
 export interface InstanceTemplateMainAgentGuidance {
   prompt?: string | null;
   enabled?: boolean | null;
@@ -399,6 +417,7 @@ export interface InstanceTemplate {
   channelsConfig?: InstanceTemplateChannelsConfig | null;
   defaultModelConfig?: InstanceTemplateDefaultModelConfig | null;
   routingConfig?: InstanceTemplateRoutingConfig | null;
+  agentConfig?: InstanceTemplateAgentConfig | null;
   mainAgentGuidance?: InstanceTemplateMainAgentGuidance | null;
   updatedBy?: string | null;
   createdAt: string;
@@ -441,6 +460,7 @@ export interface InstanceTemplateUpsertRequest {
   channelsConfig?: InstanceTemplateChannelsConfig | null;
   defaultModelConfig?: InstanceTemplateDefaultModelConfig | null;
   routingConfig?: InstanceTemplateRoutingConfig | null;
+  agentConfig?: InstanceTemplateAgentConfig | null;
   mainAgentGuidance?: InstanceTemplateMainAgentGuidance | null;
   updatedBy?: string | null;
 }
@@ -476,4 +496,109 @@ export interface OpenClientAppUpdateRequest {
 
 export interface OpenClientAppCreateResponse extends OpenClientApp {
   plainSecret: string;
+}
+
+export interface ModelBillingConfig {
+  id: string;
+  provider: string;
+  model: string;
+  displayName: string;
+  currency: string;
+  basePricePer1m: number;
+  modelMultiplier: number;
+  cacheMultiplier: number;
+  outputMultiplier: number;
+  groupMultiplier: number;
+  inputPricePer1m: number;
+  outputPricePer1m: number;
+  enabled: boolean;
+  remark?: string | null;
+  updatedBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ConsumerBillingLocalRecord {
+  billingId: string;
+  outboxId?: string | null;
+  actionDetailId?: number | null;
+  consumerAccountId: string;
+  externalUserId?: string | null;
+  externalUid?: string | null;
+  phoneMasked?: string | null;
+  displayName?: string | null;
+  sessionId: string;
+  messageId: string;
+  provider?: string | null;
+  model?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  estimatedCny?: number | null;
+  estimatedXiami?: number | null;
+  settledXiami: number;
+  outboxStatus?: string | null;
+  outboxAttemptCount?: number | null;
+  outboxLastError?: string | null;
+  externalRequestId?: string | null;
+  externalRecordId?: number | null;
+  processedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ConsumerBillingArchivePartition {
+  tableName: string;
+  partitionBound?: string | null;
+  approxRows: number;
+}
+
+export interface ConsumerBillingArchiveStatus {
+  enabled: boolean;
+  fixedDelayMs: number;
+  batchSize: number;
+  hotRetentionDays: number;
+  zoneId: string;
+  hotTableApproxRows: number;
+  archiveApproxRows: number;
+  partitionCount: number;
+  oldestHotCreatedAt?: string | null;
+  newestHotCreatedAt?: string | null;
+  oldestArchiveCreatedAt?: string | null;
+  newestArchiveCreatedAt?: string | null;
+  latestArchivedAt?: string | null;
+  oldestArchivableCreatedAt?: string | null;
+  partitions: ConsumerBillingArchivePartition[];
+}
+
+export interface ConsumerBillingUserCenterOrder {
+  externalUserId?: string | null;
+  externalUid?: string | null;
+  phoneMasked?: string | null;
+  displayName?: string | null;
+  orderId?: string | null;
+  orderCode?: string | null;
+  commodityName?: string | null;
+  coinAmount?: number | null;
+  consumeMoney?: number | null;
+  payMoney?: number | null;
+  refundAmount?: number | null;
+  status?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  remark?: string | null;
+  fetchError?: string | null;
+}
+
+export interface ModelBillingConfigUpsertRequest {
+  provider: string;
+  model: string;
+  displayName?: string | null;
+  currency?: string | null;
+  basePricePer1m: number;
+  modelMultiplier?: number | null;
+  cacheMultiplier?: number | null;
+  outputMultiplier?: number | null;
+  groupMultiplier?: number | null;
+  enabled?: boolean | null;
+  remark?: string | null;
+  updatedBy?: string | null;
 }

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { message } from "antd";
 import { useSearchParams } from "next/navigation";
 import { useRequireUserCenterAuth } from "@/lib/use-require-user-center-auth";
 import { MessageComposer } from "./message-composer";
@@ -14,8 +15,10 @@ import { useMessageSessionActivity } from "./use-message-session-activity";
 import { useMessageSessionList } from "./use-message-session-list";
 
 const ROBOT_SWITCH_COOLDOWN_MS = 240;
+const THREAD_LOADING_REVEAL_DELAY_MS = 180;
 
 function MessagePageContent() {
+  const [messageApi, messageContextHolder] = message.useMessage();
   const searchParams = useSearchParams();
   const preferredInstanceId = searchParams.get("instanceId")?.trim() || undefined;
   const preferredAgentId = searchParams.get("agentId")?.trim() || undefined;
@@ -46,6 +49,7 @@ function MessagePageContent() {
   const [renamingSessionId, setRenamingSessionId] = useState<string>();
   const [switchingRobotId, setSwitchingRobotId] = useState<string>();
   const [robotSwitchCooldown, setRobotSwitchCooldown] = useState(false);
+  const [threadLoadingVisible, setThreadLoadingVisible] = useState(false);
 
   const session = useMessageSession({
     selectedRobot,
@@ -67,8 +71,15 @@ function MessagePageContent() {
     switchingRobotId
     && selectedRobot?.id === switchingRobotId
     && !robotSwitchReady
-    && (sessionList.loading || session.sessionLoading || session.currentSessionId !== sessionList.selectedSessionId),
+    && (
+      session.sessionLoading
+      || (
+        Boolean(sessionList.selectedSessionId)
+        && session.currentSessionId !== sessionList.selectedSessionId
+      )
+    ),
   );
+  const threadLoading = session.sessionLoading || showRobotSwitchLoading;
 
   const isCurrentSessionSelected = Boolean(
     session.currentSessionId
@@ -201,9 +212,10 @@ function MessagePageContent() {
       await sessionList.createSession();
       await sessionActivity.refreshActivity();
     } catch (createError) {
-      session.setError(createError instanceof Error ? createError.message : "创建会话失败");
+      session.setError(undefined);
+      messageApi.error(createError instanceof Error ? createError.message : "创建会话失败");
     }
-  }, [session, sessionActivity, sessionList]);
+  }, [messageApi, session, sessionActivity, sessionList]);
 
   const handleCloseSession = useCallback(async (sessionId: string) => {
     setClosingSessionId(sessionId);
@@ -284,9 +296,22 @@ function MessagePageContent() {
     return () => window.clearTimeout(timer);
   }, [robotSwitchCooldown]);
 
+  useEffect(() => {
+    if (!threadLoading) {
+      setThreadLoadingVisible(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setThreadLoadingVisible(true);
+    }, THREAD_LOADING_REVEAL_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [threadLoading]);
+
   return (
-    <main className="brand-sunset-theme h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,122,24,0.2),transparent_28%),radial-gradient(circle_at_top_right,rgba(139,61,255,0.16),transparent_24%),linear-gradient(180deg,#fffaf7_0%,#fff7fb_48%,#f8f4ff_100%)]">
-      <div className="mx-auto grid h-full max-w-[1920px] gap-4 p-4 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_320px] lg:p-6">
+    <>
+      {messageContextHolder}
+      <main className="brand-sunset-theme h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(255,122,24,0.2),transparent_28%),radial-gradient(circle_at_top_right,rgba(139,61,255,0.16),transparent_24%),linear-gradient(180deg,#fffaf7_0%,#fff7fb_48%,#f8f4ff_100%)]">
+        <div className="mx-auto grid h-full max-w-[1920px] gap-4 p-4 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_320px] lg:p-6">
         <MessageSidebar
           robots={robots}
           selectedRobotId={selectedRobotId}
@@ -337,7 +362,7 @@ function MessagePageContent() {
               messages={session.messages}
               pendingResponse={session.pendingResponse}
               statusLabel={threadStatusLabel}
-              loading={session.sessionLoading || showRobotSwitchLoading}
+              loading={threadLoadingVisible}
               selectedSessionTitle={selectedSession?.title}
               emptyNotice={threadEmptyNotice}
               interactionsEnabled={!viewOnly}
@@ -351,6 +376,8 @@ function MessagePageContent() {
               connecting={session.connecting || session.sessionLoading || session.sessionPhase === "starting" || robotSwitching}
               connected={session.connected}
               interactionDraft={session.interactionDraft}
+              inputLocked={session.inputLocked && !viewOnly}
+              inputLockedHint="正在生成上一轮回复，请等待完成后再继续发送"
               viewOnly={viewOnly}
               viewOnlyHint={threadEmptyNotice}
               onInputChange={session.setInput}
@@ -387,8 +414,9 @@ function MessagePageContent() {
               renamingSessionId={renamingSessionId}
             />
         </div>
-      </div>
-    </main>
+        </div>
+      </main>
+    </>
   );
 }
 

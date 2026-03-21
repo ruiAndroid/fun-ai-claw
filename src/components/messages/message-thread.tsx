@@ -77,7 +77,7 @@ function ChatBubble({
 
       <div
         className={cn(
-          "max-w-[min(840px,82vw)] rounded-[28px] px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]",
+          "min-w-0 max-w-[min(840px,82vw)] overflow-hidden rounded-[28px] px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.06)]",
           isUser
             ? "bg-[linear-gradient(135deg,#ff7a18,#8b3dff)] text-white shadow-[0_18px_40px_rgba(139,61,255,0.16)]"
             : "border border-white/80 bg-white/90 text-slate-900",
@@ -95,16 +95,18 @@ function ChatBubble({
         </div>
 
         {showThinking ? (
-          <div className="mt-3 rounded-[20px] bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-500">
+          <div className="mt-3 min-w-0 rounded-[20px] bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-500">
             <div className="mb-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
               <Sparkles size={14} />
               Thinking
             </div>
-            <div className="whitespace-pre-wrap">{message.thinkingContent}</div>
+            <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+              {message.thinkingContent}
+            </div>
           </div>
         ) : null}
 
-        <div className="mt-3 whitespace-pre-wrap text-[15px] leading-7">
+        <div className="mt-3 whitespace-pre-wrap break-words text-[15px] leading-7 [overflow-wrap:anywhere]">
           {message.content || (message.pending ? "正在思考..." : "")}
         </div>
 

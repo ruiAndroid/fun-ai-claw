@@ -45,6 +45,7 @@ import {
   getAgentInteractionStateLabel,
   getAgentTimingNow,
   isAgentSessionPlaceholderValue,
+  isAgentSessionThinkingPlaceholderContent,
   normalizeAgentChatMessage,
   normalizeStructuredAgentChatMessage,
   parseAgentInteractionPayload,
@@ -1251,6 +1252,9 @@ export function Dashboard() {
       if (item.id !== pendingMessageId) {
         return [item];
       }
+      if (isAgentSessionThinkingPlaceholderContent(item.content) && !item.thinkingContent?.trim()) {
+        return [];
+      }
       const normalizedMessage = normalizeAgentChatMessage(item.role, item.content, false);
       if (!normalizedMessage) {
         return [];
@@ -1266,6 +1270,28 @@ export function Dashboard() {
     agentPendingAssistantMessageIdRef.current = null;
   }, []);
 
+  const settleCompletedAssistantMessages = useCallback((
+    messages: AgentChatMessage[],
+    finalMessage: AgentChatMessage,
+  ) => {
+    if (finalMessage.role !== "assistant" || finalMessage.pending) {
+      return messages;
+    }
+    return messages.flatMap((item) => {
+      if (item.role !== "assistant" || !item.pending || item.id === finalMessage.id) {
+        return [item];
+      }
+      if (!item.content.trim() || isAgentSessionThinkingPlaceholderContent(item.content)) {
+        return [];
+      }
+      return [{
+        ...item,
+        pending: false,
+        thinkingContent: undefined,
+      }];
+    });
+  }, []);
+
   const appendStructuredAgentSessionMessage = useCallback((message: AgentSessionStreamMessage) => {
     finalizePendingAssistantMessage();
     const normalizedMessage = normalizeStructuredAgentChatMessage(message);
@@ -1276,14 +1302,15 @@ export function Dashboard() {
       agentAssistantMessageAliasRef.current.delete(normalizedMessage.id);
     }
     setAgentChatMessages((current) => {
+      const settledMessages = settleCompletedAssistantMessages(current, normalizedMessage);
       const nextMessages = normalizedMessage.role === "assistant" && normalizedMessage.content.trim()
-        ? current.filter((item) => !(
+        ? settledMessages.filter((item) => !(
           item.role === "assistant"
           && item.pending
           && item.id !== normalizedMessage.id
           && !item.content.trim()
         ))
-        : current;
+        : settledMessages;
       const existingIndex = nextMessages.findIndex((item) => item.id === normalizedMessage.id);
       if (existingIndex < 0) {
         const activeTurn = agentTurnQueueRef.current.find((item) => typeof item.totalDurationMs !== "number");
@@ -1330,7 +1357,7 @@ export function Dashboard() {
         Boolean(normalizedMessage.thinkingContent?.trim()),
       );
     }
-  }, [bindAssistantMessageToAgentTurn, finalizePendingAssistantMessage]);
+  }, [bindAssistantMessageToAgentTurn, finalizePendingAssistantMessage, settleCompletedAssistantMessages]);
 
   const flushQueuedStructuredAgentSessionMessages = useCallback(() => {
     queuedStructuredAgentMessagesFlushRef.current = null;
@@ -1584,6 +1611,18 @@ export function Dashboard() {
     return prefixes.some((prefix) => normalizedLine.startsWith(prefix));
   }, []);
 
+  const isAgentSessionErrorLine = useCallback((line: string) => {
+    const normalizedLine = line.trim().toLowerCase();
+    if (!normalizedLine) {
+      return false;
+    }
+    return normalizedLine.startsWith("error:")
+      || normalizedLine.includes("all providers/models failed")
+      || normalizedLine.includes("provider error:")
+      || normalizedLine.includes("custom api error")
+      || normalizedLine.includes("401 unauthorized");
+  }, []);
+
   const isAgentSessionInternalSystemMessage = useCallback((line: string) => {
     const normalizedLine = line.trim();
     if (!normalizedLine) {
@@ -1616,6 +1655,9 @@ export function Dashboard() {
     }
 
     if (trimmedLine === "馃 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
+      return;
+    }
+    if (isAgentSessionErrorLine(trimmedLine)) {
       return;
     }
 
@@ -1657,6 +1699,7 @@ export function Dashboard() {
     appendAssistantMessageChunk,
     finalizePendingAssistantMessage,
     isAgentSessionInternalSystemMessage,
+    isAgentSessionErrorLine,
     isAgentSessionLogLine,
     isAgentSessionMetaLine,
   ]);

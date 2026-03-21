@@ -44,18 +44,98 @@ import {
   message,
 } from "antd";
 import { PlayCircle, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ComponentProps } from "react";
 
 const { Paragraph, Text } = Typography;
 
 const DEFAULT_RULE_PRIORITY = 100;
 const DEFAULT_RULE_MIN_LENGTH = 0;
 const DEFAULT_RULE_MAX_LENGTH = 0;
+const TEMPLATE_DEFAULT_PROVIDER = "custom:https://api.ai.fun.tv/v1";
+const TEMPLATE_DEFAULT_MODEL = "MiniMax-M2.5";
+const MASKED_API_KEY_PLACEHOLDER = "***";
+const COMPACT_FIELD_LABEL_STYLE: CSSProperties = {
+  minWidth: 132,
+  paddingInline: 12,
+  display: "inline-flex",
+  alignItems: "center",
+  border: "1px solid #d9d9d9",
+  borderInlineEnd: 0,
+  borderRadius: "8px 0 0 8px",
+  background: "#fafafa",
+  color: "rgba(0,0,0,0.88)",
+  fontSize: 14,
+  lineHeight: 1.4,
+  whiteSpace: "nowrap",
+};
 
 type CreateTemplateForm = {
   templateKey: string;
   displayName: string;
 };
+
+function CompactFieldLabel({
+  label,
+  minWidth,
+}: {
+  label: string;
+  minWidth?: number;
+}) {
+  return (
+    <span style={{ ...COMPACT_FIELD_LABEL_STYLE, ...(minWidth ? { minWidth } : null) }}>
+      {label}
+    </span>
+  );
+}
+
+function CompactTextInput({
+  label,
+  minWidth,
+  ...props
+}: {
+  label: string;
+  minWidth?: number;
+} & ComponentProps<typeof Input>) {
+  return (
+    <Space.Compact block>
+      <CompactFieldLabel label={label} minWidth={minWidth} />
+      <Input {...props} />
+    </Space.Compact>
+  );
+}
+
+function CompactPasswordInput({
+  label,
+  minWidth,
+  ...props
+}: {
+  label: string;
+  minWidth?: number;
+} & ComponentProps<typeof Input.Password>) {
+  return (
+    <Space.Compact block>
+      <CompactFieldLabel label={label} minWidth={minWidth} />
+      <Input.Password {...props} />
+    </Space.Compact>
+  );
+}
+
+function CompactNumberInput({
+  label,
+  minWidth,
+  style,
+  ...props
+}: {
+  label: string;
+  minWidth?: number;
+} & ComponentProps<typeof InputNumber>) {
+  return (
+    <Space.Compact block>
+      <CompactFieldLabel label={label} minWidth={minWidth} />
+      <InputNumber {...props} style={{ width: "100%", ...(style ?? {}) }} />
+    </Space.Compact>
+  );
+}
 
 function cloneTemplate(template: InstanceTemplate): InstanceTemplate {
   return JSON.parse(JSON.stringify(template)) as InstanceTemplate;
@@ -119,8 +199,8 @@ function buildEmptyChannelsConfig(): InstanceTemplateChannelsConfig {
 function buildEmptyDefaultModelConfig(): InstanceTemplateDefaultModelConfig {
   return {
     apiKey: "",
-    defaultProvider: "",
-    defaultModel: "",
+    defaultProvider: TEMPLATE_DEFAULT_PROVIDER,
+    defaultModel: TEMPLATE_DEFAULT_MODEL,
     defaultTemperature: 0.7,
   };
 }
@@ -559,6 +639,8 @@ export function TemplateManagementPanel({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewConfigToml, setPreviewConfigToml] = useState("");
+  const [defaultModelStoredApiKey, setDefaultModelStoredApiKey] = useState("");
+  const [defaultModelApiKeyInput, setDefaultModelApiKeyInput] = useState("");
   const [createForm] = Form.useForm<CreateTemplateForm>();
 
   useEffect(() => {
@@ -591,6 +673,11 @@ export function TemplateManagementPanel({
     setAgentSearch("");
     setSkillSearch("");
   }, [agentBaselines, selectedTemplateKey, templates]);
+  useEffect(() => {
+    const selected = templates.find((item) => item.templateKey === selectedTemplateKey);
+    setDefaultModelStoredApiKey(selected?.defaultModelConfig?.apiKey ?? "");
+    setDefaultModelApiKeyInput("");
+  }, [selectedTemplateKey, templates]);
 
   const selectedTemplate = useMemo(
     () => templates.find((item) => item.templateKey === selectedTemplateKey),
@@ -802,6 +889,17 @@ export function TemplateManagementPanel({
     ));
   }, []);
 
+  const handleDefaultModelApiKeyChange = useCallback((value: string) => {
+    setDefaultModelApiKeyInput(value);
+    updateDefaultModelConfig({ apiKey: value.trim() ? value : defaultModelStoredApiKey });
+  }, [defaultModelStoredApiKey, updateDefaultModelConfig]);
+
+  const handleClearDefaultModelApiKey = useCallback(() => {
+    setDefaultModelStoredApiKey("");
+    setDefaultModelApiKeyInput("");
+    updateDefaultModelConfig({ apiKey: "" });
+  }, [updateDefaultModelConfig]);
+
   const ensureRoutingConfig = useCallback(() => {
     setDraft((current) => (current ? { ...current, routingConfig: current.routingConfig ?? buildEmptyRoutingConfig() } : current));
   }, []);
@@ -938,6 +1036,8 @@ export function TemplateManagementPanel({
       setSaving(true);
       setError(undefined);
       const response = await upsertInstanceTemplate(draft.templateKey, toUpsertRequest(draft));
+      setDefaultModelStoredApiKey(response.defaultModelConfig?.apiKey ?? "");
+      setDefaultModelApiKeyInput("");
       setDraft(cloneTemplate(response));
       messageApi.success("模板已保存");
       await onRefreshTemplates?.();
@@ -1099,9 +1199,9 @@ export function TemplateManagementPanel({
                           label: "基础",
                           children: (
                             <Space direction="vertical" size="large" style={{ width: "100%" }}>
-                              <Input
+                              <CompactTextInput
+                                label="显示名称"
                                 value={draft.displayName}
-                                addonBefore="显示名称"
                                 onChange={(event) => updateDraft({ displayName: event.target.value })}
                               />
                               <Input.TextArea
@@ -1147,6 +1247,65 @@ export function TemplateManagementPanel({
                                 placeholder="标签"
                                 onChange={(value) => updateDraft({ tags: normalizeStringValues(value) })}
                               />
+
+                              <Card
+                                type="inner"
+                                title="默认模型配置"
+                                extra={(
+                                  <Switch
+                                    checked={Boolean(draft.defaultModelConfig)}
+                                    onChange={(checked) => {
+                                      setDefaultModelApiKeyInput("");
+                                      if (checked) {
+                                        setDefaultModelStoredApiKey(draft.defaultModelConfig?.apiKey ?? "");
+                                        ensureDefaultModelConfig();
+                                      } else {
+                                        setDefaultModelStoredApiKey("");
+                                        updateDraft({ defaultModelConfig: null });
+                                      }
+                                    }}
+                                  />
+                                )}
+                              >
+                                {draft.defaultModelConfig ? (
+                                  <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                                    <CompactPasswordInput
+                                      label="api_key"
+                                      visibilityToggle={false}
+                                      value={defaultModelApiKeyInput}
+                                      placeholder={draft.defaultModelConfig.apiKey ? MASKED_API_KEY_PLACEHOLDER : "留空表示不设置"}
+                                      onChange={(event) => handleDefaultModelApiKeyChange(event.target.value)}
+                                    />
+                                    <Space wrap size="small">
+                                      <Text type="secondary">
+                                        {draft.defaultModelConfig.apiKey
+                                          ? "已保存的 API Key 默认以 *** 隐藏显示；直接输入可覆盖，留空保存会保留原值。"
+                                          : "当前未设置 API Key。"}
+                                      </Text>
+                                      {draft.defaultModelConfig.apiKey ? (
+                                        <Button size="small" onClick={handleClearDefaultModelApiKey}>
+                                          清空密钥
+                                        </Button>
+                                      ) : null}
+                                    </Space>
+                                    <CompactTextInput
+                                      label="default_provider"
+                                      value={draft.defaultModelConfig.defaultProvider ?? ""}
+                                      placeholder={TEMPLATE_DEFAULT_PROVIDER}
+                                      onChange={(event) => updateDefaultModelConfig({ defaultProvider: event.target.value })}
+                                    />
+                                    <CompactTextInput
+                                      label="default_model"
+                                      value={draft.defaultModelConfig.defaultModel ?? ""}
+                                      placeholder={TEMPLATE_DEFAULT_MODEL}
+                                      onChange={(event) => updateDefaultModelConfig({ defaultModel: event.target.value })}
+                                    />
+                                    <Text type="secondary">`default_temperature` 继续沿用模板默认值 `0.7`。</Text>
+                                  </Space>
+                                ) : (
+                                  <Text type="secondary">未启用模板默认模型配置，实例会沿用系统或运行时默认值。</Text>
+                                )}
+                              </Card>
                             </Space>
                           ),
                         },
@@ -1432,64 +1591,6 @@ export function TemplateManagementPanel({
                           ),
                         },
                         {
-                          key: "model",
-                          label: "模型",
-                          children: (
-                            <Space direction="vertical" size="large" style={{ width: "100%" }}>
-                              <div className="agent-detail-grid">
-                                <div className="agent-detail-prop">
-                                  <span className="agent-detail-prop-label">启用默认模型配置</span>
-                                  <Switch
-                                    checked={Boolean(draft.defaultModelConfig)}
-                                    onChange={(checked) => {
-                                      if (checked) {
-                                        ensureDefaultModelConfig();
-                                      } else {
-                                        updateDraft({ defaultModelConfig: null });
-                                      }
-                                    }}
-                                  />
-                                </div>
-                              </div>
-
-                              {draft.defaultModelConfig ? (
-                                <Card type="inner" title="默认模型配置">
-                                  <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                                    <Input.Password
-                                      value={draft.defaultModelConfig.apiKey ?? ""}
-                                      placeholder="api_key，可留空"
-                                      onChange={(event) => updateDefaultModelConfig({ apiKey: event.target.value })}
-                                    />
-                                    <Input
-                                      addonBefore="default_provider"
-                                      value={draft.defaultModelConfig.defaultProvider ?? ""}
-                                      placeholder="例如：custom:https://api.ai.fun.tv/v1"
-                                      onChange={(event) => updateDefaultModelConfig({ defaultProvider: event.target.value })}
-                                    />
-                                    <Input
-                                      addonBefore="default_model"
-                                      value={draft.defaultModelConfig.defaultModel ?? ""}
-                                      placeholder="例如：MiniMax-M2.5"
-                                      onChange={(event) => updateDefaultModelConfig({ defaultModel: event.target.value })}
-                                    />
-                                    <InputNumber
-                                      addonBefore="default_temperature"
-                                      min={0}
-                                      max={2}
-                                      step={0.1}
-                                      value={draft.defaultModelConfig.defaultTemperature ?? 0.7}
-                                      style={{ width: "100%" }}
-                                      onChange={(value) => updateDefaultModelConfig({ defaultTemperature: typeof value === "number" ? value : 0.7 })}
-                                    />
-                                  </Space>
-                                </Card>
-                              ) : (
-                                <Text type="secondary">未启用模板默认模型配置，实例会沿用系统或运行时默认值。</Text>
-                              )}
-                            </Space>
-                          ),
-                        },
-                        {
                           key: "routing",
                           label: "路由",
                           children: (
@@ -1549,20 +1650,20 @@ export function TemplateManagementPanel({
                                           )}
                                         >
                                           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                                            <Input
-                                              addonBefore="hint"
+                                            <CompactTextInput
+                                              label="hint"
                                               value={route.hint}
                                               onChange={(event) => updateRoute(index, { hint: event.target.value })}
                                               placeholder="例如：mgc-novel-to-script"
                                             />
-                                            <Input
-                                              addonBefore="provider"
+                                            <CompactTextInput
+                                              label="provider"
                                               value={route.provider}
                                               onChange={(event) => updateRoute(index, { provider: event.target.value })}
                                               placeholder="例如：custom:https://api.ai.fun.tv/v1"
                                             />
-                                            <Input
-                                              addonBefore="model"
+                                            <CompactTextInput
+                                              label="model"
                                               value={route.model}
                                               onChange={(event) => updateRoute(index, { model: event.target.value })}
                                               placeholder="例如：MiniMax-M2.5"
@@ -1617,8 +1718,8 @@ export function TemplateManagementPanel({
                                             )}
                                           >
                                             <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-                                              <Input
-                                                addonBefore="hint"
+                                              <CompactTextInput
+                                                label="hint"
                                                 value={rule.hint}
                                                 onChange={(event) => updateRule(index, { hint: event.target.value })}
                                                 placeholder="例如：script-outline"
@@ -1640,28 +1741,25 @@ export function TemplateManagementPanel({
                                                 onChange={(value) => updateRule(index, { patterns: normalizeStringValues(value) })}
                                               />
                                               <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-                                                <InputNumber
-                                                  addonBefore="priority"
+                                                <CompactNumberInput
+                                                  label="priority"
                                                   min={0}
                                                   precision={0}
                                                   value={rule.priority ?? DEFAULT_RULE_PRIORITY}
-                                                  style={{ width: "100%" }}
                                                   onChange={(value) => updateRule(index, { priority: typeof value === "number" ? value : DEFAULT_RULE_PRIORITY })}
                                                 />
-                                                <InputNumber
-                                                  addonBefore="min_length"
+                                                <CompactNumberInput
+                                                  label="min_length"
                                                   min={0}
                                                   precision={0}
                                                   value={rule.minLength ?? DEFAULT_RULE_MIN_LENGTH}
-                                                  style={{ width: "100%" }}
                                                   onChange={(value) => updateRule(index, { minLength: typeof value === "number" ? value : DEFAULT_RULE_MIN_LENGTH })}
                                                 />
-                                                <InputNumber
-                                                  addonBefore="max_length"
+                                                <CompactNumberInput
+                                                  label="max_length"
                                                   min={0}
                                                   precision={0}
                                                   value={rule.maxLength ?? DEFAULT_RULE_MAX_LENGTH}
-                                                  style={{ width: "100%" }}
                                                   onChange={(value) => updateRule(index, { maxLength: typeof value === "number" ? value : DEFAULT_RULE_MAX_LENGTH })}
                                                 />
                                               </div>
@@ -1731,14 +1829,14 @@ export function TemplateManagementPanel({
                                             onChange={(checked) => updateChannelsConfig({ dingtalkEnabled: checked })}
                                           />
                                         </Space>
-                                        <Input
+                                        <CompactTextInput
+                                          label="client_id"
                                           value={draft.channelsConfig.dingtalkClientId ?? ""}
-                                          addonBefore="client_id"
                                           onChange={(event) => updateChannelsConfig({ dingtalkClientId: event.target.value })}
                                         />
-                                        <Input.Password
+                                        <CompactPasswordInput
+                                          label="client_secret"
                                           value={draft.channelsConfig.dingtalkClientSecret ?? ""}
-                                          addonBefore="client_secret"
                                           onChange={(event) => updateChannelsConfig({ dingtalkClientSecret: event.target.value })}
                                         />
                                         <Select
@@ -1761,14 +1859,14 @@ export function TemplateManagementPanel({
                                             onChange={(checked) => updateChannelsConfig({ qqEnabled: checked })}
                                           />
                                         </Space>
-                                        <Input
+                                        <CompactTextInput
+                                          label="app_id"
                                           value={draft.channelsConfig.qqAppId ?? ""}
-                                          addonBefore="app_id"
                                           onChange={(event) => updateChannelsConfig({ qqAppId: event.target.value })}
                                         />
-                                        <Input.Password
+                                        <CompactPasswordInput
+                                          label="app_secret"
                                           value={draft.channelsConfig.qqAppSecret ?? ""}
-                                          addonBefore="app_secret"
                                           onChange={(event) => updateChannelsConfig({ qqAppSecret: event.target.value })}
                                         />
                                         <Select

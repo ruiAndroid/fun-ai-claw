@@ -30,16 +30,21 @@ const ME_KEY = "fun_claw_uc_me";
 const ME_FETCHED_AT_KEY = "fun_claw_uc_me_fetched_at";
 const VIP_INFO_KEY = "fun_claw_uc_vip_info";
 const VIP_INFO_FETCHED_AT_KEY = "fun_claw_uc_vip_info_fetched_at";
+const ORDERS_KEY = "fun_claw_uc_orders";
+const ORDERS_FETCHED_AT_KEY = "fun_claw_uc_orders_fetched_at";
 const USER_CENTER_REQUEST_TIMEOUT_MS = 8000;
 const USER_CENTER_ME_CACHE_TTL_MS = 30_000;
 const USER_CENTER_VIP_INFO_CACHE_TTL_MS = 30_000;
+const USER_CENTER_ORDERS_CACHE_TTL_MS = 30_000;
 export const USER_CENTER_AUTH_REQUIRED_EVENT = "fun-claw-user-center-auth-required";
+export const USER_CENTER_AUTH_UPDATED_EVENT = "fun-claw-user-center-auth-updated";
 export const USER_CENTER_VIP_INFO_UPDATED_EVENT = "fun-claw-user-center-vip-info-updated";
 
 let accessTokenMemoryCache: string | null = null;
 let refreshPromise: Promise<UserCenterAuthResponse> | null = null;
 let mePromise: Promise<UserCenterMe> | null = null;
 let vipInfoPromise: Promise<UserCenterVipInfo> | null = null;
+let ordersPromise: Promise<UserCenterOrderRecord[]> | null = null;
 
 function isUserCenterSuccessCode(code?: number | null) {
   return typeof code !== "number" || code === 0 || code === 200;
@@ -130,6 +135,27 @@ export function getCachedUserCenterVipInfo() {
   return getStoredVipInfo();
 }
 
+function getStoredOrders() {
+  const raw = getStoredValue(ORDERS_KEY);
+  if (!raw) {
+    return [] as UserCenterOrderRecord[];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.map((item) => normalizeUserCenterOrderRecord(item as UserCenterOrderRecordResponseData))
+      : [];
+  } catch {
+    setStoredValue(ORDERS_KEY, null);
+    return [] as UserCenterOrderRecord[];
+  }
+}
+
+export function getCachedUserCenterOrders() {
+  return getStoredOrders();
+}
+
 function getStoredMeFetchedAt() {
   const raw = getStoredValue(ME_FETCHED_AT_KEY);
   if (!raw) {
@@ -156,6 +182,19 @@ function setStoredVipInfoFetchedAt(timestamp: number) {
   setStoredValue(VIP_INFO_FETCHED_AT_KEY, timestamp > 0 ? String(timestamp) : null);
 }
 
+function getStoredOrdersFetchedAt() {
+  const raw = getStoredValue(ORDERS_FETCHED_AT_KEY);
+  if (!raw) {
+    return 0;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function setStoredOrdersFetchedAt(timestamp: number) {
+  setStoredValue(ORDERS_FETCHED_AT_KEY, timestamp > 0 ? String(timestamp) : null);
+}
+
 function hasFreshCachedMe() {
   const cachedMe = getStoredMe();
   const fetchedAt = getStoredMeFetchedAt();
@@ -172,6 +211,15 @@ function hasFreshCachedVipInfo() {
     return false;
   }
   return Date.now() - fetchedAt < USER_CENTER_VIP_INFO_CACHE_TTL_MS;
+}
+
+function hasFreshCachedOrders() {
+  const cachedOrders = getStoredOrders();
+  const fetchedAt = getStoredOrdersFetchedAt();
+  if (cachedOrders.length === 0 || fetchedAt <= 0) {
+    return false;
+  }
+  return Date.now() - fetchedAt < USER_CENTER_ORDERS_CACHE_TTL_MS;
 }
 
 function generateSessionKey() {
@@ -345,6 +393,17 @@ function clearStoredUserCenterVipInfo() {
   notifyUserCenterVipInfoUpdated();
 }
 
+function storeUserCenterOrders(orders: UserCenterOrderRecord[]) {
+  setStoredValue(ORDERS_KEY, JSON.stringify(orders));
+  setStoredOrdersFetchedAt(Date.now());
+}
+
+function clearStoredUserCenterOrders() {
+  ordersPromise = null;
+  setStoredValue(ORDERS_KEY, null);
+  setStoredOrdersFetchedAt(0);
+}
+
 function mapLoginResponseToAuthResponse(payload: UserCenterLoginResponseData): UserCenterAuthResponse {
   return {
     me: normalizeUserCenterProfile(payload.userInfo),
@@ -373,6 +432,7 @@ export function clearUserCenterAuthState() {
   accessTokenMemoryCache = null;
   mePromise = null;
   vipInfoPromise = null;
+  ordersPromise = null;
   setStoredValue(ACCESS_TOKEN_KEY, null);
   setStoredValue(REFRESH_TOKEN_KEY, null);
   setStoredValue(TOKEN_TYPE_KEY, null);
@@ -382,6 +442,8 @@ export function clearUserCenterAuthState() {
   setStoredMeFetchedAt(0);
   setStoredValue(VIP_INFO_KEY, null);
   setStoredVipInfoFetchedAt(0);
+  setStoredValue(ORDERS_KEY, null);
+  setStoredOrdersFetchedAt(0);
   notifyUserCenterVipInfoUpdated();
 }
 
@@ -579,6 +641,13 @@ export function notifyUserCenterAuthRequired() {
   window.dispatchEvent(new Event(USER_CENTER_AUTH_REQUIRED_EVENT));
 }
 
+export function notifyUserCenterAuthUpdated() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(USER_CENTER_AUTH_UPDATED_EVENT));
+}
+
 export async function sendUserCenterSmsCode(request: UserCenterSmsSendCodeRequest) {
   const response = await requestEnvelope<Record<string, never>>("/auth/sms/send", {
     method: "POST",
@@ -601,11 +670,7 @@ export async function verifyUserCenterSmsCode(request: UserCenterSmsVerifyReques
   const response = mapLoginResponseToAuthResponse(envelope.data);
   storeAuthTokens(response);
   clearStoredUserCenterVipInfo();
-  try {
-    await refreshUserCenterVipInfo();
-  } catch {
-    // Login should not be blocked by a secondary vip-info refresh failure.
-  }
+  notifyUserCenterAuthUpdated();
   return response;
 }
 
@@ -695,20 +760,60 @@ export async function refreshUserCenterVipInfo() {
   return loadUserCenterVipInfo(true);
 }
 
-export async function getUserCenterOrders() {
-  const envelope = await requestAuthedEnvelope<UserCenterOrderRecordResponseData[]>("/pay/user/orders", {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-  });
+async function loadUserCenterOrders(forceRefresh = false) {
+  const cachedOrders = getStoredOrders();
+  const token = getAccessToken();
 
-  if (!Array.isArray(envelope.data)) {
-    return [] as UserCenterOrderRecord[];
+  if (!forceRefresh && cachedOrders.length > 0 && hasFreshCachedOrders()) {
+    return cachedOrders;
   }
 
-  return envelope.data.map((item) => normalizeUserCenterOrderRecord(item));
+  if (!token && getRefreshToken()) {
+    await refreshUserCenterToken();
+  }
+
+  if (!ordersPromise || forceRefresh) {
+    const currentRequest = (async () => {
+      try {
+        const envelope = await requestAuthedEnvelope<UserCenterOrderRecordResponseData[]>("/pay/user/orders", {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        });
+
+        const orders = Array.isArray(envelope.data)
+          ? envelope.data.map((item) => normalizeUserCenterOrderRecord(item))
+          : [];
+        storeUserCenterOrders(orders);
+        return orders;
+      } catch (error) {
+        if (cachedOrders.length > 0 && !isUserCenterUnauthorizedError(error)) {
+          return cachedOrders;
+        }
+        throw error;
+      }
+    })();
+
+    ordersPromise = currentRequest;
+    void currentRequest.finally(() => {
+      if (ordersPromise === currentRequest) {
+        ordersPromise = null;
+      }
+    });
+  }
+
+  return ordersPromise;
+}
+
+export async function getUserCenterOrders() {
+  return loadUserCenterOrders(false);
+}
+
+export async function refreshUserCenterOrders() {
+  clearStoredUserCenterOrders();
+  return loadUserCenterOrders(true);
 }
 
 export async function logoutUserCenter() {

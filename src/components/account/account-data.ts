@@ -26,8 +26,8 @@ export type WorkItem = {
 
 export const accountNavItems: AccountNavItem[] = [
   { key: "settings", label: "\u7528\u6237\u8d44\u6599", icon: Settings2 },
+  { key: "usage", label: "\u6211\u7684\u94b1\u5305", icon: CreditCard },
   { key: "assets", label: "\u6211\u7684\u8d44\u4ea7", icon: Package },
-  { key: "usage", label: "\u79ef\u5206\u4e2d\u5fc3", icon: CreditCard },
 ];
 
 export const usageFilters: Array<{ key: UsageFilterKey; label: string }> = [

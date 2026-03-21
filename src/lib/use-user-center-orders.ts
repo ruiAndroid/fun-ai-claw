@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { UserCenterOrderRecord } from "@/types/user-center";
 import {
+  getCachedUserCenterOrders,
   getUserCenterOrders,
   hasUserCenterAuthCredentials,
+  refreshUserCenterOrders,
 } from "@/lib/user-center-api";
 
 function extractErrorMessage(error: unknown) {
@@ -16,11 +18,13 @@ export function useUserCenterOrders({
 }: {
   enabled?: boolean;
 } = {}) {
-  const [orders, setOrders] = useState<UserCenterOrderRecord[]>([]);
-  const [loading, setLoading] = useState(Boolean(enabled));
+  const [orders, setOrders] = useState<UserCenterOrderRecord[]>(() => (
+    enabled ? getCachedUserCenterOrders() : []
+  ));
+  const [loading, setLoading] = useState(Boolean(enabled && getCachedUserCenterOrders().length === 0));
   const [error, setError] = useState<string>();
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (forceRefresh = false) => {
     if (!enabled || !hasUserCenterAuthCredentials()) {
       setOrders([]);
       setLoading(false);
@@ -32,7 +36,9 @@ export function useUserCenterOrders({
     setError(undefined);
 
     try {
-      const nextOrders = await getUserCenterOrders();
+      const nextOrders = forceRefresh
+        ? await refreshUserCenterOrders()
+        : await getUserCenterOrders();
       setOrders(nextOrders);
       return nextOrders;
     } catch (loadError) {
@@ -51,6 +57,7 @@ export function useUserCenterOrders({
       return;
     }
 
+    setOrders(getCachedUserCenterOrders());
     void loadOrders();
   }, [enabled, loadOrders]);
 
@@ -58,6 +65,6 @@ export function useUserCenterOrders({
     orders,
     loading,
     error,
-    refresh: loadOrders,
+    refresh: () => loadOrders(true),
   };
 }

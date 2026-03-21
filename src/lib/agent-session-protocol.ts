@@ -340,6 +340,22 @@ export function isAgentSessionPlaceholderValue(value?: string): boolean {
   return /^<[^>]+>$/.test(value.trim());
 }
 
+export function isAgentSessionThinkingPlaceholderContent(value?: string): boolean {
+  if (!value) {
+    return false;
+  }
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/^🤔\s*/u, "")
+    .replace(/[。．…]+/g, ".")
+    .replace(/\s+/g, " ");
+  if (!normalized) {
+    return false;
+  }
+  return /^(thinking|thinking\.+|正在思考|正在思考\.+|思考中|思考中\.+|正在整理思路|正在整理思路\.+)$/.test(normalized);
+}
+
 export function formatAgentInteractionPayloadForDisplay(rawInput: string): string | undefined {
   const parsed = parseAgentInteractionPayload(rawInput);
   if (!parsed?.interactionAction) {

@@ -72,7 +72,7 @@ export function LandingPage() {
               ownedLobsterHref={primaryInstanceDetailsHref}
               onAdoptRequest={() => setAdoptionModalOpen(true)}
             />
-            <HomepageAgentSection authenticated={authenticated} messagesHref={messagesHref} />
+            <HomepageAgentSection authenticated={authenticated} />
           </div>
         </div>
       </div>

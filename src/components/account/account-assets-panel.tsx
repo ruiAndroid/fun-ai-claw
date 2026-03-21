@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, LoaderCircle, PencilLine, RefreshCw, Trash2, X } from "lucide-react";
 import { deleteConsumerInstance, listConsumerInstances, renameConsumerInstance } from "@/lib/consumer-api";
@@ -118,6 +119,7 @@ function clampAssetName(value: string) {
 }
 
 export function AccountAssetsPanel() {
+  const router = useRouter();
   const [assets, setAssets] = useState<ConsumerBoundInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -322,7 +324,18 @@ export function AccountAssetsPanel() {
               return (
                 <article
                   key={asset.instanceId}
-                  className="rounded-[30px] border border-slate-900/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(255,249,247,0.78)_100%)] p-7 shadow-[0_22px_50px_rgba(15,23,42,0.05)]"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => {
+                    router.push(`/lobster/${encodeURIComponent(asset.instanceId)}`);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/lobster/${encodeURIComponent(asset.instanceId)}`);
+                    }
+                  }}
+                  className="cursor-pointer rounded-[30px] border border-slate-900/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.82)_0%,rgba(255,249,247,0.78)_100%)] p-7 shadow-[0_22px_50px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_28px_64px_rgba(15,23,42,0.09)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-orange-100"
                 >
                   <div className="flex items-start justify-between gap-5">
                     <div className="flex min-w-0 items-start gap-4">
@@ -357,7 +370,8 @@ export function AccountAssetsPanel() {
                       <button
                         type="button"
                         disabled={isRenaming || isDeleting}
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setRenameTarget(asset);
                           setRenameValue(asset.name);
                           setRenameError(undefined);
@@ -370,7 +384,8 @@ export function AccountAssetsPanel() {
                       <button
                         type="button"
                         disabled={isRenaming || isDeleting}
-                        onClick={() => {
+                        onClick={(event) => {
+                          event.stopPropagation();
                           setDeleteTarget(asset);
                           setDeleteError(undefined);
                           setDeleteSecondaryConfirmOpen(false);

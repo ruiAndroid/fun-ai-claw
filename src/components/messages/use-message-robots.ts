@@ -34,6 +34,28 @@ function buildRobotTargets(instances: ClawInstance[], bindingsByInstance: Map<st
     });
 }
 
+function resolvePreferredRobotId(
+  robots: MessageRobotTarget[],
+  preferredInstanceId?: string,
+  preferredAgentId?: string,
+) {
+  if (preferredInstanceId && preferredAgentId) {
+    return robots.find((robot) => (
+      robot.instanceId === preferredInstanceId && robot.agentId === preferredAgentId
+    ))?.id;
+  }
+
+  if (preferredInstanceId) {
+    return robots.find((robot) => robot.instanceId === preferredInstanceId)?.id;
+  }
+
+  if (preferredAgentId) {
+    return robots.find((robot) => robot.agentId === preferredAgentId)?.id;
+  }
+
+  return undefined;
+}
+
 export function useMessageRobots({
   preferredInstanceId,
   preferredAgentId,
@@ -61,9 +83,11 @@ export function useMessageRobots({
     try {
       const snapshot = await loadMessageRobotBindings();
       const nextRobots = buildRobotTargets(snapshot.instances, snapshot.bindingsByInstance);
-      const preferredRobotId = nextRobots.find((robot) => (
-        robot.instanceId === preferredInstanceId && robot.agentId === preferredAgentId
-      ))?.id;
+      const preferredRobotId = resolvePreferredRobotId(
+        nextRobots,
+        preferredInstanceId,
+        preferredAgentId,
+      );
       setRobots(nextRobots);
       setSelectedRobotId((current) => {
         if (current && nextRobots.some((robot) => robot.id === current)) {

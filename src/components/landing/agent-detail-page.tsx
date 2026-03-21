@@ -335,7 +335,7 @@ export function AgentDetailPage() {
                 返回首页
               </Link>
               <Link
-                href="/messages"
+                href={`/messages?agentId=${encodeURIComponent(agent.agentKey)}`}
                 className="inline-flex flex-[1.3] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff7a18_0%,#ff9f43_42%,#8b3dff_100%)] px-4 py-3 text-sm font-semibold !text-white shadow-[0_14px_28px_rgba(139,61,255,0.16)] transition-all duration-300 hover:shadow-[0_18px_36px_rgba(139,61,255,0.22)] hover:!text-white"
               >
                 立即体验

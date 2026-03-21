@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Crown, PackageCheck, RefreshCw } from "lucide-react";
+import { Crown, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
 import { useUserCenterOrders } from "@/lib/use-user-center-orders";
 import { useUserCenterVipInfo } from "@/lib/use-user-center-vip-info";
@@ -157,16 +157,12 @@ export function AccountUsagePanel() {
 
   const balanceLabel = loading && !vipInfo ? "..." : `${vipInfo?.coinAmount ?? 0}`;
   const vipStatusLabel = vipInfo?.isVip ? "会员已开通" : "当前未开通会员";
-  const materialStatusLabel = vipInfo?.isBuyMaterial ? "已购买素材包" : "未购买素材包";
 
   return (
     <div>
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">积分中心</h1>
-          <div className="mt-3 text-lg font-semibold text-slate-500">
-            会员状态、素材包权益和虾米余额都会在这里同步展示。
-          </div>
+          <h1 className="text-5xl font-black tracking-[-0.05em] text-slate-950">我的钱包</h1>
         </div>
         <div className="flex flex-wrap gap-4">
           <button
@@ -199,7 +195,7 @@ export function AccountUsagePanel() {
         </div>
       </div>
 
-      <section className="mt-12 grid gap-6 lg:grid-cols-2">
+      <section className="mt-12">
         <article className="rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
           <div className="flex items-center gap-3 text-slate-950">
             <Crown size={22} />
@@ -210,19 +206,6 @@ export function AccountUsagePanel() {
           </div>
           <div className="mt-3 text-base font-semibold text-slate-500">
             {formatVipPeriod(vipInfo?.validStartTime, vipInfo?.validEndTime)}
-          </div>
-        </article>
-
-        <article className="rounded-[28px] border border-slate-900/18 bg-white/58 p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
-          <div className="flex items-center gap-3 text-slate-950">
-            <PackageCheck size={22} />
-            <div className="text-[22px] font-black tracking-[-0.03em]">素材包权益</div>
-          </div>
-          <div className="mt-6 text-[30px] font-black tracking-[-0.04em] text-slate-950">
-            {materialStatusLabel}
-          </div>
-          <div className="mt-3 text-base font-semibold text-slate-500">
-            {vipInfo?.username?.trim() ? `当前账户：${vipInfo.username}` : "登录账户的购买状态会实时同步"}
           </div>
         </article>
       </section>
@@ -251,9 +234,10 @@ export function AccountUsagePanel() {
                   <div className="mt-2 text-[16px] font-bold text-slate-500">{item.detail}</div>
                   <div className="mt-2 text-[18px] font-bold text-slate-400">{item.time}</div>
                 </div>
-                <div className={`text-right text-[24px] font-black tracking-[-0.03em] ${
-                  item.tone === "success" ? "text-emerald-600" : "text-slate-950"
-                }`}
+                <div
+                  className={`text-right text-[24px] font-black tracking-[-0.03em] ${
+                    item.tone === "success" ? "text-emerald-600" : "text-slate-950"
+                  }`}
                 >
                   {item.amountLabel}
                 </div>

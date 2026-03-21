@@ -136,6 +136,21 @@ function groupSessionsByRobotKey(sessions: ConsumerChatSession[], robotKeys: str
   return grouped;
 }
 
+function normalizeCreateSessionError(error: unknown) {
+  const fallbackMessage = "创建会话失败，请稍后再试";
+  if (!(error instanceof Error)) {
+    return fallbackMessage;
+  }
+  const normalizedMessage = error.message.replace(/^HTTP\s+\d+\s*:\s*/i, "").trim();
+  if (!normalizedMessage) {
+    return fallbackMessage;
+  }
+  if (normalizedMessage.includes("active session limit reached")) {
+    return "当前机器人最多只能保留 3 个会话，请先删除一个旧会话后再新建";
+  }
+  return normalizedMessage;
+}
+
 export function useMessageSessionList({
   robots = [],
   selectedRobot,
@@ -358,9 +373,8 @@ export function useMessageSessionList({
         title: created.title?.trim() || "\u65b0\u4f1a\u8bdd",
       } satisfies MessageSessionListItem;
     } catch (createError) {
-      const nextError = createError instanceof Error ? createError.message : "\u521b\u5efa\u4f1a\u8bdd\u5931\u8d25";
-      setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: nextError }));
-      throw createError;
+      setErrorByRobotKey((current) => ({ ...current, [selectedRobotKey]: undefined }));
+      throw new Error(normalizeCreateSessionError(createError));
     }
   }, [loadSessions, selectedRobot, selectedRobotKey]);
 

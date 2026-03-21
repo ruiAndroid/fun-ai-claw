@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Noto_Sans_SC } from "next/font/google";
+import { UserCenterVipBootstrap } from "@/components/auth/user-center-vip-bootstrap";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -30,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className={`${plusJakarta.variable} ${notoSansSC.variable}`}>
+        <UserCenterVipBootstrap />
         {children}
       </body>
     </html>

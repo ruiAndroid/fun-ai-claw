@@ -26,15 +26,14 @@ function isUnauthorizedError(error: unknown): boolean {
 
 export function AccountPage() {
   const router = useRouter();
-  const cachedProfile = useMemo(() => getCachedUserCenterMe(), []);
   const [activeTab, setActiveTab] = useState<AccountTabKey>("settings");
-  const [profile, setProfile] = useState<UserCenterMe | null>(cachedProfile);
-  const [loading, setLoading] = useState(!cachedProfile);
+  const [profile, setProfile] = useState<UserCenterMe | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
-  const loadCurrentUser = useCallback(async () => {
+  const loadCurrentUser = useCallback(async (cachedProfile?: UserCenterMe | null) => {
     if (!hasUserCenterAuthCredentials()) {
       router.replace("/login");
       return;
@@ -58,10 +57,15 @@ export function AccountPage() {
     } finally {
       setLoading(false);
     }
-  }, [cachedProfile, router]);
+  }, [router]);
 
   useEffect(() => {
-    void loadCurrentUser();
+    const cachedProfile = getCachedUserCenterMe();
+    if (cachedProfile) {
+      setProfile(cachedProfile);
+      setLoading(false);
+    }
+    void loadCurrentUser(cachedProfile);
   }, [loadCurrentUser]);
 
   const handleLogout = useCallback(async () => {

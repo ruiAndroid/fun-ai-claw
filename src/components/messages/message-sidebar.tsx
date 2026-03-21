@@ -128,15 +128,6 @@ export function MessageSidebar({
                       <div className="truncate text-sm font-bold text-slate-950">
                         {robot.displayName}
                       </div>
-
-                      <div className="mt-1 truncate text-xs text-slate-500">
-                        {robot.agentId}
-                      </div>
-                      {robot.description ? (
-                        <div className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
-                          {robot.description}
-                        </div>
-                      ) : null}
                     </div>
 
                     <div className="ml-2 flex shrink-0 flex-col items-end gap-2 pt-0.5">

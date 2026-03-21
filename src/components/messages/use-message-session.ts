@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { connectConsumerChatSession, listConsumerChatSessionMessages } from "@/lib/consumer-api";
 import {
+  isAgentSessionThinkingPlaceholderContent,
   normalizeStructuredAgentChatMessage,
   parseAgentInteractionPayload,
   parseAgentSessionCoreFields,
@@ -48,6 +49,7 @@ type SessionSnapshot = {
 
 const SESSION_ATTACH_DEBOUNCE_MS = 180;
 const SESSION_HISTORY_TIMEOUT_MS = 12_000;
+const INPUT_LOCK_NOTICE = "正在生成上一轮回复，请等待完成后再继续发送";
 
 function isAbortLikeError(error: unknown) {
   return error instanceof DOMException
@@ -90,6 +92,25 @@ function applyAgentDelta(messages: AgentChatMessage[], delta: AgentSessionDelta)
   return upsertAgentMessage(messages, nextMessage);
 }
 
+function settleCompletedAssistantTurn(messages: AgentChatMessage[], finalMessage: AgentChatMessage) {
+  if (finalMessage.role !== "assistant" || finalMessage.pending) {
+    return messages;
+  }
+  return messages.flatMap((message) => {
+    if (message.role !== "assistant" || !message.pending || message.id === finalMessage.id) {
+      return [message];
+    }
+    if (!message.content.trim() || isAgentSessionThinkingPlaceholderContent(message.content)) {
+      return [];
+    }
+    return [{
+      ...message,
+      pending: false,
+      thinkingContent: undefined,
+    }];
+  });
+}
+
 function isRawLogLine(line: string) {
   const normalizedLine = line.trim();
   return [
@@ -105,9 +126,21 @@ function isRawLogLine(line: string) {
   ].some((prefix) => normalizedLine.includes(prefix));
 }
 
+function isRawErrorLine(line: string) {
+  const normalizedLine = line.trim().toLowerCase();
+  return normalizedLine.startsWith("error:")
+    || normalizedLine.includes("all providers/models failed")
+    || normalizedLine.includes("provider error:")
+    || normalizedLine.includes("custom api error")
+    || normalizedLine.includes("401 unauthorized");
+}
+
 function normalizeHistoryMessage(message: ConsumerChatSessionMessage, index: number): AgentChatMessage | null {
   const role = message.role === "user" || message.role === "assistant" || message.role === "system" ? message.role : "assistant";
   if (!message.content && !message.thinkingContent) {
+    return null;
+  }
+  if (role === "assistant" && !message.thinkingContent && isAgentSessionThinkingPlaceholderContent(message.content ?? "")) {
     return null;
   }
   return {
@@ -449,6 +482,20 @@ export function useMessageSession({
     if (trimmedLine === "🦀 ZeroClaw Interactive Mode" || trimmedLine === "Type /help for commands.") {
       return;
     }
+    if (isAgentSessionThinkingPlaceholderContent(trimmedLine)) {
+      return;
+    }
+    if (isRawErrorLine(trimmedLine)) {
+      finalizeRawAssistantMessage(sessionId);
+      applySnapshotUpdate(sessionId, (snapshot) => ({
+        ...snapshot,
+        pendingResponse: false,
+        phase: "idle",
+        historyLoaded: true,
+      }));
+      void refreshSessions?.();
+      return;
+    }
     if (trimmedLine === ">") {
       finalizeRawAssistantMessage(sessionId);
       applySnapshotUpdate(sessionId, (snapshot) => ({
@@ -506,6 +553,15 @@ export function useMessageSession({
     }
     finalizeRawAssistantMessage(sessionId);
     if (frame.eventType === "debug") {
+      if (typeof frame.chunk === "string" && isRawErrorLine(frame.chunk)) {
+        applySnapshotUpdate(sessionId, (snapshot) => ({
+          ...snapshot,
+          pendingResponse: false,
+          phase: "idle",
+          historyLoaded: true,
+        }));
+        void refreshSessions?.();
+      }
       return;
     }
     if (frame.eventType === "delta" && frame.delta) {
@@ -523,17 +579,20 @@ export function useMessageSession({
       if (!normalizedMessage) {
         return;
       }
-      applySnapshotUpdate(sessionId, (snapshot) => ({
-        ...snapshot,
-        messages: upsertAgentMessage(snapshot.messages, normalizedMessage),
-        pendingResponse: normalizedMessage.role === "assistant"
-          ? Boolean(normalizedMessage.pending)
-          : snapshot.pendingResponse,
-        phase: normalizedMessage.role === "assistant"
-          ? (normalizedMessage.pending ? "generating" : "idle")
-          : snapshot.phase,
-        historyLoaded: true,
-      }));
+      applySnapshotUpdate(sessionId, (snapshot) => {
+        const settledMessages = settleCompletedAssistantTurn(snapshot.messages, normalizedMessage);
+        const nextMessages = upsertAgentMessage(settledMessages, normalizedMessage);
+        const nextPendingResponse = nextMessages.some((message) => message.role === "assistant" && message.pending);
+        return {
+          ...snapshot,
+          messages: nextMessages,
+          pendingResponse: nextPendingResponse,
+          phase: normalizedMessage.role === "assistant"
+            ? (nextPendingResponse ? "generating" : "idle")
+            : snapshot.phase,
+          historyLoaded: true,
+        };
+      });
       if (normalizedMessage.role === "assistant" && !normalizedMessage.pending) {
         applySnapshotUpdate(sessionId, (snapshot) => ({
           ...snapshot,
@@ -1043,6 +1102,10 @@ export function useMessageSession({
   }, []);
 
   const sendMessage = useCallback(async () => {
+    if (pendingResponseRef.current || sessionPhaseRef.current === "sending" || sessionPhaseRef.current === "generating") {
+      setNotice(INPUT_LOCK_NOTICE);
+      return false;
+    }
     const trimmedInput = input.trim();
     if (!trimmedInput) {
       return false;
@@ -1083,6 +1146,10 @@ export function useMessageSession({
 
   const runInteractionAction = useCallback(async (messageId: string, action: AgentInteractionAction) => {
     if (action.kind === "send") {
+      if (pendingResponseRef.current || sessionPhaseRef.current === "sending" || sessionPhaseRef.current === "generating") {
+        setNotice(INPUT_LOCK_NOTICE);
+        return false;
+      }
       const normalizedPayload = enrichInteractionMessage(action.payload);
       if (!normalizedPayload) {
         return false;
@@ -1134,7 +1201,15 @@ export function useMessageSession({
       return;
     }
     event.preventDefault();
-    if (!selectedRobot?.isAvailable || connecting || sessionLoading || sessionPhase === "starting") {
+    if (
+      !selectedRobot?.isAvailable
+      || connecting
+      || sessionLoading
+      || sessionPhase === "starting"
+      || sessionPhase === "sending"
+      || sessionPhase === "generating"
+      || pendingResponseRef.current
+    ) {
       return;
     }
     void sendMessage();
@@ -1212,17 +1287,23 @@ export function useMessageSession({
     disconnectAllSessions(true);
   }, [cancelHistoryLoad, cancelPendingAttach, disconnectAllSessions]);
 
-  const hasConversation = messages.length > 0;
-  const canSend = Boolean(selectedRobot?.isAvailable)
-    && !connecting
-    && !sessionLoading
-    && sessionPhase !== "starting"
-    && input.trim().length > 0
-    && (!selectedSession || selectedSession.status === "ACTIVE");
   const assistantIsStreaming = useMemo(
     () => pendingResponse || messages.some((message) => message.role === "assistant" && message.pending),
     [messages, pendingResponse],
   );
+  const hasConversation = messages.length > 0;
+  const inputLocked = sessionPhase === "sending"
+    || sessionPhase === "generating"
+    || assistantIsStreaming;
+  const canSend = Boolean(selectedRobot?.isAvailable)
+    && !connecting
+    && !sessionLoading
+    && sessionPhase !== "starting"
+    && sessionPhase !== "sending"
+    && sessionPhase !== "generating"
+    && !assistantIsStreaming
+    && input.trim().length > 0
+    && (!selectedSession || selectedSession.status === "ACTIVE");
 
   return {
     messages,
@@ -1239,6 +1320,7 @@ export function useMessageSession({
     currentSessionId,
     sessionLoading,
     canSend,
+    inputLocked,
     connect,
     disconnect,
     reconnect,

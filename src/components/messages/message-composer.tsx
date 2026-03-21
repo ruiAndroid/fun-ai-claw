@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { SendHorizonal, Sparkles } from "lucide-react";
+import { LoaderCircle, SendHorizonal, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatInteractionDraftLabel } from "./messages-data";
 import type { MessageInteractionDraft, MessageRobotTarget } from "./messages-types";
@@ -13,6 +13,8 @@ export function MessageComposer({
   connecting,
   connected,
   interactionDraft,
+  inputLocked = false,
+  inputLockedHint,
   viewOnly = false,
   viewOnlyHint,
   onInputChange,
@@ -28,6 +30,8 @@ export function MessageComposer({
   connecting: boolean;
   connected: boolean;
   interactionDraft?: MessageInteractionDraft;
+  inputLocked?: boolean;
+  inputLockedHint?: string;
   viewOnly?: boolean;
   viewOnlyHint?: string;
   onInputChange: (value: string) => void;
@@ -43,12 +47,14 @@ export function MessageComposer({
     : !selectedRobot.isAvailable
       ? "这个机器人暂时不可用，请稍后再试"
       : viewOnly
-        ? viewOnlyHint ?? "当前正在查看历史对话，切回当前对话后可继续聊天"
-      : interactionDraft
-        ? `请输入你对「${formatInteractionDraftLabel(interactionDraft.stateId)}」的修改意见`
-      : connected
-          ? "继续输入你的想法，Enter 发送，Shift + Enter 换行"
-          : "输入你的想法后即可开始对话，Enter 发送，Shift + Enter 换行";
+        ? viewOnlyHint ?? "当前正在查看历史对话，切回当前会话后可继续聊天"
+        : inputLocked
+          ? inputLockedHint ?? "正在生成上一轮回复，你可以先继续输入，完成后再发送"
+          : interactionDraft
+            ? `请输入你对「${formatInteractionDraftLabel(interactionDraft.stateId)}」的修改意见`
+            : connected
+              ? "继续输入你的想法，Enter 发送，Shift + Enter 换行"
+              : "输入你的想法后即可开始对话，Enter 发送，Shift + Enter 换行";
 
   return (
     <div className="border-t border-slate-200/80 bg-white/88 px-5 py-4 backdrop-blur-xl sm:px-6">
@@ -92,8 +98,8 @@ export function MessageComposer({
                 : "cursor-not-allowed bg-slate-300",
             )}
           >
-            <SendHorizonal size={16} />
-            发送消息
+            {inputLocked ? <LoaderCircle size={16} className="animate-spin" /> : <SendHorizonal size={16} />}
+            {inputLocked ? "生成中" : "发送消息"}
           </button>
         </div>
       </div>
